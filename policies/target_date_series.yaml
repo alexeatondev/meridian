@@ -55,6 +55,7 @@ rules:
   - {id: CONC-CASH,          kind: asset_max, asset: cash, max: 0.25,                       severity: hard, ips: "§7.3"}
   - {id: CONC-SINGLE-FUND,   kind: asset_max_all, max: 0.50,                                severity: hard, ips: "§7.3"}
   - {id: TE-NEUTRAL,         kind: tracking_error_max, vs: neutral, max: 0.015,              severity: hard, ips: "§6.4"}
+  - {id: RISK-BUDGET,        kind: risk_budget_max,                                          severity: hard, ips: "§5.3"}
   - {id: TE-WARN,            kind: tracking_error_max, vs: neutral, max: 0.010,              severity: warn, ips: "§6.4"}
   - {id: RISK-VOL-BAND,      kind: volatility_vs_neutral, max_ratio: 1.15,                   severity: warn, ips: "§6.4"}
   - {id: LIQ-DAILY,          kind: liquidity_all, allowed: [daily],                         severity: hard, ips: "§7.4"}
@@ -65,11 +66,24 @@ rules:
   - {id: CONF-AFFILIATE-DISCLOSE, kind: attestation, text: "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents", applies_to_regimes: [sec_ria], severity: hard, ips: "§9.1"}
 
 risk_objectives:
-  tracking_error_budget_vs_neutral: 0.015
+  tracking_error_budget_vs_neutral: 0.015      # IPS §5.3 hard limit
   max_tactical_shift_equity_pp: 5.0
+
+# Operating risk budgets (ex-ante tracking error vs glide path). Budgets may be tightened below the IPS
+# hard limit per vintage; raising one above it requires an IPS amendment. Changes go through change
+# requests (meridian risk-budget set ...) approved by the roles in approvals.risk_budget_change.
+risk_budgets:
+  hard_max: 0.015
+  warn_at_pct_used: 0.80
+  default: 0.012
+  vintages:
+    2030: 0.008      # near-dated vintages carry less active risk (sequence-of-returns risk)
+    2035: 0.010
 approvals:
   glide_path_change: [investment_committee]
   tactical_tilt: [portfolio_manager, risk]
   rebalance_routine: [portfolio_manager]
   policy_change: [portfolio_manager, chief_compliance_officer]
+  risk_budget_change: [portfolio_manager, risk]
+  weight_adjustment: [portfolio_manager, risk]
   exception: [chief_compliance_officer]

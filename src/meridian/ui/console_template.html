@@ -68,6 +68,8 @@ svg text{fill:var(--muted);font-size:11px}
 .vt-tabs button{cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);padding:5px 10px;border-radius:999px;font-size:12px;font-weight:600}
 .vt-tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .toast{position:fixed;bottom:18px;right:18px;background:var(--text);color:var(--surface);padding:10px 14px;border-radius:8px;font-size:13px;display:none}
+.caret{all:unset;cursor:pointer;width:16px;display:inline-block;color:var(--text-2)}.caret-sp{display:inline-block;width:16px}
+tr.lvl0 td{font-weight:600}.up{color:var(--pos)}.down{color:var(--neg)}
 .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}.filters>*{width:auto;min-width:160px}
 </style>
 </head>
@@ -100,18 +102,20 @@ const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 const nm = a => (U[a]&&U[a].name)||a;
 const $ = s => document.querySelector(s);
 const synthetic = !!(R.snapshot && Object.values(R.snapshot.datasets||{}).some(d=>d.synthetic));
+const synthList = R.snapshot ? Object.entries(R.snapshot.datasets||{}).filter(([k,d])=>d.synthetic).map(([k,d])=>{const m=(d.notes||'').match(/synthetic_assets=\[([^\]]*)\]/);return k+(m?' ('+m[1].replace(/'/g,'')+')':' (all)')}) : [];
+const allSynthetic = R.snapshot ? Object.values(R.snapshot.datasets||{}).every(d=>d.synthetic && !(d.contributions && Object.keys(d.contributions).some(s=>!s.includes('synthetic')))) : true;
 const co = R.compliance_officer || {};
 
 const ROLES = {
-  pm:        {label:'Portfolio Manager',     approverRole:'portfolio_manager', tabs:['home','portfolios','glide','approvals','agents']},
-  risk:      {label:'Risk Analytics',        approverRole:'risk',              tabs:['home','risk','portfolios','approvals']},
-  research:  {label:'Research',              approverRole:null,                tabs:['home','cma','agents','glide']},
-  mgr:       {label:'Manager Selection',     approverRole:null,                tabs:['home','funds','portfolios']},
-  lead:      {label:'Leadership / IC',       approverRole:'investment_committee', tabs:['home','memo','glide','approvals']},
-  compliance:{label:'Compliance',            approverRole:'chief_compliance_officer', tabs:['home','compliance','report','ledger']},
+  pm:        {label:'Portfolio Manager',     approverRole:'portfolio_manager', tabs:['home','products','positioning','portfolios','riskbudget','metrics','glide','approvals','agents']},
+  risk:      {label:'Risk Analytics',        approverRole:'risk',              tabs:['home','riskbudget','metrics','risk','positioning','portfolios','approvals']},
+  research:  {label:'Research / Analyst',    approverRole:null,                tabs:['home','positioning','metrics','cma','agents','glide']},
+  mgr:       {label:'Manager Selection',     approverRole:null,                tabs:['home','products','funds','positioning']},
+  lead:      {label:'Leadership / IC',       approverRole:'investment_committee', tabs:['home','products','memo','riskbudget','metrics','glide','approvals']},
+  compliance:{label:'Compliance',            approverRole:'chief_compliance_officer', tabs:['home','compliance','riskbudget','report','ledger']},
   audit:     {label:'Audit (read-only)',     approverRole:null,                tabs:['home','ledger','compliance','report']},
 };
-const TABS = {home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
+const TABS = {products:'Funds & vintages',positioning:'Positioning',riskbudget:'Risk budget',metrics:'Metrics',home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
   risk:'Risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger'};
 let state = {role: (()=>{const h=location.hash.slice(1);return ROLES[h]?h:'pm'})(), tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
 
@@ -133,7 +137,9 @@ function renderShell(){
     <span class="chip">Regime: ${esc(R.macro.regime.replace('_','-'))}</span>
     ${chip(overallStatus())}<span class="chip ${co.status==='CLEAR'?'good':co.status==='BLOCKED'?'crit':'warn'}">Compliance review: ${esc(co.status)}</span>
     <span class="chip">Autonomy ${esc(G.autonomy)} · ${esc(G.mode)}</span>`;
-  $('#banner').innerHTML = synthetic?`<div class="banner"><b>Synthetic data — system test only.</b> Every figure comes from generated data. Not investment advice; not for marketing use.</div>`:'';
+  $('#banner').innerHTML = !synthetic?'':allSynthetic
+    ?`<div class="banner"><b>Synthetic data — system test only.</b> Every figure comes from generated data. Not investment advice; not for marketing use.</div>`
+    :`<div class="banner"><b>Contains synthetic data — system test only.</b> Generated values were used for: ${synthList.map(esc).join('; ')}. Everything else comes from public sources. Not investment advice; not for marketing use.</div>`;
   $('#sidefoot').innerHTML=`Policy <span class="mono">${esc(P.id)}</span><br>Ledger: ${D.ledger_verification.ok?'✓ verified':'✗ FAILED'} (${L.length} records)<br>Entities: ${G.selected.map(esc).join(', ')}`;
 }
 
@@ -280,6 +286,140 @@ function drDetail(r){return `<div class="card" style="box-shadow:none"><h2 class
   <tr><td>Prev hash</td><td class="mono small">${esc(r.prev_hash.slice(0,24))}…</td></tr><tr><td>Record hash</td><td class="mono small">${esc(r.record_hash.slice(0,24))}…</td></tr></table>
   ${r.rationale?`<h3>Rationale</h3><div class="why">${esc(r.rationale)}</div>`:''}<h3>Full record</h3><pre>${esc(JSON.stringify(r,null,2))}</pre></div>`}
 
+// --------------------------------------------------------------- positioning, products, risk budget, metrics
+const M = R.model || null;
+const VIEWS = M ? M.views : {};
+const COLS = [['current','Current'],['last_week','Last week'],['last_month','Last month'],['glide_path','Glide path'],['market','Market']];
+state.view = 'asset_class_tree'; state.collapsed = {}; state.mwin = '5y'; state.adj = []; state.prodOpen = {};
+function posRows(v, view){ const p=R.vintages[v].positioning; return p? p.views[view||state.view] : []; }
+function hasKids(rows,i){ return i+1<rows.length && rows[i+1].node.startsWith(rows[i].node+'/'); }
+function hiddenRow(r){ const parts=r.node.split('/'); for(let k=1;k<parts.length;k++){ if(state.collapsed[parts.slice(0,k).join('/')]) return true;} return false; }
+function dpp(x){ if(x==null) return '—'; if(Math.abs(x)<0.0005) return '<span class="muted">0.0pp</span>'; return `<span class="${x>0?'up':'down'}">${pp(x)}</span>`; }
+function relPct(x){ return x==null?'<span class="muted">n/a</span>':`<span class="${x>0.005?'up':x<-0.005?'down':''}">${(x>=0?'+':'')+(x*100).toFixed(0)}%</span>`; }
+function treeTable(v, view, rows, opts={}){
+  const tree=(VIEWS[view]||{}).by==='path';
+  const cols=opts.cols||COLS;
+  return `<div class="scroll" style="max-height:${opts.h||560}px"><table class="tree"><tr><th>${tree?'Exposure':'Group'}</th>${cols.map(c=>`<th class="num">${c[1]}</th>`).join('')}
+   ${opts.compact?'':'<th class="num">Δ vs last wk</th><th class="num">Δ vs last mo</th>'}<th class="num">Active vs mkt</th><th class="num">Relative vs mkt</th><th>% of risk budget used</th></tr>
+  ${rows.map((r,i)=>{ if(tree&&hiddenRow(r)) return ''; const kids=tree&&hasKids(rows,i); const name=r.node.split('/').pop();
+    return `<tr class="${r.depth===0?'lvl0':''}"><td style="padding-left:${8+(r.depth||0)*18}px">${kids?`<button class="caret" data-node="${esc(r.node)}" aria-label="expand">${state.collapsed[r.node]?'▸':'▾'}</button>`:'<span class="caret-sp"></span>'}${esc(name)}</td>
+    ${cols.map(c=>`<td class="num">${pct(r[c[0]])}</td>`).join('')}
+    ${opts.compact?'':`<td class="num">${dpp(r.current-r.last_week)}</td><td class="num">${dpp(r.current-r.last_month)}</td>`}
+    <td class="num">${dpp(r.active_vs_market)}</td><td class="num">${relPct(r.relative_vs_market)}</td>
+    <td>${rbBar(r.risk_budget_used)}</td></tr>`}).join('')}</table></div>`;
+}
+function rbBar(f){ if(f==null) return '—'; const a=Math.abs(f), c=f<0?'var(--neg)':a>0.8?'var(--warn)':'var(--pos)';
+  return `<div class="row" style="gap:6px;flex-wrap:nowrap"><div style="flex:1;min-width:70px;height:7px;background:var(--surface-2);border-radius:4px"><div style="height:7px;width:${Math.min(a,1)*100}%;background:${c};border-radius:4px"></div></div><span class="small num" style="width:40px;text-align:right">${(f*100).toFixed(0)}%</span></div>`; }
+
+V.products = () => {
+  const cats=['Equity','Fixed Income','Real Assets'];
+  const top=(v,k)=>{const r=posRows(v,'asset_class_tree').find(x=>x.node===k);return r||{}};
+  const open=state.prodOpen;
+  return `<div class="card"><h2>Funds & products</h2><p class="small muted">Current proposed positioning by asset class, change vs last month, and risk budget used. Click a product to see its vintages, and a vintage to drill into its exposures.</p>
+  <table class="tree"><tr><th>Product / vintage</th>${cats.map(c=>`<th class="num">${c}</th><th class="num small">Δ 1m</th>`).join('')}<th>Risk budget used</th><th>Compliance</th><th></th></tr>
+  <tr class="lvl0 click" data-prod="mtrs"><td><button class="caret">${open.mtrs===false?'▸':'▾'}</button>Meridian Target Retirement Series <span class="muted small">(${VINT.length} vintages)</span></td>${cats.map(()=>'<td></td><td></td>').join('')}<td></td><td>${chip(overallStatus())}</td><td></td></tr>
+  ${open.mtrs===false?'':VINT.map(v=>{const x=R.vintages[v];const o=open['v'+v];
+    return `<tr class="click" data-pv="${v}"><td style="padding-left:26px"><button class="caret">${o?'▾':'▸'}</button>${v} vintage <span class="muted small">${x.years_to_target.toFixed(0)} yrs to target</span></td>
+    ${cats.map(c=>{const r=top(v,c);return `<td class="num">${pct(r.current)}</td><td class="num small">${dpp((r.current||0)-(r.last_month||0))}</td>`}).join('')}
+    <td>${rbBar(x.risk?x.risk.used_pct:null)}</td><td>${chip(x.compliance_summary.overall)}</td><td><button class="btn" data-goto-pos="${v}">Positioning</button></td></tr>
+    ${o?`<tr><td colspan="${3+cats.length*2+1}" style="padding:6px 0 12px 26px;background:var(--surface-2)">${treeTable(v,'asset_class_tree',posRows(v,'asset_class_tree'),{compact:true,h:420,cols:[['current','Current'],['last_month','Last month'],['market','Market']]})}</td></tr>`:''}`}).join('')}
+  </table></div>`;
+};
+
+V.positioning = () => {
+  const v=state.vintage, x=R.vintages[v]; if(!x.positioning) return '<div class="card">Positioning not available for this run.</div>';
+  const src=x.positioning.columns; const canAdj=['pm','research'].includes(state.role);
+  return `${vintageTabs()}
+  <div class="grid g4">${[['Equity',pct(posRows(v,'asset_class_tree').find(r=>r.node==='Equity').current)],['Fixed Income',pct(posRows(v,'asset_class_tree').find(r=>r.node==='Fixed Income').current)],['Real Assets',pct(posRows(v,'asset_class_tree').find(r=>r.node==='Real Assets').current)],['Risk budget used',x.risk?`${(x.risk.used_pct*100).toFixed(0)}% <span class="small muted">of ${pct(x.risk.budget,2)}</span>`:'—']].map(([l,val])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${val}</div></div>`).join('')}</div>
+  <div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Positioning — ${v}</h2>
+    <select id="viewSel" style="width:auto">${Object.entries(VIEWS).map(([k,o])=>`<option value="${k}" ${k===state.view?'selected':''}>${esc(o.label)}</option>`).join('')}</select></div>
+    <div class="small muted" style="margin:6px 0 10px">Columns: ${COLS.map(([k,l])=>`<b>${l}</b> = ${esc(src[k]||'')}`).join(' · ')}. Relative vs market = current ÷ market − 1. % of risk budget used = the group's contribution to tracking error vs the glide path ÷ the vintage's budget (negative = reduces active risk). Look-through splits are approximations (config/taxonomy.yaml).</div>
+    ${treeTable(v,state.view,posRows(v))}
+  </div>
+  ${canAdj?adjustPanel(v):''}
+  ${x.adjusted?`<div class="card" style="margin-top:14px"><h2>Recorded adjustment</h2><div class="small">By ${esc(x.adjusted.by)} (${esc(x.adjusted.role)}): ${esc(x.adjusted.reason)} · TE ${pct(x.adjusted.te,2)} (${(x.adjusted.risk_budget_used*100).toFixed(0)}% of budget) · ${chip(x.adjusted.compliance_summary.overall)}</div></div>`:''}`;
+};
+
+// ---- adjustment editor: same minimum-norm math as meridian.analytics.positioning.apply_adjustment
+const NODES = (()=>{ if(!M) return []; const s=[]; M.taxonomy.forEach(l=>{for(let i=1;i<=l.path.length;i++){const n=l.path.slice(0,i).join('/'); if(!s.includes(n)) s.push(n);}}); return s; })();
+function nodeRow(n){ const A=M.assets; if(n.startsWith('asset:')){const a=n.slice(6);return A.map(x=>x===a?1:0);} const r=A.map(()=>0); M.taxonomy.forEach(l=>{const p=l.path.join('/'); if(p===n||p.startsWith(n+'/')) r[A.indexOf(l.asset)]+=l.fraction}); return r; }
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+function solveSym(K,y){ const n=y.length, A=K.map((r,i)=>[...r,y[i]]); for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[p][c])) p=r; [A[c],A[p]]=[A[p],A[c]]; if(Math.abs(A[c][c])<1e-14) return null; for(let r=0;r<n;r++){ if(r===c) continue; const f=A[r][c]/A[c][c]; for(let k=c;k<=n;k++) A[r][k]-=f*A[c][k]; } } return A.map((r,i)=>r[n]/r[i]); }
+function independent(rows){ // keep rows that add rank (Gram-Schmidt)
+  const basis=[], keep=[]; rows.forEach((r,i)=>{ let v=r.slice(); basis.forEach(b=>{const c=dot(v,b);v=v.map((x,k)=>x-c*b[k])}); const nr=Math.sqrt(dot(v,v)); if(nr>1e-9){basis.push(v.map(x=>x/nr)); keep.push(i);} }); return keep; }
+function applyAdj(w,a){ const r=nodeRow(a.node), cur=dot(r,w), delta=a.mode==='absolute'?a.value-cur:a.value; const rows=[r], b=[cur+delta];
+  if(a.funded){ const f=nodeRow(a.funded); if(delta>dot(f,w)+1e-12) throw new Error('Funding node has only '+pct(dot(f,w))+' to give'); rows.push(f); b.push(dot(f,w)-delta);
+    ['Equity','Fixed Income','Real Assets'].forEach(t=>{const tr=nodeRow(t); if(!tr.some((x,i)=>x&&r[i])&&!tr.some((x,i)=>x&&f[i])){rows.push(tr);b.push(dot(tr,w));}}); }
+  if(cur+delta<-1e-12) throw new Error('Cannot reduce '+a.node+' below zero');
+  rows.push(w.map(()=>1)); b.push(1);
+  const zero=[]; // active set: funds that would go negative are pinned at zero and the problem re-solved
+  for(let it=0; it<30; it++){
+    const R2=rows.concat(zero.map(i=>w.map((_,j)=>j===i?1:0))), B2=b.concat(zero.map(()=>0));
+    const k=independent(R2); const A=k.map(i=>R2[i]), bb=k.map(i=>B2[i]);
+    const K=A.map(x=>A.map(y=>dot(x,y))), res=bb.map((v,i)=>v-dot(A[i],w)), lam=solveSym(K,res); if(!lam) throw new Error('Could not solve this combination');
+    const out=w.map((x,j)=>x+A.reduce((s,row,i)=>s+row[j]*lam[i],0));
+    const neg=out.map((x,i)=>x<-1e-10&&!zero.includes(i)?i:-1).filter(i=>i>=0);
+    if(!neg.length){ return out.map(x=>Math.max(0,x)); } zero.push(...neg);
+  }
+  throw new Error('Not achievable with long-only weights'); }
+function teOf(w,n){ const C=M.cov, d=w.map((x,i)=>x-n[i]); return Math.sqrt(Math.max(0,d.reduce((s,di,i)=>s+di*C[i].reduce((t,c,j)=>t+c*d[j],0),0))); }
+function adjustPanel(v){
+  const x=R.vintages[v], A=M.assets, base=(x.adjusted&&x.adjusted.final)||x.final, w0=A.map(a=>base[a]), n=A.map(a=>x.neutral[a]);
+  let w=w0.slice(), err='';
+  try{ state.adj.forEach(a=>{ w=applyAdj(w,a) }); }catch(e){ err=e.message; }
+  const te=teOf(w,n), used=te/x.risk_budget;
+  const bandBreach=A.filter((a,i)=>Math.abs(w[i]-n[i])>0.03+1e-9).map(nm);
+  const eq=dot(nodeRow('Equity'),w), eqn=dot(nodeRow('Equity'),n);
+  const opts=NODES.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('')+A.map(a=>`<option value="asset:${a}">Fund: ${esc(nm(a))}</option>`).join('');
+  const role = state.role==='pm'?'portfolio_manager':'analyst';
+  const cmd = state.adj.length?`meridian adjust runs/${R.run_id} --vintage ${v} ${state.adj.map(a=>`--set "${a.node}=${a.mode==='absolute'?(a.value*100).toFixed(2)+'%':(a.value>=0?'+':'')+(a.value*100).toFixed(2)+'pp'}${a.funded?' from '+a.funded:''}"`).join(' ')} --name "YOUR NAME" --role ${role} --reason "..."`:'';
+  const prev=NODES.filter(k=>k.split('/').length<=2).map(k=>({k,b:dot(nodeRow(k),w0),a:dot(nodeRow(k),w)}));
+  return `<div class="card" style="margin-top:14px"><h2>Adjust weights (${state.role==='pm'?'Portfolio Manager':'Analyst'})</h2>
+  <p class="small muted">Set a group or fund to an <b>absolute</b> weight, or move it by a <b>relative</b> amount (pp). Optionally fund the move from another group — e.g. move fixed income from <i>Long-dated</i> to <i>Short-dated</i>. Weights change as little as possible; untouched top-level groups stay put. The preview is indicative; the command re-runs the compliance engine and risk budget and records your change for approval.</p>
+  <div class="row"><select id="adjNode" style="width:auto;max-width:320px">${opts}</select>
+   <select id="adjMode" style="width:auto"><option value="relative">Relative (± pp)</option><option value="absolute">Absolute (%)</option></select>
+   <input id="adjVal" type="number" step="0.1" placeholder="e.g. 2 or -1.5" style="width:120px">
+   <select id="adjFund" style="width:auto;max-width:300px"><option value="">Funded pro-rata from everything else</option>${opts}</select>
+   <button class="btn" id="adjAdd">Add</button>${state.adj.length?'<button class="btn" id="adjClear">Clear</button>':''}</div>
+  <div style="margin-top:10px">${state.adj.map(a=>`<span class="chip info" style="margin:2px">${esc(a.node)} ${a.mode==='absolute'?'= '+pct(a.value):(a.value>=0?'+':'')+(a.value*100).toFixed(2)+'pp'}${a.funded?' from '+esc(a.funded):''}</span>`).join('')||'<span class="muted small">No adjustments yet.</span>'}</div>
+  ${err?`<div class="banner" style="margin-top:10px">${esc(err)}</div>`:''}
+  ${state.adj.length&&!err?`<div class="grid g2" style="margin-top:12px"><div><table><tr><th>Group</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr>${prev.map(p=>`<tr><td style="padding-left:${8+(p.k.split('/').length-1)*16}px">${esc(p.k.split('/').pop())}</td><td class="num">${pct(p.b)}</td><td class="num">${pct(p.a)}</td><td class="num">${dpp(p.a-p.b)}</td></tr>`).join('')}</table></div>
+   <div><div class="kpi"><div class="l">Tracking error vs glide path (indicative)</div><div class="v">${pct(te,2)}</div><div class="s">${(used*100).toFixed(0)}% of ${pct(x.risk_budget,2)} budget</div></div>${rbBar(used)}
+   <h3>Indicative policy checks</h3><div>${used>1?chip('FAIL')+' risk budget exceeded':chip('PASS')+' within risk budget'}</div><div>${Math.abs(eq-eqn)>0.05?chip('FAIL')+' equity band ±5pp':chip('PASS')+' equity band ±5pp'}</div><div>${bandBreach.length?chip('FAIL')+' asset band ±3pp: '+bandBreach.map(esc).join(', '):chip('PASS')+' asset bands ±3pp'}</div>
+   <h3>Record it (re-checked by the compliance engine)</h3><pre id="cmd">${esc(cmd)}</pre><button class="btn" id="copyCmd">Copy command</button></div></div>`:''}
+  </div>`;
+}
+
+V.riskbudget = () => {
+  const v=state.vintage, x=R.vintages[v], canReq=['pm','risk'].includes(state.role);
+  const crs=(D.change_requests||[]);
+  return `<div class="card"><h2>Risk budgets — tracking error vs glide path</h2><p class="small muted">IPS hard limit ${pct(D.risk_budget_policy.hard_max,2)}. Budgets can be tightened per vintage below it; changes need ${D.policy.approvals.risk_budget_change.join(' + ')} approval. Warning at ${(D.risk_budget_policy.warn_at_pct_used*100).toFixed(0)}% used.</p>
+  <table><tr><th>Vintage</th><th class="num">Budget</th><th class="num">Ex-ante TE</th><th>% used</th><th>Largest contributors</th></tr>
+  ${VINT.map(vv=>{const r=R.vintages[vv].risk;if(!r) return '';return `<tr class="click" data-rbv="${vv}"><td>${vv}</td><td class="num">${pct(r.budget,2)}</td><td class="num">${pct(r.te,2)}</td><td style="min-width:160px">${rbBar(r.used_pct)}</td><td class="small">${r.contributors.slice(0,3).map(c=>`${esc(nm(c.asset))} ${(c.budget_used*100).toFixed(0)}%`).join(' · ')}</td></tr>`}).join('')}</table></div>
+  <div class="grid g2" style="margin-top:14px"><div class="card"><h2>${v} — where the risk budget goes</h2>${vintageTabs()}
+   <table><tr><th>Fund</th><th class="num">Active weight</th><th class="num">TE contribution</th><th>% of budget</th></tr>${(x.risk?x.risk.contributors:[]).map(c=>`<tr><td>${esc(nm(c.asset))}</td><td class="num">${pp(c.active_weight)}</td><td class="num">${pct(c.te_contribution,3)}</td><td style="min-width:140px">${rbBar(c.budget_used)}</td></tr>`).join('')}</table>
+   <h3>By asset class</h3>${treeTable(v,'asset_class_tree',posRows(v,'asset_class_tree').filter(r=>r.depth<=1),{compact:true,h:300,cols:[['current','Current'],['glide_path','Glide path']]})}</div>
+   <div class="card"><h2>Manage budget</h2>${canReq?`<p class="small muted">Propose a new budget. It takes effect only after the required approvals; you cannot approve your own request.</p>
+    <label class="small">Vintage</label><select id="rbV"><option value="default">Default (all vintages without an override)</option>${VINT.map(vv=>`<option value="${vv}" ${vv===v?'selected':''}>${vv} (now ${pct(R.vintages[vv].risk_budget,2)})</option>`).join('')}</select>
+    <label class="small">New budget (%)</label><input id="rbTe" type="number" step="0.05" min="0.1" max="${D.risk_budget_policy.hard_max*100}" value="${(x.risk_budget*100).toFixed(2)}">
+    <div class="small" id="rbPrev" style="margin:6px 0"></div>
+    <label class="small">Reason</label><textarea id="rbReason" rows="2"></textarea>
+    <div style="margin-top:8px"><button class="btn primary" id="rbGo">Prepare change request</button></div><pre id="rbCmd" style="display:none"></pre>`:'<p class="small muted">View only. Portfolio managers and Risk can request changes; approvers are listed above.</p>'}
+    <h3>Change requests</h3>${crs.length?`<table><tr><th>ID</th><th>Target</th><th>Change</th><th>Status</th><th>Approvals</th></tr>${crs.map(c=>`<tr><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}</td><td>${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td>${chip(c.status)}</td><td class="small">${c.approvals.map(a=>esc(a.role+': '+a.decision)).join(', ')||'—'}</td></tr>`).join('')}</table>`:'<div class="muted small">None.</div>'}
+   </div></div>`;
+};
+
+V.metrics = () => {
+  const w=state.mwin, keys=[['ann_return','Ann. return',pct],['ann_vol','Volatility',pct],['sharpe','Sharpe',f2],['sortino','Sortino',f2],['beta_vs_market','Beta vs market',f2],['alpha_vs_market','Alpha vs market',pct],['max_drawdown','Max drawdown',pct],['info_ratio_vs_glide','Info ratio vs glide path',f2],['tracking_error_vs_market','TE vs market',pct],['up_capture','Up capture',x=>x==null?'—':(x*100).toFixed(0)+'%'],['down_capture','Down capture',x=>x==null?'—':(x*100).toFixed(0)+'%'],['correlation_vs_market','Correlation',f2]];
+  const v=state.vintage, m=(R.vintages[v].metrics||{})[w];
+  if(!m) return '<div class="card">Metrics not available for this run.</div>';
+  return `<div class="row" style="margin-bottom:10px"><span class="small muted">Window:</span><div class="vt-tabs" style="margin:0">${[['5y','Last 5 years'],['full','Full history']].map(([k,l])=>`<button class="${k===w?'active':''}" data-mwin="${k}">${l}</button>`).join('')}</div><span class="small muted">${esc(m.portfolio.start)} → ${esc(m.portfolio.end)} (${m.portfolio.window_months} months) · market = ${esc(M.market_name)} · constant weights, monthly rebalanced, before fees — hypothetical</span></div>
+  <div class="card"><h2>All vintages — proposed portfolios</h2><div class="scroll"><table><tr><th>Vintage</th>${keys.map(k=>`<th class="num">${k[1]}</th>`).join('')}</tr>${VINT.map(vv=>{const p=R.vintages[vv].metrics[w].portfolio;return `<tr class="click" data-mv="${vv}"><td>${vv}</td>${keys.map(k=>`<td class="num">${k[2](p[k[0]])}</td>`).join('')}</tr>`}).join('')}</table></div></div>
+  <div class="card" style="margin-top:14px"><h2>${v} — proposed vs glide path vs market</h2>${vintageTabs()}<table><tr><th>Metric</th><th class="num">Proposed</th><th class="num">Glide path</th><th class="num">Market</th></tr>${keys.map(k=>`<tr><td>${k[1]}</td>${['portfolio','glide_path','market'].map(s=>`<td class="num">${k[2](m[s][k[0]])}</td>`).join('')}</tr>`).join('')}</table>
+  <div class="small muted" style="margin-top:8px">Beta and alpha use monthly excess returns over T-bills vs the market proxy. Data sources and any synthetic inputs are listed on the run's board memo.</div></div>`;
+};
+function f2(x){return x==null||isNaN(x)?'—':(+x).toFixed(2)}
+
 // --------------------------------------------------------------- charts (SVG, hover tooltips)
 function glideChart(){
   const el=$('#glideChart'); if(!el) return; const W=el.clientWidth||900,H=330,m={l:44,r:16,t:10,b:44};
@@ -331,6 +471,7 @@ function md(src){const out=[];const lines=src.split('\n');let i=0;const inl=s=>e
 
 // --------------------------------------------------------------- render + events
 function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();glideChart();activeChart()}
+document.addEventListener('click',e=>{const b=e.target.closest('#copyCmd');if(!b)return;});
 function bind(){
   document.querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.open;state.tab=ROLES[state.role].tabs.includes('portfolios')?'portfolios':ROLES[state.role].tabs.includes('risk')?'risk':state.tab;render()});
   document.querySelectorAll('[data-vt]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.vt;render()});
@@ -345,6 +486,24 @@ function bind(){
     if(reason.length<10){toast('Please give a reason (at least 10 characters).');return}
     if(b.dataset.decide==='approve'&&R.vintages[state.vintage].compliance_summary.FAIL>0){toast('Blocked: a hard limit FAILED. Approval is not possible.');return}
     state.approvals.push({vintage:state.vintage,role:ROLES[state.role].approverRole,decision:b.dataset.decide,reason});toast('Decision recorded in this session.');render()});
+  document.querySelectorAll('.caret[data-node]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();const n=b.dataset.node;state.collapsed[n]=!state.collapsed[n];render()});
+  const vs=$('#viewSel'); if(vs) vs.onchange=()=>{state.view=vs.value;render()};
+  document.querySelectorAll('[data-prod]').forEach(e=>e.onclick=()=>{state.prodOpen.mtrs=state.prodOpen.mtrs===false?true:false;render()});
+  document.querySelectorAll('[data-pv]').forEach(e=>e.onclick=(ev)=>{if(ev.target.closest('[data-goto-pos]'))return;const k='v'+e.dataset.pv;state.prodOpen[k]=!state.prodOpen[k];render()});
+  document.querySelectorAll('[data-goto-pos]').forEach(e=>e.onclick=(ev)=>{ev.stopPropagation();state.vintage=+e.dataset.gotoPos;state.tab='positioning';render()});
+  document.querySelectorAll('[data-rbv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.rbv;render()});
+  document.querySelectorAll('[data-mv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.mv;render()});
+  document.querySelectorAll('[data-mwin]').forEach(e=>e.onclick=()=>{state.mwin=e.dataset.mwin;render()});
+  const aa=$('#adjAdd'); if(aa) aa.onclick=()=>{const val=parseFloat($('#adjVal').value);if(isNaN(val)){toast('Enter a value');return}
+    state.adj.push({node:$('#adjNode').value,mode:$('#adjMode').value,value:val/100,funded:$('#adjFund').value||null});render()};
+  const ac=$('#adjClear'); if(ac) ac.onclick=()=>{state.adj=[];render()};
+  const rbTe=$('#rbTe'), rbV=$('#rbV');
+  const rbPreview=()=>{if(!rbTe)return;const b=parseFloat(rbTe.value)/100;const vv=rbV.value;const list=vv==='default'?VINT.filter(x=>!(D.risk_budget_policy.vintages||{})[x]):[+vv];
+    $('#rbPrev').innerHTML=b>D.risk_budget_policy.hard_max+1e-9?'<span class="chip crit">Above IPS hard limit — needs an IPS amendment</span>':list.map(x=>`${x}: ${(R.vintages[x].risk.te/b*100).toFixed(0)}% used`).join(' · ')};
+  if(rbTe){rbTe.oninput=rbPreview;rbV.onchange=rbPreview;rbPreview();}
+  const rg=$('#rbGo'); if(rg) rg.onclick=()=>{const r=$('#rbReason').value.trim();if(r.length<10){toast('Please give a reason (10+ characters).');return}
+    const role=state.role==='pm'?'portfolio_manager':'risk';const c=$('#rbCmd');c.style.display='block';
+    c.textContent=`meridian risk-budget set --vintage ${rbV.value} --te ${parseFloat(rbTe.value).toFixed(2)}% --name "YOUR NAME" --role ${role} --reason "${r.replace(/"/g,"'")}"`};
   const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
 }
 window.addEventListener('resize',()=>{glideChart();activeChart()});

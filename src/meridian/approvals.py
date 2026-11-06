@@ -17,6 +17,9 @@ def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision:
     v = res["vintages"].get(str(vintage))
     if v is None:
         raise SystemExit(f"Vintage {vintage} not in run")
+    adj = v.get("adjusted")
+    if adj:  # an adjusted proposal supersedes the agents' proposal
+        v = {**v, "approvers": sorted(set(v["approvers"]) | set(adj["approvers"])), "compliance_summary": adj["compliance_summary"]}
     if role not in v["approvers"]:
         raise SystemExit(f"Role '{role}' is not an approver for {vintage}; required: {v['approvers']}")
     if len(reason.strip()) < 10:
@@ -29,6 +32,8 @@ def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision:
                 and r["approvals"] and r["approvals"][0]["role"] == role:
             raise SystemExit(f"{role} already decided on {vintage} ({r['dr_id']}).")
     cio = next(r for r in L.records() if r["step"] == "cio.ensemble" and f"MTRS-{vintage}" in r["portfolio_scope"])
+    if adj:
+        cio = next(r for r in L.records() if r["dr_id"] == adj["dr_id"])
     return L.record(dr_type="approval", run_id=res["run_id"], step="approval.decision",
                     actor={"kind": "human", "id": name, "role": role}, inputs=[cio["dr_id"]],
                     portfolio_scope=[f"MTRS-{vintage}"], policy_version=cio["policy_version"],

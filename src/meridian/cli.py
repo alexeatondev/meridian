@@ -42,6 +42,25 @@ def main(argv=None):
     ap.add_argument("--decision", choices=["approve", "reject", "request_changes"], required=True)
     ap.add_argument("--reason", required=True)
 
+    ad = sub.add_parser("adjust", help="adjust a vintage's weights (absolute or relative) and re-check")
+    ad.add_argument("run_dir", type=Path)
+    ad.add_argument("--vintage", type=int, required=True)
+    ad.add_argument("--set", dest="specs", action="append", required=True,
+                    help="'Equity=78%%' | 'Equity=+1pp' | 'Fixed Income/Short-dated=+2pp from Fixed Income/Long-dated' | 'asset:us_tips_short=+1pp'")
+    ad.add_argument("--name", required=True)
+    ad.add_argument("--role", default="portfolio_manager")
+    ad.add_argument("--reason", required=True)
+
+    rbp = sub.add_parser("risk-budget", help="show, request and approve risk-budget changes")
+    rbp.add_argument("action", choices=["show", "set", "approve", "list"])
+    rbp.add_argument("--vintage")
+    rbp.add_argument("--te", help="new budget, e.g. 1.0%% or 0.010")
+    rbp.add_argument("--id")
+    rbp.add_argument("--name")
+    rbp.add_argument("--role")
+    rbp.add_argument("--decision", choices=["approve", "reject"], default="approve")
+    rbp.add_argument("--reason", default="")
+
     v = sub.add_parser("verify", help="verify a run's ledger integrity")
     v.add_argument("ledger", type=Path)
 
@@ -100,6 +119,32 @@ def main(argv=None):
     elif a.cmd == "approve":
         from .approvals import record_decision
         print(record_decision(a.run_dir, a.vintage, a.role, a.name, a.decision, a.reason))
+    elif a.cmd == "adjust":
+        from .adjustments import adjust
+        out = adjust(a.run_dir, a.vintage, a.specs, a.name, a.role, a.reason)
+        print(f"recorded {out['dr_id']}: TE {out['te']:.2%} ({out['risk_budget_used']:.0%} of budget); "
+              f"compliance {out['compliance_summary']['overall']}; approvals needed: {out['approvers']}")
+        for r in out["tree"]:
+            if r["depth"] <= 1:
+                print(f"  {'  ' * r['depth']}{r['node'].split('/')[-1]:24s} {r['before_adjustment']:7.2%} -> {r['current']:7.2%}")
+    elif a.cmd == "risk-budget":
+        from . import governance as gv
+        from .policy import load_policy
+        if a.action == "show":
+            pol = load_policy()
+            print(f"IPS hard limit {pol.raw['risk_budgets']['hard_max']:.2%}; default {pol.raw['risk_budgets']['default']:.2%}")
+            for vv in pol.vintages:
+                print(f"  {vv}: {pol.risk_budget(vv):.2%}")
+        elif a.action == "set":
+            te = float(a.te.rstrip("%")) / (100 if a.te.endswith("%") else 1)
+            cr = gv.request_risk_budget_change(a.vintage, te, a.name, a.role, a.reason)
+            print(f"{cr['id']} pending: {cr['current']:.2%} -> {cr['proposed']:.2%}; approvals needed: {cr['required_approvals']}")
+        elif a.action == "approve":
+            cr = gv.approve_change(a.id, a.name, a.role, a.decision, a.reason)
+            print(f"{cr['id']}: {cr['status']}")
+        else:
+            for cr in gv.list_requests():
+                print(f"{cr['id']} {cr['status']:9s} {cr['kind']} {cr['target']} {cr['current']:.2%}->{cr['proposed']:.2%} by {cr['requested_by']['name']}")
     elif a.cmd == "verify":
         ok, msg = verify(a.ledger)
         print(("OK " if ok else "FAILED ") + msg)

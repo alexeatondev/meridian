@@ -1,9 +1,9 @@
-# Compliance Review — run_tds_20261031_64181e
+# Compliance Review — run_tds_20261031_1dacf5
 
 **Prepared by:** Agentic Compliance Officer (ACO) — AI agent. **Status: DRAFT.** Not an attestation by a Chief Compliance Officer.
 
 **Overall status:** CONDITIONAL
-**Ledger integrity:** OK — verified 116 records; head 00d9607303ce
+**Ledger integrity:** OK — verified 117 records; head 9976c3ae0ad2
 
 ## Entity regimes in force
 
@@ -40,7 +40,8 @@ Record retention applied: **6 years** (strictest selected regime).
 
 ## Findings
 
-- Run used SYNTHETIC data. Outputs are for system testing only; they are not investment advice and may not be used in marketing (hypothetical performance).
+- Run used SYNTHETIC data for: returns.monthly (mode=merge; synthetic_rows=334/4961; synthetic_assets=['cash']); macro.indicators (mode=merge; synthetic_rows=11/11); fundamentals.valuation (mode=merge; synthetic_rows=5/5; synthetic_assets=['emerging_eq', 'global_reits', 'intl_developed_eq', 'us_large_cap', 'us_small_mid_cap']); yields.current (mode=merge; synthetic_rows=8/8; synthetic_assets=['cash', 'commodities', 'em_debt', 'intl_bond_hedged', 'us_core_bond', 'us_high_yield', 'us_long_treasury', 'us_tips_short']). Outputs are for system testing only; they are not investment advice and may not be used in marketing (hypothetical performance).
+- Public data sources in use carry non-commercial or series-level terms (see config/data_sources.yaml → license_review); licensed data is required before production.
 - Production blocker: Required human role unfilled: chief_compliance_officer
 - Production blocker: Required human role unfilled: derivatives_risk_manager
 - Production blocker: Required human role unfilled: liquidity_program_administrator
@@ -56,15 +57,15 @@ Record retention applied: **6 years** (strictest selected regime).
 
 | Vintage | PASS | WARN | FAIL | ATTEST | OFF |
 |---|---|---|---|---|---|
-| 2030 | 15 | 0 | 0 | 3 | 0 |
-| 2035 | 15 | 0 | 0 | 3 | 0 |
-| 2040 | 15 | 0 | 0 | 3 | 0 |
-| 2045 | 15 | 0 | 0 | 3 | 0 |
-| 2050 | 15 | 0 | 0 | 3 | 0 |
-| 2055 | 15 | 0 | 0 | 3 | 0 |
-| 2060 | 15 | 0 | 0 | 3 | 0 |
-| 2065 | 15 | 0 | 0 | 3 | 0 |
-| 2070 | 15 | 0 | 0 | 3 | 0 |
+| 2030 | 16 | 0 | 0 | 3 | 0 |
+| 2035 | 16 | 0 | 0 | 3 | 0 |
+| 2040 | 16 | 0 | 0 | 3 | 0 |
+| 2045 | 16 | 0 | 0 | 3 | 0 |
+| 2050 | 16 | 0 | 0 | 3 | 0 |
+| 2055 | 16 | 0 | 0 | 3 | 0 |
+| 2060 | 16 | 0 | 0 | 3 | 0 |
+| 2065 | 16 | 0 | 0 | 3 | 0 |
+| 2070 | 16 | 0 | 0 | 3 | 0 |
 
 ## Attestations awaiting a human
 

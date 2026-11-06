@@ -46,6 +46,12 @@ class Policy:
         out = np.array([np.interp(y, yrs, w[:, j]) for j in range(w.shape[1])])
         return out / out.sum()
 
+    def risk_budget(self, vintage: int) -> float:
+        rb = self.raw.get("risk_budgets") or {}
+        hard = float(rb.get("hard_max", self.raw["risk_objectives"]["tracking_error_budget_vs_neutral"]))
+        v = (rb.get("vintages") or {}).get(vintage, (rb.get("vintages") or {}).get(str(vintage), rb.get("default", hard)))
+        return min(float(v), hard)
+
     def group_mask(self, group: str) -> np.ndarray:
         members = set(self.groups[group])
         return np.array([a in members for a in self.assets], dtype=float)

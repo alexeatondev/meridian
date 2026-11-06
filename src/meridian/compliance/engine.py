@@ -31,7 +31,7 @@ class RuleResult:
 
 def evaluate(weights: np.ndarray, neutral: np.ndarray, cov: np.ndarray, policy: Policy,
              regime: EffectiveRegime, universe: dict[str, dict],
-             attestations: dict[str, bool] | None = None) -> list[RuleResult]:
+             attestations: dict[str, bool] | None = None, risk_budget: float | None = None) -> list[RuleResult]:
     w, n = np.asarray(weights, float), np.asarray(neutral, float)
     assets = policy.assets
     attestations = attestations or {}
@@ -77,6 +77,10 @@ def evaluate(weights: np.ndarray, neutral: np.ndarray, cov: np.ndarray, policy: 
         elif k == "tracking_error_max":
             te = tracking_error(w, n, cov)
             res(rule, te <= rule["max"] + 1e-9, te, rule["max"])
+        elif k == "risk_budget_max":
+            te = tracking_error(w, n, cov)
+            lim = risk_budget if risk_budget is not None else float(policy.raw["risk_objectives"]["tracking_error_budget_vs_neutral"])
+            res(rule, te <= lim + 1e-9, te, lim, f"{te / lim:.0%} of risk budget used" if lim else "")
         elif k == "volatility_vs_neutral":
             ratio = port_vol(w, cov) / port_vol(n, cov)
             res(rule, ratio <= rule["max_ratio"], float(ratio), rule["max_ratio"])

@@ -38,6 +38,8 @@ def build(run_dir: Path, out: Path | None = None) -> Path:
                    "production_blockers": reg.production_blockers, "autonomy": reg.autonomy_level,
                    "mode": reg.operating_mode, "recorded_in_run": pre["output"] if pre else None},
         "board_memo_md": (run_dir / "board_memo.md").read_text(),
+        "risk_budget_policy": policy.raw.get("risk_budgets", {}),
+        "change_requests": __import__("meridian.governance", fromlist=["list_requests"]).list_requests(),
         "compliance_report_md": (run_dir / "compliance_report.md").read_text(),
     }
     html = TEMPLATE.read_text().replace("/*__MERIDIAN_DATA__*/null", json.dumps(data, default=str))

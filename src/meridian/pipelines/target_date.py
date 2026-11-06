@@ -137,7 +137,7 @@ def _norm(x: np.ndarray) -> np.ndarray:
 # ------------------------------------------------------------------------------------------ main
 def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         attestations: dict | None = None, out_root: Path | None = None,
-        source_overrides: dict | None = None) -> RunResult:
+        source_overrides: dict | None = None, positions_path: Path | None = None) -> RunResult:
     regime_cfg = resolve(selected_entities)
     policy, universe = load_policy(), load_universe()
     assets = policy.assets
@@ -251,13 +251,14 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     for v in policy.vintages:
         ytt = v - as_of_frac
         n = policy.neutral_weights(ytt)
+        rb = policy.risk_budget(v)
         neq = eq_m @ n
         groups = [(eq_m, neq - 0.05, neq + 0.05), (policy.group_mask("growth_assets"), policy.group_mask("growth_assets") @ n - 0.05,
                   policy.group_mask("growth_assets") @ n + 0.05), (big_m, 0, 0.10), (cash_m, 0, 0.25),
                   (nonus_m - 0.45 * eq_m, -1, 0)]
         if ldu_on:
             groups.append((deriv_m, 0, 0.10))
-        b = Bounds(lo=np.maximum(n - 0.03, 0), hi=np.minimum(n + 0.03, 0.5), group_masks=groups, te_max=te_budget)
+        b = Bounds(lo=np.maximum(n - 0.03, 0), hi=np.minimum(n + 0.03, 0.5), group_masks=groups, te_max=min(te_budget, rb * 0.96))
         cand = {}
         for name, (fam, fn) in PC_METHODS.items():
             w, status = fn(mu, cov, n, b)
@@ -271,7 +272,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         for k, c in cand.items():
             wv = c["w"]
             bt = A.historical_backtest(wv, rets)
-            comp = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations)
+            comp = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
             c.update(exp_ret=float(mu @ wv), vol=A.port_vol(wv, cov), te=A.tracking_error(wv, n, cov),
                      eff_n=A.effective_n(wv), backtest=bt, compliance=summarize(comp),
                      dist_centroid=float(np.abs(wv - centroid).sum()))
@@ -320,7 +321,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
             wv = wv / wv.sum()
             ens[k] = wv
             ens_eval[k] = {"exp_ret": float(mu @ wv), "vol": A.port_vol(wv, cov), "te": A.tracking_error(wv, n, cov),
-                           "eff_n": A.effective_n(wv), "compliance": summarize(evaluate(wv, n, cov, policy, regime_cfg, universe, attestations))}
+                           "eff_n": A.effective_n(wv), "compliance": summarize(evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb))}
         llm_c = llm.judge(cio_spec, f"Choose the ensemble method for the {v} vintage.",
                           {"regime": mv, "ensembles": ens_eval, "ranking": ranking[:5]},
                           '{"ensemble": str, "rationale": str, "invalidation_conditions": [str]}')
@@ -339,7 +340,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        "Equity drawdown > 15% from run date (off-cycle review trigger)",
                        "Tracking error vs. glide path rises above 1.0% (warning threshold)"]
         final = ens[choice]
-        comp = evaluate(final, n, cov, policy, regime_cfg, universe, attestations)
+        comp = evaluate(final, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
         summ = summarize(comp)
         bt = A.historical_backtest(final, rets)
         bt_n = A.historical_backtest(n, rets)
@@ -365,7 +366,45 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        "ranking": [{"method": k, "composite": round(float(s), 3), "votes": p} for k, s, p in ranking],
                        "candidates": {k: {"exp_ret": c["exp_ret"], "vol": c["vol"], "te": c["te"], "sharpe": c["sharpe"],
                                           "compliance": c["compliance"]["overall"]} for k, c in cand.items()},
-                       "approvers": approvers}
+                       "approvers": approvers, "risk_budget": rb}
+
+    # 5b. positioning, risk-budget usage and portfolio metrics -------------------------------------
+    from ..analytics.positioning import Taxonomy, active_risk_contributions, portfolio_metrics, positioning_table
+    from ..governance import POSITIONS_PATH, positions_as_of, record_positions
+    pos_path = Path(positions_path) if positions_path else (Path(out_root) / "positions.csv" if out_root else POSITIONS_PATH)
+    tax = Taxonomy.load(assets)
+    mkt_w = tax.market_weights()
+    rf_series = rets["cash"] if "cash" in rets else None
+    for v, d in vint_out.items():
+        cur = np.array([d["final"][a] for a in assets])
+        n = np.array([d["neutral"][a] for a in assets])
+        cols, col_src = {"current": cur}, {"current": f"this run ({run_id}, proposed)"}
+        for label, when in (("last_week", as_of_ts - pd.Timedelta(days=7)), ("last_month", as_of_ts - pd.DateOffset(months=1))):
+            w_prev, src = positions_as_of(str(when.date()), v, assets, pos_path, before_run=run_id)
+            if w_prev is None:
+                frac = when.year + (when.dayofyear - 1) / 365.25
+                cols[label], col_src[label] = policy.neutral_weights(v - frac), f"glide path on {when.date()} (no recorded positions)"
+            else:
+                cols[label], col_src[label] = np.array([w_prev[a] for a in assets]), src
+        cols["glide_path"], col_src["glide_path"] = n, f"policy {policy.id}"
+        cols["market"], col_src["market"] = mkt_w, tax.raw["market_benchmark"]["name"]
+        te, contrib = active_risk_contributions(cur, n, cov)
+        d["positioning"] = {"columns": col_src,
+                            "views": {vw: positioning_table(tax, cols, cov, n, d["risk_budget"], vw) for vw in tax.raw["views"]}}
+        d["risk"] = {"te": te, "budget": d["risk_budget"], "used_pct": te / d["risk_budget"] if d["risk_budget"] else None,
+                     "warn_at": policy.raw["risk_budgets"].get("warn_at_pct_used", 0.8),
+                     "contributors": sorted(({"asset": a, "active_weight": float(cur[i] - n[i]), "te_contribution": float(contrib[i]),
+                                              "budget_used": float(contrib[i] / d["risk_budget"])} for i, a in enumerate(assets)),
+                                            key=lambda x: -abs(x["te_contribution"]))}
+        d["metrics"] = {lbl: {"portfolio": portfolio_metrics(cur, rets, mkt_w, n, rf_series, m),
+                              "glide_path": portfolio_metrics(n, rets, mkt_w, n, rf_series, m),
+                              "market": portfolio_metrics(mkt_w, rets, mkt_w, n, rf_series, m)}
+                        for lbl, m in (("5y", 60), ("full", None))}
+    record_positions(as_of, run_id, vint_out, "proposed", pos_path)
+    L.record(dr_type="signal", run_id=run_id, step="positioning.risk-metrics", actor=SYSTEM, policy_version=pv,
+             summary="Look-through positioning, risk-budget usage and metrics computed for all vintages",
+             output={v: {"te": d["risk"]["te"], "budget": d["risk"]["budget"], "used_pct": d["risk"]["used_pct"],
+                         "beta_5y": d["metrics"]["5y"]["portfolio"]["beta_vs_market"]} for v, d in vint_out.items()})
 
     # 6. compliance officer agent --------------------------------------------------------------
     from ..compliance.officer import review as co_review
@@ -384,6 +423,10 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     L.record(dr_type="signal", run_id=run_id, step="board-memo", actor=actor(load_agent("board-memo-writer"), llm),
              policy_version=pv, summary="Board memo generated", output={"path": "board_memo.md"})
     (out / "results.json").write_text(json.dumps({"run_id": run_id, "as_of": as_of, "macro": mv, "cma": cma_table,
+                                                  "model": {"assets": assets, "cov": np.round(cov, 8).tolist(), "mu": mu.round(6).tolist(),
+                                                            "taxonomy": tax.leaves, "views": tax.raw["views"],
+                                                            "market": dict(zip(assets, mkt_w.round(6))),
+                                                            "market_name": tax.raw["market_benchmark"]["name"]},
                                                   "vintages": vint_out, "compliance_officer": {k: v for k, v in co.items() if k != "report_md"},
                                                   "snapshot": snap}, indent=2, default=str))
     return RunResult(run_id, out, vint_out, out / "board_memo.md", out / "compliance_report.md", verify(out / "ledger.jsonl"))

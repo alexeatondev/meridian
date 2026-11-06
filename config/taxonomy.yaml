@@ -1,0 +1,60 @@
+# Exposure taxonomy and look-through.
+# Each building-block fund is decomposed into leaves. A leaf has a hierarchy `path` (drill-down tree) and
+# `tags` (alternative groupings / pivots). Fractions per fund sum to 1.
+#
+# APPROXIMATIONS (pilot): size splits for equity funds and maturity splits for bond funds are typical
+# index characteristics, not live holdings. Replace with holdings-based look-through from a vendor
+# (fund.holdings dataset) when available. Definitions:
+#   Long-dated fixed income  = maturities over 7 years
+#   Short-dated fixed income = maturities of 7 years and under (incl. cash / short-term income)
+
+top_levels: [Equity, Fixed Income, Real Assets]
+
+views:                       # pivots offered in the Console and reports
+  asset_class_tree: {label: "Asset class (drill-down)", by: path}
+  equity_region:    {label: "Equity: US vs Non-US",            filter: Equity,       by: region}
+  equity_size:      {label: "Equity: Large / Mid / Small cap",  filter: Equity,       by: size}
+  equity_market:    {label: "Equity: Developed vs Emerging",    filter: Equity,       by: market}
+  fi_maturity:      {label: "Fixed income: Long vs Short-dated", filter: Fixed Income, by: maturity}
+  fi_sector:        {label: "Fixed income: Sector",             filter: Fixed Income, by: sector}
+
+funds:
+  us_large_cap:
+    - {fraction: 1.00, path: [Equity, US, Large Cap],                tags: {region: US, market: Developed, size: Large Cap}}
+  us_small_mid_cap:
+    - {fraction: 0.55, path: [Equity, US, Mid Cap],                  tags: {region: US, market: Developed, size: Mid Cap}}
+    - {fraction: 0.45, path: [Equity, US, Small Cap],                tags: {region: US, market: Developed, size: Small Cap}}
+  intl_developed_eq:
+    - {fraction: 0.85, path: [Equity, Non-US, Developed, Large Cap], tags: {region: Non-US, market: Developed, size: Large Cap}}
+    - {fraction: 0.15, path: [Equity, Non-US, Developed, Mid Cap],   tags: {region: Non-US, market: Developed, size: Mid Cap}}
+  emerging_eq:
+    - {fraction: 0.85, path: [Equity, Non-US, Emerging, Large Cap],  tags: {region: Non-US, market: Emerging, size: Large Cap}}
+    - {fraction: 0.15, path: [Equity, Non-US, Emerging, Mid Cap],    tags: {region: Non-US, market: Emerging, size: Mid Cap}}
+  global_reits:
+    - {fraction: 1.00, path: [Real Assets, REITs],                   tags: {type: REITs}}
+  commodities:
+    - {fraction: 1.00, path: [Real Assets, Commodities],             tags: {type: Commodities}}
+  us_core_bond:
+    - {fraction: 0.35, path: [Fixed Income, Long-dated, Core Bonds], tags: {maturity: Long-dated, sector: Core Bonds}}
+    - {fraction: 0.65, path: [Fixed Income, Short-dated, Core Bonds], tags: {maturity: Short-dated, sector: Core Bonds}}
+  us_long_treasury:
+    - {fraction: 1.00, path: [Fixed Income, Long-dated, Core Bonds], tags: {maturity: Long-dated, sector: Core Bonds}}
+  us_tips_short:
+    - {fraction: 1.00, path: [Fixed Income, Short-dated, TIPS],      tags: {maturity: Short-dated, sector: TIPS}}
+  us_high_yield:
+    - {fraction: 0.20, path: [Fixed Income, Long-dated, High Yield], tags: {maturity: Long-dated, sector: High Yield}}
+    - {fraction: 0.80, path: [Fixed Income, Short-dated, High Yield], tags: {maturity: Short-dated, sector: High Yield}}
+  intl_bond_hedged:
+    - {fraction: 0.35, path: [Fixed Income, Long-dated, Core Bonds], tags: {maturity: Long-dated, sector: Core Bonds}}
+    - {fraction: 0.65, path: [Fixed Income, Short-dated, Core Bonds], tags: {maturity: Short-dated, sector: Core Bonds}}
+  em_debt:
+    - {fraction: 0.55, path: [Fixed Income, Long-dated, High Yield], tags: {maturity: Long-dated, sector: High Yield}}
+    - {fraction: 0.45, path: [Fixed Income, Short-dated, High Yield], tags: {maturity: Short-dated, sector: High Yield}}
+  cash:
+    - {fraction: 1.00, path: [Fixed Income, Short-dated, Short-term Income], tags: {maturity: Short-dated, sector: Short-term Income}}
+
+# Market reference portfolio for "vs the general market" comparisons, beta and alpha.
+# Global 60/40 proxy: equity split near global market-cap weights; bonds = US Aggregate.
+market_benchmark:
+  name: "Global 60/40 market proxy"
+  weights: {us_large_cap: 0.33, us_small_mid_cap: 0.05, intl_developed_eq: 0.17, emerging_eq: 0.05, us_core_bond: 0.40}
