@@ -350,12 +350,9 @@ def parse_ishares_holdings(raw: bytes) -> tuple[pd.DataFrame, str | None]:
         snippet = " | ".join(x.strip()[:80] for x in lines[:4])
         raise DataUnavailable(f"iShares: holdings header row not found (format changed or not a holdings file); "
                               f"{len(raw)} bytes, starts: {snippet!r}")
-    body = [lines[start]]
-    for l in lines[start + 1:]:
-        if not l.strip() or l.startswith('"The content') or l.startswith("\xa0"):
-            break
-        body.append(l)
-    df = pd.read_csv(io.StringIO("\n".join(body)), dtype=str)
+    # parse everything after the header with a real CSV parser (quoted fields may contain line breaks);
+    # the disclaimer footer becomes rows without a numeric weight and is dropped by aggregate_holdings
+    df = pd.read_csv(io.StringIO("\n".join(lines[start:])), dtype=str, on_bad_lines="skip", skip_blank_lines=True)
     df.columns = [c.strip() for c in df.columns]
     return df, as_of
 
@@ -363,8 +360,19 @@ def parse_ishares_holdings(raw: bytes) -> tuple[pd.DataFrame, str | None]:
 def aggregate_holdings(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize iShares columns and aggregate to one row per security (equities) or issuer (bonds:
     iShares 'Ticker' on bond lines is the issuer ticker). Durations are weight-averaged."""
-    col = {c.lower(): c for c in df.columns}
-    g = lambda *names: next((col[n] for n in names if n in col), None)  # noqa: E731
+    col = {c.lower().strip(): c for c in df.columns}
+
+    def g(*names):
+        for n in names:                                   # exact (case-insensitive) first
+            if n in col:
+                return col[n]
+        for n in names:                                   # then "contains", e.g. 'weight (%)' vs 'weight %'
+            for k, c in col.items():
+                if n.split(" (")[0] in k:
+                    return c
+        return None
+    if g("weight (%)", "weight") is None:
+        raise DataUnavailable(f"iShares: no weight column; columns = {list(df.columns)[:20]}")
     out = pd.DataFrame({
         "ticker": df[g("ticker")].fillna("").str.strip() if g("ticker") else "",
         "name": df[g("name")].fillna("").str.strip() if g("name") else "",
@@ -428,7 +436,8 @@ class IsharesSource(DataSource):
                     notes.append(f"{h['ticker']}: {e}")
                     continue
                 except Exception as e:  # noqa: BLE001
-                    notes.append(f"{h['ticker']}: parse error {type(e).__name__}: {e}")
+                    cols = list(df.columns)[:20] if df is not None else None
+                    notes.append(f"{h['ticker']}: parse error {type(e).__name__}: {e}; columns={cols}")
                     continue
                 agg["weight"] = agg["weight"] * float(h.get("weight", 1.0))
                 agg["asset_id"], agg["fund_ticker"] = a["id"], h["ticker"]

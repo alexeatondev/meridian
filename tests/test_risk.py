@@ -27,7 +27,8 @@ def setup():
 
 def test_ishares_parser_aggregates_issuers_and_keeps_stock_and_bond_apart():
     df, as_of = parse_ishares_holdings((FIX / "ishares_bond_sample.csv").read_bytes())
-    assert as_of == "2026-11-05" and len(df) == 7          # footer disclaimer excluded
+    assert as_of == "2026-11-05"
+    assert df["Weight (%)"].notna().sum() == 7                   # footer disclaimer has no weight
     agg = aggregate_holdings(df)
     t = agg[agg["ticker"] == "T"].iloc[0]
     assert t["lines"] == 2 and abs(t["weight"] - 0.42) < 1e-9
@@ -102,7 +103,7 @@ def test_pipeline_risk_outputs_and_history(tmp_path):
 
 def test_ishares_bond_file_without_ticker_column_aggregates_by_name():
     df, as_of = parse_ishares_holdings((FIX / "ishares_bond_noticker_sample.csv").read_bytes())
-    assert "Ticker" not in df.columns and len(df) == 7
+    assert "Ticker" not in df.columns and df["Weight (%)"].notna().sum() == 7
     agg = aggregate_holdings(df)
     assert abs(agg["weight"].sum() - 1.0) < 1e-9
     assert agg["security_id"].str.startswith("BANK OF AMERICA CORP").sum() == 2   # distinct names stay distinct
