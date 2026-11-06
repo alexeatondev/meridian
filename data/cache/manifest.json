@@ -1,0 +1,157 @@
+{
+  "refreshed_at": "2026-11-06T16:13:18.699717+00:00",
+  "as_of": "2026-11-06",
+  "datasets": {
+    "returns.monthly": {
+      "status": "ok",
+      "rows": 4627,
+      "sources": {
+        "yahoo": 4639
+      }
+    },
+    "macro.indicators": {
+      "status": "kept previous cache: No source could serve macro.indicators; tried ['bloomberg_snowflake', 'fred', 'manual', 'cache', 'synthetic']"
+    },
+    "yields.current": {
+      "status": "kept previous cache: No source could serve yields.current; tried ['bloomberg_snowflake', 'bloomberg_direct', 'fred', 'manual', 'cache', 'synthetic']"
+    },
+    "fundamentals.valuation": {
+      "status": "ok",
+      "rows": 1,
+      "sources": {
+        "manual": 1
+      }
+    }
+  },
+  "attempts": [
+    {
+      "dataset": "returns.monthly",
+      "source": "bloomberg_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "factset_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "bloomberg_direct",
+      "status": "skipped"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "factset_direct",
+      "status": "skipped"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "yahoo",
+      "status": "ok",
+      "rows": 4639,
+      "synthetic": false
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "fred",
+      "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "files",
+      "status": "skipped"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "cache",
+      "status": "skipped"
+    },
+    {
+      "dataset": "returns.monthly",
+      "source": "synthetic",
+      "status": "skipped"
+    },
+    {
+      "dataset": "macro.indicators",
+      "source": "bloomberg_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "macro.indicators",
+      "source": "fred",
+      "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+    },
+    {
+      "dataset": "macro.indicators",
+      "source": "manual",
+      "status": "skipped"
+    },
+    {
+      "dataset": "macro.indicators",
+      "source": "cache",
+      "status": "skipped"
+    },
+    {
+      "dataset": "macro.indicators",
+      "source": "synthetic",
+      "status": "skipped"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "bloomberg_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "bloomberg_direct",
+      "status": "skipped"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "fred",
+      "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "manual",
+      "status": "skipped"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "cache",
+      "status": "skipped"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "synthetic",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fundamentals.valuation",
+      "source": "sp_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fundamentals.valuation",
+      "source": "factset_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fundamentals.valuation",
+      "source": "manual",
+      "status": "ok",
+      "rows": 1,
+      "synthetic": false
+    },
+    {
+      "dataset": "fundamentals.valuation",
+      "source": "cache",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fundamentals.valuation",
+      "source": "synthetic",
+      "status": "skipped"
+    }
+  ]
+}
