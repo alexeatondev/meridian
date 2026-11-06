@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-11-06T19:54:00.411335+00:00",
+  "refreshed_at": "2026-11-06T19:56:58.233633+00:00",
   "as_of": "2026-11-06",
   "datasets": {
     "returns.monthly": {
@@ -222,7 +222,7 @@
     {
       "dataset": "holdings.lookthrough",
       "source": "ishares",
-      "status": "unavailable: iShares: no holdings retrieved. IVV: iShares: holdings header row not found (format changed or not a holdings file); IJH: iShares: holdings header row not found (format changed or not a holdings file); IJR: iShares: holdings header row not found (format changed or not a holdings file)"
+      "status": "unavailable: iShares: no holdings retrieved. IVV: iShares: holdings header row not found (format changed or not a holdings file); 2333963 bytes, starts: '<!DOCTYPE html> | <html xmlns=\"http://www.w3.org/1999/xhtml\" prefix=\"og: http://ogp.me/ns#\" lang=\" | <head> | <link rel=\"preload\" href=\"/blk-one02-c-assets/inc"
     },
     {
       "dataset": "holdings.lookthrough",
