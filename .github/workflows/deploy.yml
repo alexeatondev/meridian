@@ -1,0 +1,45 @@
+name: deploy
+# Deploys the Meridian hosted app to AWS with CDK. Authenticates with GitHub OIDC (no stored AWS keys):
+# set repository variable AWS_DEPLOY_ROLE_ARN to the role created once in the AWS account.
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "infra/**", "Dockerfile", "pyproject.toml", "config/**", "policies/**", "regimes/**", "agents/**", "skills/**"]
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+concurrency: {group: deploy, cancel-in-progress: false}
+jobs:
+  deploy:
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env: {AWS_REGION: us-east-2, MERIDIAN_AWS_REGION: us-east-2}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "20"}
+      - name: Tests must pass before deploying
+        run: pip install -e ".[dev]" && MERIDIAN_LLM=off pytest -q
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+      - name: Install CDK
+        run: npm install -g aws-cdk && pip install -r infra/requirements.txt
+      - name: Bootstrap (idempotent)
+        working-directory: infra
+        run: cdk bootstrap --require-approval never
+      - name: Deploy
+        working-directory: infra
+        run: cdk deploy Meridian --require-approval never --outputs-file outputs.json
+      - name: Summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          o = json.load(open("infra/outputs.json"))["Meridian"]
+          print(f"## Meridian deployed\n\n- App: {o['AppUrl']}\n- User pool: {o['UserPoolId']}\n- Sign-in domain: {o['SignInDomain']}")
+          PY

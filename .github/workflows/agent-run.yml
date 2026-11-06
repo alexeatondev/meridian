@@ -15,6 +15,7 @@ on:
         required: true
 permissions:
   contents: read
+  id-token: write
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -23,7 +24,34 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: pip install -e ".[llm]"
+      - run: pip install -e ".[llm,app]"
+      - name: Connect to the Meridian app (if deployed)
+        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+      - name: Pull approved positions and policy overrides from the app
+        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        run: |
+          set -euo pipefail
+          APP=$(aws cloudformation describe-stacks --stack-name Meridian --query "Stacks[0].Outputs[?OutputKey=='AppUrl'].OutputValue" --output text)
+          ARN=$(aws cloudformation describe-stacks --stack-name Meridian --query "Stacks[0].Outputs[?OutputKey=='IngestTokenSecretArn'].OutputValue" --output text)
+          TOKEN=$(aws secretsmanager get-secret-value --secret-id "$ARN" --query SecretString --output text)
+          echo "::add-mask::$TOKEN"
+          echo "APP_URL=$APP" >> "$GITHUB_ENV"; echo "INGEST_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          mkdir -p data/positions
+          curl -fsS -H "Authorization: Bearer $TOKEN" "$APP/api/export/positions.csv" -o data/positions/history.csv
+          curl -fsS -H "Authorization: Bearer $TOKEN" "$APP/api/export/policy-overrides" -o overrides.json
+          python - <<'PY'
+          import json
+          from ruamel.yaml import YAML
+          from meridian.app.store import apply_overrides
+          y = YAML(); y.preserve_quotes = True
+          p = "policies/target_date_series.yaml"
+          doc = y.load(open(p)); ov = json.load(open("overrides.json")); apply_overrides(doc, ov)
+          y.dump(doc, open(p, "w")); print("applied overrides:", ov)
+          PY
       - name: Check secret is configured
         env: {ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}"}
         run: |
@@ -60,6 +88,15 @@ jobs:
           print("\n---\n")
           print(open(f"{d}/compliance_report.md").read())
           PY
+      - name: Publish run to the Meridian app
+        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        run: |
+          set -euo pipefail
+          cd "$(dirname "$RUN_DIR")"
+          tar czf /tmp/run.tgz "$(basename "$RUN_DIR")/results.json" "$(basename "$RUN_DIR")/ledger.jsonl" \
+            "$(basename "$RUN_DIR")/board_memo.md" "$(basename "$RUN_DIR")/compliance_report.md"
+          curl -fsS -H "Authorization: Bearer $INGEST_TOKEN" -F bundle=@/tmp/run.tgz "$APP_URL/api/ingest"
+          echo "" >> "$GITHUB_STEP_SUMMARY"; echo "**Published to the app:** $APP_URL/runs/$(basename "$RUN_DIR")" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: meridian-${{ env.RUN_DIR != '' && 'run' || 'failed' }}-${{ github.run_number }}

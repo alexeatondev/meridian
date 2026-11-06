@@ -1,0 +1,44 @@
+name: manage-users
+# Add a person to Meridian (Cognito) and set their roles. Cognito emails them a temporary password.
+on:
+  workflow_dispatch:
+    inputs:
+      email: {description: "Email address", required: true}
+      name: {description: "Full name", required: true}
+      roles:
+        description: "Comma-separated roles: portfolio_manager, risk, analyst, manager_selection, leadership, compliance, audit, admin"
+        required: true
+      action:
+        description: "add | set-roles | disable"
+        default: add
+        required: true
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  user:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+      - name: Apply
+        env: {EMAIL: "${{ inputs.email }}", NAME: "${{ inputs.name }}", ROLES: "${{ inputs.roles }}", ACTION: "${{ inputs.action }}"}
+        run: |
+          set -euo pipefail
+          POOL=$(aws cloudformation describe-stacks --stack-name Meridian --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
+          VALID="portfolio_manager risk analyst manager_selection leadership compliance audit admin"
+          if [ "$ACTION" = "disable" ]; then aws cognito-idp admin-disable-user --user-pool-id "$POOL" --username "$EMAIL"; echo "disabled $EMAIL"; exit 0; fi
+          if [ "$ACTION" = "add" ]; then
+            aws cognito-idp admin-create-user --user-pool-id "$POOL" --username "$EMAIL" \
+              --user-attributes Name=email,Value="$EMAIL" Name=email_verified,Value=true Name=name,Value="$NAME" \
+              --desired-delivery-mediums EMAIL >/dev/null
+          fi
+          for g in $(aws cognito-idp admin-list-groups-for-user --user-pool-id "$POOL" --username "$EMAIL" --query "Groups[].GroupName" --output text); do
+            aws cognito-idp admin-remove-user-from-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$g"; done
+          for r in $(echo "$ROLES" | tr ',' ' '); do
+            case " $VALID " in *" $r "*) aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$r";;
+              *) echo "::warning::unknown role $r skipped";; esac; done
+          echo "## $ACTION: $EMAIL" >> "$GITHUB_STEP_SUMMARY"
+          echo "roles: $ROLES" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,9 @@
+.git
+runs
+data
+notebooks
+examples
+tests
+infra
+**/__pycache__
+*.db

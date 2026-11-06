@@ -27,7 +27,13 @@ def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision:
     if decision == "approve" and v["compliance_summary"]["FAIL"]:
         raise SystemExit("Blocked: proposal has hard-limit FAILs and cannot be approved.")
     L = Ledger(run_dir / "ledger.jsonl")
+    from .policy import load_policy
+    sod = load_policy().raw.get("controls", {}).get("segregation_of_duties", True)
     for r in L.records():
+        if sod and r["dr_type"] == "approval" and r["step"] == "approval.decision" \
+                and f"MTRS-{vintage}" in r["portfolio_scope"] and r["actor"].get("id") == name and r["approvals"][0]["role"] != role:
+            raise SystemExit(f"Segregation of duties: {name} already decided on {vintage} as {r['approvals'][0]['role']}; "
+                             f"a different person must approve as {role}.")
         if r["dr_type"] == "approval" and r["step"] == "approval.decision" and f"MTRS-{vintage}" in r["portfolio_scope"] \
                 and r["approvals"] and r["approvals"][0]["role"] == role:
             raise SystemExit(f"{role} already decided on {vintage} ({r['dr_id']}).")

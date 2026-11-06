@@ -78,10 +78,11 @@ tr.lvl0 td{font-weight:600}.up{color:var(--pos)}.down{color:var(--neg)}
   <aside>
     <div class="brand">Meridian<small>Agentic Portfolio Management</small></div>
     <div>
-      <label class="lbl" for="role">Signed in as</label>
+      <label class="lbl" for="role">Workspace</label>
       <select id="role" aria-label="Role"></select>
-      <div class="small muted" style="margin-top:6px">Prototype: choose a role to preview its workspace. In production the role comes from single sign-on.</div>
+      <div class="small muted" style="margin-top:6px" id="roleHelp">Prototype: choose a role to preview its workspace. In production the role comes from single sign-on.</div>
     </div>
+    <div id="runPick"></div>
     <nav id="nav" aria-label="Workspace"></nav>
     <div class="side-foot" id="sidefoot"></div>
   </aside>
@@ -94,6 +95,13 @@ tr.lvl0 td{font-weight:600}.up{color:var(--pos)}.down{color:var(--neg)}
 <div class="toast" id="toast" role="status"></div>
 <script>
 const D = /*__MERIDIAN_DATA__*/null;
+const LIVE = /*__MERIDIAN_LIVE__*/null;
+async function api(path, body){
+  const r = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':LIVE.csrf},body:JSON.stringify(body),credentials:'same-origin'});
+  let j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(j.detail||('Request failed ('+r.status+')'));
+  return j;
+}
 const R = D.results, L = D.ledger, P = D.policy, U = D.universe, G = D.regime;
 const VINT = Object.keys(R.vintages).map(Number).sort((a,b)=>a-b);
 const pct = (x,d=1)=> (x==null||isNaN(x))?'—':(x*100).toFixed(d)+'%';
@@ -117,17 +125,21 @@ const ROLES = {
 };
 const TABS = {products:'Funds & vintages',positioning:'Positioning',riskbudget:'Risk budget',metrics:'Metrics',home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
   risk:'Risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger'};
-let state = {role: (()=>{const h=location.hash.slice(1);return ROLES[h]?h:'pm'})(), tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
+const allowedRoles = () => LIVE ? LIVE.console_roles : Object.keys(ROLES);
+let state = {role: (()=>{const h=location.hash.slice(1);const ok=allowedRoles();return ok.includes(h)?h:ok[0]})(), tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
 
 function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600)}
-function chip(status){const s=String(status||'');const c=s.startsWith('PASS')||s==='CLEAR'?'good':(s==='WARN'||s==='CONDITIONAL'||s==='ATTEST'||s.includes('pending'))?'warn':(s==='FAIL'||s==='BLOCKED')?'crit':'';return `<span class="chip ${c}">${esc(s)}</span>`}
+function chip(status){const s=String(status||'');const c=s.startsWith('PASS')||s==='CLEAR'||s==='APPROVE'||s==='APPLIED'||s==='applied'?'good':(s==='WARN'||s==='CONDITIONAL'||s==='ATTEST'||s.includes('pending'))?'warn':(s==='FAIL'||s==='BLOCKED'||s==='REJECT'||s==='rejected')?'crit':'';return `<span class="chip ${c}">${esc(s)}</span>`}
 function overallStatus(){const all=VINT.map(v=>R.vintages[v].compliance_summary.overall);return all.includes('FAIL')?'FAIL':all.some(s=>s==='WARN')?'WARN':all.every(s=>s==='PASS')?'PASS':'PASS (attestations pending)'}
 function cioRec(v){return L.find(r=>r.step==='cio.ensemble'&&r.portfolio_scope.includes('MTRS-'+v))}
 function drById(id){return L.find(r=>r.dr_id===id)}
 
 // --------------------------------------------------------------- shell
 function renderShell(){
-  const sel=$('#role'); sel.innerHTML=Object.entries(ROLES).map(([k,r])=>`<option value="${k}" ${k===state.role?'selected':''}>${r.label}</option>`).join('');
+  const sel=$('#role'); sel.innerHTML=Object.entries(ROLES).filter(([k])=>allowedRoles().includes(k)).map(([k,r])=>`<option value="${k}" ${k===state.role?'selected':''}>${r.label}</option>`).join('');
+  if(LIVE){ $('#roleHelp').innerHTML=`<b>${esc(LIVE.user.name)}</b>${LIVE.user.email?'<br>'+esc(LIVE.user.email):''}<br><a href="/logout">Sign out</a>`;
+    $('#runPick').innerHTML=`<label class="lbl" for="runSel">Run</label><select id="runSel">${LIVE.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===LIVE.run_id?'selected':''}>${esc(r.as_of)} · ${esc(r.id.slice(-6))}</option>`).join('')}</select>`;
+    const rs=$('#runSel'); rs.onchange=()=>{location.href='/runs/'+encodeURIComponent(rs.value)+location.hash}; }
   sel.onchange=()=>{state.role=sel.value;state.tab=null;try{location.hash=state.role}catch(e){};render()};
   const role=ROLES[state.role]; if(!state.tab||!role.tabs.includes(state.tab)) state.tab=role.tabs[0];
   $('#nav').innerHTML=role.tabs.map(t=>`<button class="${t===state.tab?'active':''}" data-t="${t}">${TABS[t]}</button>`).join('');
@@ -179,7 +191,8 @@ function vintageTabs(){return `<div class="vt-tabs" role="tablist">${VINT.map(v=
 V.portfolios = () => {
   const v=state.vintage, x=R.vintages[v], dr=cioRec(v), role=ROLES[state.role];
   const rows=P.assets.map(a=>({a,n:x.neutral[a],f:x.final[a],d:x.final[a]-x.neutral[a]}));
-  const canApprove = role.approverRole && x.approvers.includes(role.approverRole);
+  const approversAll=[...new Set(x.approvers.concat(x.adjusted?x.adjusted.approvers:[]))];
+  const canApprove = role.approverRole && approversAll.includes(role.approverRole);
   return `${vintageTabs()}
   <div class="grid g4">${[['Equity',pct(x.equity_final),'glide path '+pct(x.equity_neutral)],['Expected return',pct(x.exp_ret),'10-yr nominal'],['Volatility',pct(x.vol),'ex-ante'],['Tracking error',pct(x.te,2),'vs glide path, limit 1.50%']].map(([l,v1,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v1}</div><div class="s">${s}</div></div>`).join('')}</div>
   <div class="grid g2" style="margin-top:14px">
@@ -197,14 +210,16 @@ V.portfolios = () => {
   </div>`;
 };
 function approvalForm(v,roleName){
-  const done=state.approvals.find(a=>a.vintage===v&&a.role===roleName);
-  if(done) return `<h3>Your decision</h3><div>${chip(done.decision.toUpperCase())} <span class="small">${esc(done.reason)}</span></div><h3>Record it in the ledger</h3><pre id="cmd">${esc(cmdFor(done))}</pre><button class="btn" id="copyCmd">Copy command</button>`;
+  const done=allDecisions().find(a=>a.vintage===v&&a.role===roleName);
+  if(done) return `<h3>Decision (${esc(roleName)})</h3><div>${chip(done.decision.toUpperCase())} <span class="small">${esc(done.reason||'')}${done.name?' — '+esc(done.name):''}</span></div>${LIVE?`<div class="small muted">Recorded in the ledger as <span class="mono">${esc(done.dr||'')}</span></div>`:`<h3>Record it in the ledger</h3><pre id="cmd">${esc(cmdFor(done))}</pre><button class="btn" id="copyCmd">Copy command</button>`}`;
   return `<h3>Your decision (${esc(roleName)})</h3>
   <div class="small muted" style="margin-bottom:6px">Read the rationale and dissent first. A reason is required.</div>
   <label class="small"><input type="checkbox" id="ack" style="width:auto"> I read the rationale, dissent and compliance results</label>
   <textarea id="reason" rows="3" placeholder="Reason for your decision" style="margin:8px 0"></textarea>
   <div class="row"><button class="btn primary" data-decide="approve">Approve</button><button class="btn" data-decide="reject">Reject</button><button class="btn" data-decide="request_changes">Request changes</button></div>`;
 }
+function ledgerDecisions(){ return L.filter(r=>r.step==='approval.decision').map(r=>({vintage:+r.portfolio_scope[0].split('-')[1],role:r.approvals[0].role,decision:r.approvals[0].decision,reason:r.rationale,name:r.actor.id,dr:r.dr_id})); }
+function allDecisions(){ return ledgerDecisions().concat(LIVE?[]:state.approvals); }
 function cmdFor(a){return `meridian approve runs/${R.run_id} --vintage ${a.vintage} --role ${a.role} --name "YOUR NAME" --decision ${a.decision} --reason "${a.reason.replace(/"/g,"'")}"`}
 
 V.glide = () => `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)})</h2>
@@ -214,9 +229,9 @@ V.glide = () => `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)}
 
 V.approvals = () => {
   const role=ROLES[state.role];
-  const rows=[];VINT.forEach(v=>R.vintages[v].approvers.forEach(a=>{const d=state.approvals.find(x=>x.vintage===v&&x.role===a);rows.push(`<tr class="click" data-open="${v}"><td>${v}</td><td>${esc(a)}${a===role.approverRole?' <span class="chip info">you</span>':''}</td><td>${d?chip(d.decision.toUpperCase()):chip('pending')}</td><td class="small">${d?esc(d.reason):''}</td></tr>`)}));
-  const cmds=state.approvals.map(cmdFor).join('\n');
-  return `<div class="card"><h2>Approval queue</h2><p class="small muted">Approvals follow the IPS approval matrix (§10.4) and the strictest rule across selected entity types. The prototype records your decision in this browser; run the generated command to write it to the immutable ledger.</p>
+  const rows=[];VINT.forEach(v=>{const x=R.vintages[v];const appr=[...new Set(x.approvers.concat(x.adjusted?x.adjusted.approvers:[]))];appr.forEach(a=>{const d=allDecisions().find(y=>y.vintage===v&&y.role===a);rows.push(`<tr class="click" data-open="${v}"><td>${v}${x.adjusted?' <span class="chip warn">adjusted</span>':''}</td><td>${esc(a)}${a===role.approverRole?' <span class="chip info">you</span>':''}</td><td>${d?chip(d.decision.toUpperCase()):chip('pending')}</td><td class="small">${d?esc(d.reason||'')+(d.name?' — '+esc(d.name):''):''}</td></tr>`)})});
+  const cmds=LIVE?'':state.approvals.map(cmdFor).join('\n');
+  return `<div class="card"><h2>Approval queue</h2><p class="small muted">Approvals follow the IPS approval matrix (§10.4) and the strictest rule across selected entity types. ${LIVE?'Decisions are written to the immutable ledger as you make them.':'The prototype records your decision in this browser; run the generated command to write it to the immutable ledger.'}</p>
   <table><tr><th>Vintage</th><th>Approver role</th><th>Status</th><th>Reason</th></tr>${rows.join('')}</table></div>
   ${cmds?`<div class="card" style="margin-top:14px"><h2>Commands to record your decisions</h2><pre>${esc(cmds)}</pre></div>`:''}`;
 };
@@ -386,7 +401,8 @@ function adjustPanel(v){
   ${state.adj.length&&!err?`<div class="grid g2" style="margin-top:12px"><div><table><tr><th>Group</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr>${prev.map(p=>`<tr><td style="padding-left:${8+(p.k.split('/').length-1)*16}px">${esc(p.k.split('/').pop())}</td><td class="num">${pct(p.b)}</td><td class="num">${pct(p.a)}</td><td class="num">${dpp(p.a-p.b)}</td></tr>`).join('')}</table></div>
    <div><div class="kpi"><div class="l">Tracking error vs glide path (indicative)</div><div class="v">${pct(te,2)}</div><div class="s">${(used*100).toFixed(0)}% of ${pct(x.risk_budget,2)} budget</div></div>${rbBar(used)}
    <h3>Indicative policy checks</h3><div>${used>1?chip('FAIL')+' risk budget exceeded':chip('PASS')+' within risk budget'}</div><div>${Math.abs(eq-eqn)>0.05?chip('FAIL')+' equity band ±5pp':chip('PASS')+' equity band ±5pp'}</div><div>${bandBreach.length?chip('FAIL')+' asset band ±3pp: '+bandBreach.map(esc).join(', '):chip('PASS')+' asset bands ±3pp'}</div>
-   <h3>Record it (re-checked by the compliance engine)</h3><pre id="cmd">${esc(cmd)}</pre><button class="btn" id="copyCmd">Copy command</button></div></div>`:''}
+   ${LIVE?`<h3>Submit for approval (re-checked by the compliance engine)</h3><textarea id="adjReason" rows="2" placeholder="Reason for this adjustment"></textarea><div style="margin-top:8px"><button class="btn primary" id="adjSubmit">Submit adjustment</button></div>`
+   :`<h3>Record it (re-checked by the compliance engine)</h3><pre id="cmd">${esc(cmd)}</pre><button class="btn" id="copyCmd">Copy command</button>`}</div></div>`:''}
   </div>`;
 }
 
@@ -404,8 +420,11 @@ V.riskbudget = () => {
     <label class="small">New budget (%)</label><input id="rbTe" type="number" step="0.05" min="0.1" max="${D.risk_budget_policy.hard_max*100}" value="${(x.risk_budget*100).toFixed(2)}">
     <div class="small" id="rbPrev" style="margin:6px 0"></div>
     <label class="small">Reason</label><textarea id="rbReason" rows="2"></textarea>
-    <div style="margin-top:8px"><button class="btn primary" id="rbGo">Prepare change request</button></div><pre id="rbCmd" style="display:none"></pre>`:'<p class="small muted">View only. Portfolio managers and Risk can request changes; approvers are listed above.</p>'}
-    <h3>Change requests</h3>${crs.length?`<table><tr><th>ID</th><th>Target</th><th>Change</th><th>Status</th><th>Approvals</th></tr>${crs.map(c=>`<tr><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}</td><td>${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td>${chip(c.status)}</td><td class="small">${c.approvals.map(a=>esc(a.role+': '+a.decision)).join(', ')||'—'}</td></tr>`).join('')}</table>`:'<div class="muted small">None.</div>'}
+    <div style="margin-top:8px"><button class="btn primary" id="rbGo">${LIVE?'Submit change request':'Prepare change request'}</button></div><pre id="rbCmd" style="display:none"></pre>`:'<p class="small muted">View only. Portfolio managers and Risk can request changes; approvers are listed above.</p>'}
+    <h3>Change requests</h3>${crs.length?`<table><tr><th>ID</th><th>Target</th><th>Change</th><th>Requested by</th><th>Status</th><th>Approvals</th><th></th></tr>${crs.map(c=>{
+      const mine=LIVE&&c.status==='pending'?c.required_approvals.filter(rl=>LIVE.user.roles.includes(rl)&&!c.approvals.some(a=>a.role===rl)):[];
+      return `<tr><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}</td><td>${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td class="small">${esc(c.requested_by.name)}<br><span class="muted">${esc(c.reason)}</span></td><td>${chip(c.status)}</td><td class="small">${c.approvals.map(a=>esc(a.role+': '+a.decision+' ('+a.name+')')).join('<br>')||'—'}</td>
+      <td>${mine.map(rl=>`<div class="row" style="gap:4px;margin-bottom:4px"><span class="small">${esc(rl)}</span><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="approve">Approve</button><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="reject">Reject</button></div>`).join('')}</td></tr>`}).join('')}</table>`:'<div class="muted small">None.</div>'}
    </div></div>`;
 };
 
@@ -485,6 +504,8 @@ function bind(){
     if(!$('#ack').checked){toast('Confirm you read the rationale, dissent and compliance results.');return}
     if(reason.length<10){toast('Please give a reason (at least 10 characters).');return}
     if(b.dataset.decide==='approve'&&R.vintages[state.vintage].compliance_summary.FAIL>0){toast('Blocked: a hard limit FAILED. Approval is not possible.');return}
+    if(LIVE){ b.disabled=true; api(`/api/runs/${encodeURIComponent(LIVE.run_id)}/approvals`,{vintage:state.vintage,role:ROLES[state.role].approverRole,decision:b.dataset.decide,reason})
+      .then(()=>{toast('Decision recorded in the ledger.');setTimeout(()=>location.reload(),600)}).catch(e=>{b.disabled=false;toast(e.message)}); return; }
     state.approvals.push({vintage:state.vintage,role:ROLES[state.role].approverRole,decision:b.dataset.decide,reason});toast('Decision recorded in this session.');render()});
   document.querySelectorAll('.caret[data-node]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();const n=b.dataset.node;state.collapsed[n]=!state.collapsed[n];render()});
   const vs=$('#viewSel'); if(vs) vs.onchange=()=>{state.view=vs.value;render()};
@@ -497,13 +518,27 @@ function bind(){
   const aa=$('#adjAdd'); if(aa) aa.onclick=()=>{const val=parseFloat($('#adjVal').value);if(isNaN(val)){toast('Enter a value');return}
     state.adj.push({node:$('#adjNode').value,mode:$('#adjMode').value,value:val/100,funded:$('#adjFund').value||null});render()};
   const ac=$('#adjClear'); if(ac) ac.onclick=()=>{state.adj=[];render()};
+  const as=$('#adjSubmit'); if(as) as.onclick=()=>{const reason=$('#adjReason').value.trim(); if(reason.length<10){toast('Please give a reason (10+ characters).');return}
+    const specs=state.adj.map(a=>`${a.node}=${a.mode==='absolute'?(a.value*100).toFixed(4)+'%':(a.value>=0?'+':'')+(a.value*100).toFixed(4)+'pp'}${a.funded?' from '+a.funded:''}`);
+    as.disabled=true; api(`/api/runs/${encodeURIComponent(LIVE.run_id)}/adjustments`,{vintage:state.vintage,specs,reason})
+      .then(r=>{toast(`Recorded: TE ${pct(r.te,2)} (${(r.risk_budget_used*100).toFixed(0)}% of budget), compliance ${r.compliance_summary.overall}`);state.adj=[];setTimeout(()=>location.reload(),900)})
+      .catch(e=>{as.disabled=false;toast(e.message)})};
   const rbTe=$('#rbTe'), rbV=$('#rbV');
   const rbPreview=()=>{if(!rbTe)return;const b=parseFloat(rbTe.value)/100;const vv=rbV.value;const list=vv==='default'?VINT.filter(x=>!(D.risk_budget_policy.vintages||{})[x]):[+vv];
     $('#rbPrev').innerHTML=b>D.risk_budget_policy.hard_max+1e-9?'<span class="chip crit">Above IPS hard limit — needs an IPS amendment</span>':list.map(x=>`${x}: ${(R.vintages[x].risk.te/b*100).toFixed(0)}% used`).join(' · ')};
   if(rbTe){rbTe.oninput=rbPreview;rbV.onchange=rbPreview;rbPreview();}
   const rg=$('#rbGo'); if(rg) rg.onclick=()=>{const r=$('#rbReason').value.trim();if(r.length<10){toast('Please give a reason (10+ characters).');return}
-    const role=state.role==='pm'?'portfolio_manager':'risk';const c=$('#rbCmd');c.style.display='block';
+    const role=state.role==='pm'?'portfolio_manager':'risk';
+    if(LIVE){ rg.disabled=true; api('/api/risk-budget/requests',{vintage:rbV.value,te:parseFloat(rbTe.value)/100,reason:r})
+      .then(cr=>{toast(`Change request ${cr.id} submitted; needs ${cr.required_approvals.join(' + ')}`);setTimeout(()=>location.reload(),900)}).catch(e=>{rg.disabled=false;toast(e.message)}); return; }
+    const c=$('#rbCmd');c.style.display='block';
     c.textContent=`meridian risk-budget set --vintage ${rbV.value} --te ${parseFloat(rbTe.value).toFixed(2)}% --name "YOUR NAME" --role ${role} --reason "${r.replace(/"/g,"'")}"`};
+  document.querySelectorAll('[data-cr]').forEach(b=>b.onclick=()=>{
+    const ta=document.createElement('div'); ta.innerHTML=`<div class="card" style="position:fixed;inset:auto 20px 20px auto;z-index:9;width:360px"><b>${b.dataset.crdec==='approve'?'Approve':'Reject'} ${esc(b.dataset.cr)} as ${esc(b.dataset.crrole)}</b><textarea id="crReason" rows="3" placeholder="Reason (required)" style="margin:8px 0"></textarea><div class="row"><button class="btn primary" id="crOk">Confirm</button><button class="btn" id="crCancel">Cancel</button></div></div>`;
+    document.body.appendChild(ta); $('#crCancel').onclick=()=>ta.remove();
+    $('#crOk').onclick=()=>{const rs=$('#crReason').value.trim(); if(rs.length<10){toast('Please give a reason (10+ characters).');return}
+      api(`/api/risk-budget/requests/${encodeURIComponent(b.dataset.cr)}/decisions`,{role:b.dataset.crrole,decision:b.dataset.crdec,reason:rs})
+        .then(cr=>{toast(`${cr.id}: ${cr.status}`);setTimeout(()=>location.reload(),800)}).catch(e=>toast(e.message))}});
   const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
 }
 window.addEventListener('resize',()=>{glideChart();activeChart()});

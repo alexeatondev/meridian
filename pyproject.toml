@@ -23,7 +23,10 @@ llm = ["anthropic>=0.40"]
 snowflake = ["snowflake-connector-python>=3.6"]
 bloomberg = ["blpapi"]          # install from Bloomberg's package index
 factset = ["requests>=2.31"]
-dev = ["pytest>=8", "ruff>=0.5"]
+app = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "sqlalchemy>=2.0", "psycopg[binary]>=3.1", "pyjwt[crypto]>=2.8",
+       "itsdangerous>=2.1", "httpx>=0.27", "python-multipart>=0.0.9", "anthropic>=0.40"]
+dev = ["pytest>=8", "ruff>=0.5", "fastapi>=0.110", "sqlalchemy>=2.0", "pyjwt[crypto]>=2.8", "itsdangerous>=2.1",
+       "httpx>=0.27", "python-multipart>=0.0.9"]
 notebooks = ["jupyterlab>=4", "matplotlib>=3.8", "nbformat>=5", "nbclient>=0.10"]
 
 [project.scripts]

@@ -1,16 +1,14 @@
-"""Build the Meridian Console: one self-contained, role-adaptive web page for a pipeline run.
+"""Build the Meridian Console: one role-adaptive web page for a pipeline run.
 
-The page embeds the run's results, decision ledger, entity regime, policy rules and universe.
-It adapts to the signed-in role (portfolio manager, risk, research, manager selection, leadership,
-compliance, audit). In production the role comes from SSO and the page is served by the API; the
-static build is the prototype and the offline/exam-evidence form.
+Used two ways: `meridian ui` writes a self-contained file for a run directory (offline/evidence form), and
+the hosted app renders the same page from the database with LIVE mode on (signed-in user, roles limited
+to the user's own, actions saved through the API).
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from .. import REPO_ROOT
 from ..entities import resolve
 from ..ledger import Ledger, verify
 from ..policy import load_policy, load_universe
@@ -18,18 +16,14 @@ from ..policy import load_policy, load_universe
 TEMPLATE = Path(__file__).with_name("console_template.html")
 
 
-def build(run_dir: Path, out: Path | None = None) -> Path:
-    run_dir = Path(run_dir)
-    results = json.loads((run_dir / "results.json").read_text())
-    ledger = Ledger(run_dir / "ledger.jsonl").records()
-    ok, msg = verify(run_dir / "ledger.jsonl")
-    policy, universe = load_policy(), load_universe()
-    reg = resolve()
+def console_html(results: dict, ledger: list[dict], ledger_verification: dict, board_memo_md: str,
+                 compliance_report_md: str, change_requests: list[dict] | None = None,
+                 policy=None, live: dict | None = None) -> str:
+    policy = policy or load_policy()
+    universe, reg = load_universe(), resolve()
     pre = next((r for r in ledger if r["step"] == "preflight.entity_regime"), None)
     data = {
-        "results": results,
-        "ledger": ledger,
-        "ledger_verification": {"ok": ok, "message": msg},
+        "results": results, "ledger": ledger, "ledger_verification": ledger_verification,
         "policy": {"id": policy.id, "rules": policy.rules, "assets": policy.assets, "groups": policy.groups,
                    "anchors": policy.raw["glide_path"]["anchors"], "approvals": policy.raw["approvals"]},
         "universe": universe,
@@ -37,12 +31,21 @@ def build(run_dir: Path, out: Path | None = None) -> Path:
                    "required_roles": reg.required_roles, "human_roles": reg.human_roles,
                    "production_blockers": reg.production_blockers, "autonomy": reg.autonomy_level,
                    "mode": reg.operating_mode, "recorded_in_run": pre["output"] if pre else None},
-        "board_memo_md": (run_dir / "board_memo.md").read_text(),
+        "board_memo_md": board_memo_md, "compliance_report_md": compliance_report_md,
         "risk_budget_policy": policy.raw.get("risk_budgets", {}),
-        "change_requests": __import__("meridian.governance", fromlist=["list_requests"]).list_requests(),
-        "compliance_report_md": (run_dir / "compliance_report.md").read_text(),
+        "change_requests": change_requests or [],
     }
-    html = TEMPLATE.read_text().replace("/*__MERIDIAN_DATA__*/null", json.dumps(data, default=str))
+    html = TEMPLATE.read_text().replace("/*__MERIDIAN_DATA__*/null", json.dumps(data, default=str).replace("</", "<\\/"))
+    return html.replace("/*__MERIDIAN_LIVE__*/null", json.dumps(live).replace("</", "<\\/") if live else "null")
+
+
+def build(run_dir: Path, out: Path | None = None) -> Path:
+    from ..governance import list_requests
+    run_dir = Path(run_dir)
+    ok, msg = verify(run_dir / "ledger.jsonl")
+    html = console_html(json.loads((run_dir / "results.json").read_text()), Ledger(run_dir / "ledger.jsonl").records(),
+                        {"ok": ok, "message": msg}, (run_dir / "board_memo.md").read_text(),
+                        (run_dir / "compliance_report.md").read_text(), list_requests())
     out = Path(out or run_dir / "console.html")
     out.write_text(html)
     return out

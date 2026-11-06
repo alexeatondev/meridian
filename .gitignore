@@ -6,3 +6,6 @@ runs/
 data/drops/
 .env
 *.pem
+infra/cdk.out/
+infra/outputs.json
+*.db

@@ -79,6 +79,9 @@ risk_budgets:
   vintages:
     2030: 0.008      # near-dated vintages carry less active risk (sequence-of-returns risk)
     2035: 0.010
+controls:
+  segregation_of_duties: true    # one person cannot approve the same proposal under two different roles
+
 approvals:
   glide_path_change: [investment_committee]
   tactical_tilt: [portfolio_manager, risk]
