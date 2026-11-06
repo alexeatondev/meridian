@@ -5,8 +5,9 @@
 ## Status (2026-11-06)
 - Repo live: github.com/alexeatondev/meridian
 - Done: entity-regime selection, policy-as-code + IPS for the target-date pilot, plug-and-play data layer (direct + Snowflake), CMA judge, 7 PC agents, peer review and Borda vote, CRO, CIO ensemble, board memo, deterministic compliance engine, Agentic Compliance Officer, hash-chained ledger, tests, CI.
-- Running on synthetic data, offline judgment (no API key yet), shadow mode.
-- Next: LLM judgment on (API key), real data source, decision-ledger UI, approval workflow.
+- Running on synthetic data, shadow mode. Live LLM judgment runs via the `agent-run` GitHub workflow (key held as the `ANTHROPIC_API_KEY` repository secret). First live run 2026-11-06: 23 calls, 0 fallbacks, all vintages PASS. Key rotation reminder scheduled for 2026-12-02.
+- Also done: role-adaptive Meridian Console, `meridian approve`, Jupyter workbenches (PM, research, compliance/audit).
+- Next: real data source (Snowflake or vendor API), API + SSO-served Console with direct ledger writes, portfolio hierarchy/look-through (Phase 4).
 
 ## Strategy in one paragraph
 Rebuild the paper's SAA pipeline first on public data in **shadow mode** (no money moves), wrapped from day one in the decision ledger and the compliance engine — those two are what make this a product rather than a research demo. Then widen: portfolio hierarchy and look-through, fixed income and derivatives analytics, manager selection/FoF, and finally implementation proposals to your OMS. Learning agents come last, behind change control. Run in parallel against the human process for at least two quarters before any approval workflow is live.
