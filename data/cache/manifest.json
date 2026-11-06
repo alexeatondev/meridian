@@ -1,19 +1,27 @@
 {
-  "refreshed_at": "2026-11-06T16:13:18.699717+00:00",
+  "refreshed_at": "2026-11-06T16:19:48.534942+00:00",
   "as_of": "2026-11-06",
   "datasets": {
     "returns.monthly": {
       "status": "ok",
-      "rows": 4627,
+      "rows": 4639,
       "sources": {
-        "yahoo": 4639
+        "yahoo": 4651
       }
     },
     "macro.indicators": {
-      "status": "kept previous cache: No source could serve macro.indicators; tried ['bloomberg_snowflake', 'fred', 'manual', 'cache', 'synthetic']"
+      "status": "ok",
+      "rows": 1,
+      "sources": {
+        "treasury": 1
+      }
     },
     "yields.current": {
-      "status": "kept previous cache: No source could serve yields.current; tried ['bloomberg_snowflake', 'bloomberg_direct', 'fred', 'manual', 'cache', 'synthetic']"
+      "status": "ok",
+      "rows": 4,
+      "sources": {
+        "treasury": 4
+      }
     },
     "fundamentals.valuation": {
       "status": "ok",
@@ -48,7 +56,7 @@
       "dataset": "returns.monthly",
       "source": "yahoo",
       "status": "ok",
-      "rows": 4639,
+      "rows": 4651,
       "synthetic": false
     },
     {
@@ -83,6 +91,13 @@
     },
     {
       "dataset": "macro.indicators",
+      "source": "treasury",
+      "status": "ok",
+      "rows": 1,
+      "synthetic": false
+    },
+    {
+      "dataset": "macro.indicators",
       "source": "manual",
       "status": "skipped"
     },
@@ -110,6 +125,13 @@
       "dataset": "yields.current",
       "source": "fred",
       "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+    },
+    {
+      "dataset": "yields.current",
+      "source": "treasury",
+      "status": "ok",
+      "rows": 4,
+      "synthetic": false
     },
     {
       "dataset": "yields.current",

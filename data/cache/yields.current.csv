@@ -1,0 +1,5 @@
+asset_id,date,yield,duration,expected_loss,series,_source
+cash,2026-11-05,0.0417,0.25,0.0,UST 3 Mo,treasury
+us_long_treasury,2026-11-05,0.0525,15.5,0.0,UST 30 Yr,treasury
+us_tips_short,2026-11-05,0.045899999999999996,2.5,0.0,UST 5 Yr,treasury
+intl_bond_hedged,2026-11-05,0.0484,7.0,0.0005,UST 10 Yr,treasury
