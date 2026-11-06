@@ -1,5 +1,9 @@
-asset_id,date,yield,duration,expected_loss,series,_source
-cash,2026-11-05,0.0417,0.25,0.0,UST 3 Mo,treasury
-us_long_treasury,2026-11-05,0.0525,15.5,0.0,UST 30 Yr,treasury
-us_tips_short,2026-11-05,0.045899999999999996,2.5,0.0,UST 5 Yr,treasury
-intl_bond_hedged,2026-11-05,0.0484,7.0,0.0005,UST 10 Yr,treasury
+_source,asset_id,date,yield,duration,expected_loss,series
+fred,cash,2026-11-04,0.0403,0.25,0.0,DTB3
+fred,us_core_bond,2026-11-05,0.052000000000000005,6.0,0.001,"DGS5,BAMLC0A0CMEY"
+fred,us_long_treasury,2026-11-04,0.0528,15.5,0.0,DGS30
+fred,us_tips_short,2026-11-04,0.046900000000000004,2.5,0.0,DGS5
+fred,us_high_yield,2026-11-05,0.08070000000000001,3.3,0.015,BAMLH0A0HYM2EY
+fred,intl_bond_hedged,2026-11-04,0.049,7.0,0.0005,DGS10
+fred,em_debt,2026-11-05,0.0639,7.0,0.009,BAMLEMCBPIEY
+fred,commodities,2026-11-04,0.0403,0.0,0.0,DTB3

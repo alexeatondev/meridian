@@ -1,26 +1,27 @@
 {
-  "refreshed_at": "2026-11-06T16:19:48.534942+00:00",
+  "refreshed_at": "2026-11-06T16:42:27.958168+00:00",
   "as_of": "2026-11-06",
   "datasets": {
     "returns.monthly": {
       "status": "ok",
-      "rows": 4639,
+      "rows": 5081,
       "sources": {
-        "yahoo": 4651
+        "yahoo": 4651,
+        "fred": 443
       }
     },
     "macro.indicators": {
       "status": "ok",
-      "rows": 1,
+      "rows": 11,
       "sources": {
-        "treasury": 1
+        "fred": 11
       }
     },
     "yields.current": {
       "status": "ok",
-      "rows": 4,
+      "rows": 8,
       "sources": {
-        "treasury": 4
+        "fred": 8
       }
     },
     "fundamentals.valuation": {
@@ -62,7 +63,9 @@
     {
       "dataset": "returns.monthly",
       "source": "fred",
-      "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+      "status": "ok",
+      "rows": 443,
+      "synthetic": false
     },
     {
       "dataset": "returns.monthly",
@@ -75,11 +78,6 @@
       "status": "skipped"
     },
     {
-      "dataset": "returns.monthly",
-      "source": "synthetic",
-      "status": "skipped"
-    },
-    {
       "dataset": "macro.indicators",
       "source": "bloomberg_snowflake",
       "status": "skipped"
@@ -87,7 +85,9 @@
     {
       "dataset": "macro.indicators",
       "source": "fred",
-      "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+      "status": "ok",
+      "rows": 11,
+      "synthetic": false
     },
     {
       "dataset": "macro.indicators",
@@ -124,7 +124,9 @@
     {
       "dataset": "yields.current",
       "source": "fred",
-      "status": "unavailable: cannot reach fred.stlouisfed.org: TimeoutError"
+      "status": "ok",
+      "rows": 8,
+      "synthetic": false
     },
     {
       "dataset": "yields.current",
