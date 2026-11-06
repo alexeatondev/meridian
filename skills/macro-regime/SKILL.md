@@ -1,7 +1,7 @@
 # Skill: macro-regime
 
 Four regimes defined on four scores (each clipped to [-2, 2]):
-- **growth** = (real GDP yoy − 2.0)/1.5 + (PMI − 50)/5 − (6m change in unemployment)/0.5
+- **growth** = (real GDP yoy − 2.0)/1.5 + activity − (6m change in unemployment)/0.5, where activity = (PMI − 50)/5 if a PMI source is plugged in, else Chicago Fed National Activity Index (3-mo avg) / 0.5
 - **inflation** = (core CPI yoy − 2.0)/1.0
 - **monetary policy** = −(6m change in policy rate)/0.5 (positive = easing)
 - **financial conditions** = −(HY spread − 400bp)/150 (positive = loose)

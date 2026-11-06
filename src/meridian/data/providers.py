@@ -72,7 +72,7 @@ class SyntheticSource(DataSource):
             d = dates[-1]
             vals = {"real_gdp_growth_yoy": 1.6, "cpi_yoy": 2.9, "core_cpi_yoy": 2.8, "unemployment_rate": 4.4,
                     "unemployment_change_6m": 0.3, "policy_rate": 3.75, "policy_rate_change_6m": -0.50,
-                    "ig_spread_bp": 95, "hy_spread_bp": 330, "yield_curve_10y2y_bp": 45, "pmi": 49.2}
+                    "ig_spread_bp": 95, "hy_spread_bp": 330, "yield_curve_10y2y_bp": 45, "cfnai_ma3": -0.15}
             return pd.DataFrame([{"indicator": k, "date": d, "value": v} for k, v in vals.items()])
         if req.dataset == "fundamentals.valuation":
             return pd.DataFrame([{"asset_id": a, "date": dates[-1], "cape": c, "dividend_yield": dy,

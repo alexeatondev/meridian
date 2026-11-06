@@ -172,7 +172,12 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        summary=f"Snapshot {snap['snapshot_id']} " + (f"(partly SYNTHETIC: {', '.join(synthetic_detail)})" if synthetic else "(no synthetic data)"),
                        output=snap, data_flags={"synthetic": synthetic, "synthetic_detail": synthetic_detail, "routing_attempts": reg.attempts})
     rets = to_wide_returns(res["returns.monthly"].frame, assets)
-    macro = dict(zip(res["macro.indicators"].frame["indicator"], res["macro.indicators"].frame["value"]))
+    mf = res["macro.indicators"].frame
+    # never let a synthetic indicator stand in when a real alternative exists (e.g. PMI vs CFNAI)
+    real = mf[~mf["_source"].str.contains("synthetic")]
+    if "cfnai_ma3" in set(real["indicator"]):
+        mf = mf[~((mf["indicator"] == "pmi") & mf["_source"].str.contains("synthetic"))]
+    macro = dict(zip(mf["indicator"], mf["value"]))
     val, yl = res["fundamentals.valuation"].frame, res["yields.current"].frame
     rf = float(yl.set_index("asset_id").loc["cash", "yield"]) if "cash" in set(yl["asset_id"]) else 0.0385
     inflation = macro.get("cpi_yoy", 2.5) / 100
