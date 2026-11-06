@@ -1,6 +1,6 @@
 # Board Memo — Meridian Target Retirement Series
 
-**Run:** `run_tds_20261031_bcb3a0` · **As of:** 2026-10-31 · **Policy:** `ips-mtrs@1.0.0` · **Data snapshot:** `snap_3f592900a4dda39a`  
+**Run:** `run_tds_20261031_64181e` · **As of:** 2026-10-31 · **Policy:** `ips-mtrs@1.0.0` · **Data snapshot:** `snap_3f592900a4dda39a`  
 **Judgment engine:** offline-deterministic · **Compliance review:** CONDITIONAL · **Autonomy:** L3 (human approval required)
 
 > **SYNTHETIC DATA — SYSTEM TEST ONLY.** Figures below come from generated data, not market data. They are hypothetical, are not investment advice, and must not be used in any marketing material.

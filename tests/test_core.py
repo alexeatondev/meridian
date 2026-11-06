@@ -93,3 +93,20 @@ def test_ledger_records_match_schema(tmp_path):
     r = run(out_root=tmp_path)
     for rec in Ledger(r.out_dir / "ledger.jsonl").records():
         jsonschema.validate(rec, schema)
+
+
+def test_approval_rules_and_console_build(tmp_path):
+    from meridian.approvals import record_decision
+    from meridian.pipelines.target_date import run
+    from meridian.ui.build import build
+    r = run(out_root=tmp_path)
+    with pytest.raises(SystemExit):
+        record_decision(r.out_dir, 2050, "portfolio_manager", "Dev", "approve", "short")
+    with pytest.raises(SystemExit):
+        record_decision(r.out_dir, 2050, "intern", "Dev", "approve", "a perfectly fine reason")
+    dr = record_decision(r.out_dir, 2050, "portfolio_manager", "Dev", "approve", "Tilt is modest and consistent with regime.")
+    assert dr.startswith("dr_") and verify(r.out_dir / "ledger.jsonl")[0]
+    with pytest.raises(SystemExit):
+        record_decision(r.out_dir, 2050, "portfolio_manager", "Dev", "approve", "duplicate decision attempt")
+    html = build(r.out_dir).read_text()
+    assert "__MERIDIAN_DATA__" not in html and r.run_id in html

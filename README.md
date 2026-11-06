@@ -17,6 +17,9 @@ meridian entities show            # which regulatory regimes are active
 meridian data                     # which data sources are plugged in
 meridian run target-date --as-of 2026-10-31
 pytest
+meridian ui                       # build the role-based Meridian Console for the latest run
+meridian approve runs/<run_id> --vintage 2050 --role portfolio_manager --name "Dev" --decision approve --reason "..."
+jupyter lab notebooks/            # PM, research and compliance workbenches
 ```
 Each run writes `runs/<run_id>/`: `board_memo.md`, `compliance_report.md`, `results.json`, `ledger.jsonl`, `snapshot/`.
 A sample is committed in `examples/sample-run/`.
@@ -37,7 +40,9 @@ A sample is committed in `examples/sample-run/`.
 | `src/meridian/pipelines/` | Target-date pipeline, board memo |
 | `src/meridian/ledger.py` | Immutable decision ledger |
 | `schemas/` | Output contracts |
-| `docs/` | Product, architecture, compliance, user guides |
+| `src/meridian/ui/` | Role-adaptive Meridian Console |
+| `notebooks/` | Jupyter workbenches (PM, research, compliance/audit) |
+| `docs/` | Product, architecture, compliance, user guides, interfaces |
 
 ## Status
 Phase 1 pilot running on **synthetic data** in **shadow mode**. Not investment advice. Production is blocked until the required human roles (incl. a human CCO) are filled and the regime packs are reviewed by counsel.

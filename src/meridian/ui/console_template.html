@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian Console</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f4f3f0; --surface:#fcfcfb; --surface-2:#f0efec; --line:#e2e0da; --line-strong:#cfccc4;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#7a7873; --accent:#1f4e8c; --accent-ink:#ffffff;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --pos:#2a78d6; --neg:#eb6834; --mid:#b9b7b0;
+  --good:#1a7f37; --good-bg:#e6f4ea; --warn:#9a6700; --warn-bg:#fff4d6; --crit:#b42318; --crit-bg:#fde8e6; --info:#1f4e8c; --info-bg:#e8eef8; --off-bg:#eeedea;
+  --radius:10px; --shadow:0 1px 2px rgba(0,0,0,.05),0 1px 1px rgba(0,0,0,.03);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root{
+  color-scheme: dark;
+  --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --line:#2e2e2b; --line-strong:#3c3c38;
+  --text:#f0efec; --text-2:#c3c2b7; --muted:#9a998f; --accent:#7aa7e6; --accent-ink:#0b0b0b;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --pos:#3987e5; --neg:#d95926; --mid:#5a5a55;
+  --good:#5cc27a; --good-bg:#16301f; --warn:#e3b341; --warn-bg:#352a0e; --crit:#f2766b; --crit-bg:#3a1714; --info:#7aa7e6; --info-bg:#172338; --off-bg:#262624;
+}}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+aside{background:var(--surface);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh}
+.brand{font-weight:700;font-size:17px;letter-spacing:.2px} .brand small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+label.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px}
+select,input,textarea,button{font:inherit;color:inherit}
+select,input,textarea{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface)}
+nav{display:flex;flex-direction:column;gap:2px}
+nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:8px;color:var(--text-2)}
+nav button:hover{background:var(--surface-2)} nav button.active{background:var(--info-bg);color:var(--info);font-weight:600}
+nav button:focus-visible{outline:2px solid var(--accent)}
+.side-foot{margin-top:auto;font-size:12px;color:var(--muted)}
+main{padding:20px 28px 60px;max-width:1280px}
+.topbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:14px}
+.topbar h1{font-size:20px;margin:0 12px 0 0}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--off-bg);color:var(--text-2);white-space:nowrap}
+.chip.good{background:var(--good-bg);color:var(--good)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.crit{background:var(--crit-bg);color:var(--crit)} .chip.info{background:var(--info-bg);color:var(--info)}
+.banner{border:1px solid var(--warn);background:var(--warn-bg);color:var(--warn);padding:10px 14px;border-radius:var(--radius);margin-bottom:16px;font-size:13px}
+.grid{display:grid;gap:14px} .g4{grid-template-columns:repeat(4,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:1000px){.g4,.g3{grid-template-columns:repeat(2,minmax(0,1fr))}.g2{grid-template-columns:1fr}.app{grid-template-columns:1fr}aside{position:static;height:auto}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);min-width:0}
+.card h2{font-size:15px;margin:0 0 10px} .card h3{font-size:13px;margin:14px 0 6px;color:var(--text-2)}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.3px} .kpi .l{font-size:12px;color:var(--muted)} .kpi .s{font-size:12px;color:var(--text-2);margin-top:2px}
+.section-title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 10px}
+table{width:100%;border-collapse:collapse;font-size:13px} th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:600;color:var(--text-2);font-size:12px;background:var(--surface-2);position:sticky;top:0} td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)} tr.sel td{background:var(--info-bg)}
+.scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.muted{color:var(--muted)} .small{font-size:12px} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.btn{cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);padding:7px 12px;border-radius:8px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)} .btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill-list{display:flex;flex-wrap:wrap;gap:6px}
+.why{border-left:3px solid var(--accent);padding:6px 12px;background:var(--surface-2);border-radius:0 8px 8px 0}
+.md h1{font-size:20px}.md h2{font-size:16px;margin-top:22px}.md table{margin:8px 0}.md blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid var(--warn);background:var(--warn-bg);color:var(--warn)}
+.md code{background:var(--surface-2);padding:1px 4px;border-radius:4px}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--surface-2);padding:10px;border-radius:8px;font-size:12px;max-height:420px;overflow:auto}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin:4px 0 8px} .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.chart{position:relative} .tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);display:none;z-index:5;min-width:150px}
+.tip b{display:block;margin-bottom:4px}
+svg text{fill:var(--muted);font-size:11px}
+.vt-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.vt-tabs button{cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);padding:5px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.vt-tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--text);color:var(--surface);padding:10px 14px;border-radius:8px;font-size:13px;display:none}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}.filters>*{width:auto;min-width:160px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">Meridian<small>Agentic Portfolio Management</small></div>
+    <div>
+      <label class="lbl" for="role">Signed in as</label>
+      <select id="role" aria-label="Role"></select>
+      <div class="small muted" style="margin-top:6px">Prototype: choose a role to preview its workspace. In production the role comes from single sign-on.</div>
+    </div>
+    <nav id="nav" aria-label="Workspace"></nav>
+    <div class="side-foot" id="sidefoot"></div>
+  </aside>
+  <main>
+    <div class="topbar" id="topbar"></div>
+    <div id="banner"></div>
+    <div id="view"></div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const D = /*__MERIDIAN_DATA__*/null;
+const R = D.results, L = D.ledger, P = D.policy, U = D.universe, G = D.regime;
+const VINT = Object.keys(R.vintages).map(Number).sort((a,b)=>a-b);
+const pct = (x,d=1)=> (x==null||isNaN(x))?'—':(x*100).toFixed(d)+'%';
+const pp = (x,d=1)=> (x>=0?'+':'')+(x*100).toFixed(d)+'pp';
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nm = a => (U[a]&&U[a].name)||a;
+const $ = s => document.querySelector(s);
+const synthetic = !!(R.snapshot && Object.values(R.snapshot.datasets||{}).some(d=>d.synthetic));
+const co = R.compliance_officer || {};
+
+const ROLES = {
+  pm:        {label:'Portfolio Manager',     approverRole:'portfolio_manager', tabs:['home','portfolios','glide','approvals','agents']},
+  risk:      {label:'Risk Analytics',        approverRole:'risk',              tabs:['home','risk','portfolios','approvals']},
+  research:  {label:'Research',              approverRole:null,                tabs:['home','cma','agents','glide']},
+  mgr:       {label:'Manager Selection',     approverRole:null,                tabs:['home','funds','portfolios']},
+  lead:      {label:'Leadership / IC',       approverRole:'investment_committee', tabs:['home','memo','glide','approvals']},
+  compliance:{label:'Compliance',            approverRole:'chief_compliance_officer', tabs:['home','compliance','report','ledger']},
+  audit:     {label:'Audit (read-only)',     approverRole:null,                tabs:['home','ledger','compliance','report']},
+};
+const TABS = {home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
+  risk:'Risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger'};
+let state = {role: (location.hash.match(/role=(\w+)/)||[])[1] || 'pm', tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600)}
+function chip(status){const s=String(status||'');const c=s.startsWith('PASS')||s==='CLEAR'?'good':(s==='WARN'||s==='CONDITIONAL'||s==='ATTEST'||s.includes('pending'))?'warn':(s==='FAIL'||s==='BLOCKED')?'crit':'';return `<span class="chip ${c}">${esc(s)}</span>`}
+function overallStatus(){const all=VINT.map(v=>R.vintages[v].compliance_summary.overall);return all.includes('FAIL')?'FAIL':all.some(s=>s==='WARN')?'WARN':all.every(s=>s==='PASS')?'PASS':'PASS (attestations pending)'}
+function cioRec(v){return L.find(r=>r.step==='cio.ensemble'&&r.portfolio_scope.includes('MTRS-'+v))}
+function drById(id){return L.find(r=>r.dr_id===id)}
+
+// --------------------------------------------------------------- shell
+function renderShell(){
+  const sel=$('#role'); sel.innerHTML=Object.entries(ROLES).map(([k,r])=>`<option value="${k}" ${k===state.role?'selected':''}>${r.label}</option>`).join('');
+  sel.onchange=()=>{state.role=sel.value;state.tab=null;location.hash='role='+state.role;render()};
+  const role=ROLES[state.role]; if(!state.tab||!role.tabs.includes(state.tab)) state.tab=role.tabs[0];
+  $('#nav').innerHTML=role.tabs.map(t=>`<button class="${t===state.tab?'active':''}" data-t="${t}">${TABS[t]}</button>`).join('');
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.t;render()});
+  $('#topbar').innerHTML=`<h1>Target Retirement Series</h1>
+    <span class="chip info">Run ${esc(R.run_id)}</span><span class="chip">As of ${esc(R.as_of)}</span>
+    <span class="chip">Regime: ${esc(R.macro.regime.replace('_','-'))}</span>
+    ${chip(overallStatus())}<span class="chip ${co.status==='CLEAR'?'good':co.status==='BLOCKED'?'crit':'warn'}">Compliance review: ${esc(co.status)}</span>
+    <span class="chip">Autonomy ${esc(G.autonomy)} · ${esc(G.mode)}</span>`;
+  $('#banner').innerHTML = synthetic?`<div class="banner"><b>Synthetic data — system test only.</b> Every figure comes from generated data. Not investment advice; not for marketing use.</div>`:'';
+  $('#sidefoot').innerHTML=`Policy <span class="mono">${esc(P.id)}</span><br>Ledger: ${D.ledger_verification.ok?'✓ verified':'✗ FAILED'} (${L.length} records)<br>Entities: ${G.selected.map(esc).join(', ')}`;
+}
+
+// --------------------------------------------------------------- views
+const V = {};
+V.home = () => {
+  const r=state.role, vs=VINT.map(v=>R.vintages[v]);
+  const maxTE=Math.max(...vs.map(v=>v.te)), teLim=P.rules.find(x=>x.id==='TE-NEUTRAL').max;
+  const pending = vs.reduce((n,v)=>n+v.approvers.length,0) - state.approvals.length;
+  const counts = vs.reduce((a,v)=>{for(const k of ['PASS','WARN','FAIL','ATTEST']) a[k]=(a[k]||0)+v.compliance_summary[k];return a},{});
+  const kp=(v,l,s='')=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const myQueue = ROLES[r].approverRole ? VINT.filter(v=>R.vintages[v].approvers.includes(ROLES[r].approverRole)&&!state.approvals.find(a=>a.vintage===v&&a.role===ROLES[r].approverRole)) : [];
+  const intro={pm:'Review the CIO agent\'s proposals for each vintage, check the reasoning and dissent, and approve or reject with a reason.',
+    risk:'Check the risk of every candidate and the final proposals against the IPS limits, then co-approve tactical tilts.',
+    research:'Review the capital market assumptions, the CMA judge\'s reasoning, and how the agents voted.',
+    mgr:'Monitor the underlying building-block funds every vintage invests in, and their liquidity and derivatives use.',
+    lead:'Read the board memo, track outstanding approvals and production blockers, and approve glide-path changes.',
+    compliance:'Review rule results, attestations and obligations for the selected entity types, and sign off.',
+    audit:'Reconstruct any decision: who or what decided, from which inputs, under which policy, and whether the record is intact.'}[r];
+  let k='';
+  if(r==='pm') k=kp(myQueue.length,'Proposals awaiting you','vintages')+kp(pct(Math.max(...vs.map(v=>Math.abs(v.equity_final-v.equity_neutral)))),'Largest equity tilt','vs glide path')+kp(pct(vs[0].exp_ret),'Exp. return (2030)','10-yr nominal')+kp(pct(vs[vs.length-1].exp_ret),'Exp. return (2070)','10-yr nominal');
+  if(r==='risk') k=kp(pct(maxTE,2),'Max tracking error','limit '+pct(teLim,2))+kp(pct(Math.min(...vs.map(v=>v.backtest.max_drawdown))),'Worst simulated drawdown','hypothetical')+kp(counts.WARN,'Risk warnings','across vintages')+kp(myQueue.length,'Awaiting your co-approval','vintages');
+  if(r==='research'){const big=[...R.cma].sort((a,b)=>Math.abs(b.judge_minus_blend)-Math.abs(a.judge_minus_blend))[0];
+    k=kp(R.macro.regime.replace('_','-'),'Macro regime','confidence '+R.macro.confidence)+kp(R.cma.length,'Asset classes','CMAs produced')+kp(pp(big.judge_minus_blend),'Largest judge adjustment',esc(big.name))+kp(Object.keys(vs[0].candidates).length,'PC methods competing','per vintage');}
+  if(r==='mgr'){const ud=Object.values(U); k=kp(ud.length,'Underlying funds','building blocks')+kp(ud.filter(u=>u.uses_derivatives).length,'Use derivatives','FX hedge / futures')+kp(ud.filter(u=>u.liquidity==='daily').length+'/'+ud.length,'Daily liquidity','IPS §7.4')+kp(VINT.length,'Vintages served','2030–2070');}
+  if(r==='lead') k=kp(Math.max(pending,0),'Approvals outstanding','all roles')+kp(G.production_blockers.length,'Production blockers','see Compliance')+kp(co.status,'Compliance review','Agentic CO (draft)')+kp(VINT.length,'Vintages','in this run');
+  if(r==='compliance') k=kp(counts.FAIL,'Hard-limit FAILs','blocks approval')+kp(counts.WARN,'Warnings','need acknowledgment')+kp((co.attestations_pending||[]).length,'Attestations pending','need a named human')+kp(G.production_blockers.length,'Production blockers','unfilled roles etc.');
+  if(r==='audit') k=kp(L.length,'Decision records','this run')+kp(D.ledger_verification.ok?'Intact':'Broken','Hash chain',esc(D.ledger_verification.message))+kp(new Set(L.map(x=>x.actor.id)).size,'Distinct actors','agents + system')+kp(G.retention_years+' yrs','Retention applied','strictest regime');
+  const queue = ROLES[r].approverRole ? `<div class="card"><h2>My queue</h2>${myQueue.length?`<table><tr><th>Vintage</th><th>Proposal</th><th>Compliance</th><th></th></tr>${myQueue.map(v=>{const x=R.vintages[v];return `<tr><td>${v}</td><td>Equity ${pct(x.equity_final)} (${pp(x.equity_final-x.equity_neutral)} vs glide path), TE ${pct(x.te,2)}</td><td>${chip(x.compliance_summary.overall)}</td><td><button class="btn" data-open="${v}">Review</button></td></tr>`}).join('')}</table>`:'<div class="muted">Nothing waiting for you.</div>'}</div>`:'';
+  const blockers = (r==='lead'||r==='compliance')?`<div class="card"><h2>Production blockers</h2><ul>${G.production_blockers.map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div>`:'';
+  return `<p class="muted" style="margin-top:0">${intro}</p><div class="grid g4">${k}</div><div class="grid g2" style="margin-top:14px">${queue}${blockers}${vintageSummaryCard()}</div>`;
+};
+function vintageSummaryCard(){return `<div class="card"><h2>All vintages</h2><table><tr><th>Vintage</th><th class="num">Yrs</th><th class="num">Equity</th><th class="num">Tilt</th><th class="num">E[r]</th><th class="num">Vol</th><th>Status</th></tr>${VINT.map(v=>{const x=R.vintages[v];return `<tr class="click" data-open="${v}"><td>${v}</td><td class="num">${x.years_to_target.toFixed(1)}</td><td class="num">${pct(x.equity_final)}</td><td class="num">${pp(x.equity_final-x.equity_neutral)}</td><td class="num">${pct(x.exp_ret)}</td><td class="num">${pct(x.vol)}</td><td>${chip(x.compliance_summary.overall)}</td></tr>`}).join('')}</table></div>`}
+
+function vintageTabs(){return `<div class="vt-tabs" role="tablist">${VINT.map(v=>`<button class="${v===state.vintage?'active':''}" data-vt="${v}">${v}</button>`).join('')}</div>`}
+
+V.portfolios = () => {
+  const v=state.vintage, x=R.vintages[v], dr=cioRec(v), role=ROLES[state.role];
+  const rows=P.assets.map(a=>({a,n:x.neutral[a],f:x.final[a],d:x.final[a]-x.neutral[a]}));
+  const canApprove = role.approverRole && x.approvers.includes(role.approverRole);
+  return `${vintageTabs()}
+  <div class="grid g4">${[['Equity',pct(x.equity_final),'glide path '+pct(x.equity_neutral)],['Expected return',pct(x.exp_ret),'10-yr nominal'],['Volatility',pct(x.vol),'ex-ante'],['Tracking error',pct(x.te,2),'vs glide path, limit 1.50%']].map(([l,v1,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v1}</div><div class="s">${s}</div></div>`).join('')}</div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h2>Active weights vs glide path — ${v}</h2><div class="legend"><span><i style="background:var(--pos)"></i>Overweight</span><span><i style="background:var(--neg)"></i>Underweight</span></div><div class="chart" id="activeChart"></div>
+      <h3>Weights</h3><div class="scroll" style="max-height:300px"><table><tr><th>Asset class</th><th class="num">Glide path</th><th class="num">Proposed</th><th class="num">Active</th></tr>${rows.map(r=>`<tr><td>${esc(nm(r.a))}</td><td class="num">${pct(r.n)}</td><td class="num">${pct(r.f)}</td><td class="num">${pp(r.d)}</td></tr>`).join('')}</table></div></div>
+    <div class="card"><h2>Why this proposal?</h2>
+      <div class="why">${esc(x.rationale)}</div>
+      <h3>Ensemble chosen</h3><span class="chip info">${esc(x.ensemble)}</span>
+      <h3>What would make this wrong</h3><ul>${x.invalidation_conditions.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
+      <h3>Dissent (bottom-flagged by peers)</h3><div class="pill-list">${[...new Set((dr?dr.dissent:[]).map(d=>d.candidate))].map(c=>`<span class="chip warn">${esc(c)}</span>`).join('')||'<span class="muted">None</span>'}</div>
+      <h3>Compliance</h3>${chip(x.compliance_summary.overall)} <span class="small muted">${x.compliance_summary.PASS} pass · ${x.compliance_summary.WARN} warn · ${x.compliance_summary.FAIL} fail · ${x.compliance_summary.ATTEST} attest · ${x.compliance_summary.OFF} n/a</span>
+      <h3>Evidence</h3><div class="small">Decision record <a href="#" data-dr="${dr&&dr.dr_id}" class="mono">${dr?dr.dr_id:'—'}</a> · inputs: ${(dr?dr.inputs:[]).map(i=>`<a href="#" class="mono" data-dr="${i}">${i}</a>`).join(', ')}</div>
+      ${canApprove?approvalForm(v,role.approverRole):`<h3>Approvals</h3><div class="small muted">Requires: ${x.approvers.map(esc).join(', ')}</div>`}
+    </div>
+  </div>`;
+};
+function approvalForm(v,roleName){
+  const done=state.approvals.find(a=>a.vintage===v&&a.role===roleName);
+  if(done) return `<h3>Your decision</h3><div>${chip(done.decision.toUpperCase())} <span class="small">${esc(done.reason)}</span></div><h3>Record it in the ledger</h3><pre id="cmd">${esc(cmdFor(done))}</pre><button class="btn" id="copyCmd">Copy command</button>`;
+  return `<h3>Your decision (${esc(roleName)})</h3>
+  <div class="small muted" style="margin-bottom:6px">Read the rationale and dissent first. A reason is required.</div>
+  <label class="small"><input type="checkbox" id="ack" style="width:auto"> I read the rationale, dissent and compliance results</label>
+  <textarea id="reason" rows="3" placeholder="Reason for your decision" style="margin:8px 0"></textarea>
+  <div class="row"><button class="btn primary" data-decide="approve">Approve</button><button class="btn" data-decide="reject">Reject</button><button class="btn" data-decide="request_changes">Request changes</button></div>`;
+}
+function cmdFor(a){return `meridian approve runs/${R.run_id} --vintage ${a.vintage} --role ${a.role} --name "YOUR NAME" --decision ${a.decision} --reason "${a.reason.replace(/"/g,"'")}"`}
+
+V.glide = () => `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)})</h2>
+  <div class="legend">${[['Equity','--s1'],['Real assets','--s2'],['Fixed income','--s3'],['Cash','--s4']].map(([l,c])=>`<span><i style="background:var(${c})"></i>${l}</span>`).join('')}<span class="muted">· dots mark each vintage's position today</span></div>
+  <div class="chart" id="glideChart"></div></div>
+  <div class="card" style="margin-top:14px"><h2>Glide path anchors (% of fund)</h2><div class="scroll"><table><tr><th class="num">Yrs to target</th>${P.assets.map(a=>`<th class="num">${esc(nm(a))}</th>`).join('')}</tr>${P.anchors.map(r=>`<tr><td class="num">${r[0]}</td>${r.slice(1).map(x=>`<td class="num">${x}</td>`).join('')}</tr>`).join('')}</table></div></div>`;
+
+V.approvals = () => {
+  const role=ROLES[state.role];
+  const rows=[];VINT.forEach(v=>R.vintages[v].approvers.forEach(a=>{const d=state.approvals.find(x=>x.vintage===v&&x.role===a);rows.push(`<tr class="click" data-open="${v}"><td>${v}</td><td>${esc(a)}${a===role.approverRole?' <span class="chip info">you</span>':''}</td><td>${d?chip(d.decision.toUpperCase()):chip('pending')}</td><td class="small">${d?esc(d.reason):''}</td></tr>`)}));
+  const cmds=state.approvals.map(cmdFor).join('\n');
+  return `<div class="card"><h2>Approval queue</h2><p class="small muted">Approvals follow the IPS approval matrix (§10.4) and the strictest rule across selected entity types. The prototype records your decision in this browser; run the generated command to write it to the immutable ledger.</p>
+  <table><tr><th>Vintage</th><th>Approver role</th><th>Status</th><th>Reason</th></tr>${rows.join('')}</table></div>
+  ${cmds?`<div class="card" style="margin-top:14px"><h2>Commands to record your decisions</h2><pre>${esc(cmds)}</pre></div>`:''}`;
+};
+
+V.risk = () => {
+  const v=state.vintage,x=R.vintages[v];
+  const c=Object.entries(x.candidates);
+  return `${vintageTabs()}<div class="card"><h2>Candidate risk report — ${v} (CRO agent; neutral, does not vote)</h2>
+  <table><tr><th>Method</th><th class="num">E[r]</th><th class="num">Vol</th><th class="num">Sharpe</th><th class="num">TE</th><th>TE vs limit</th><th>Compliance</th></tr>
+  ${c.map(([k,m])=>`<tr><td>${esc(k)}</td><td class="num">${pct(m.exp_ret)}</td><td class="num">${pct(m.vol)}</td><td class="num">${m.sharpe.toFixed(2)}</td><td class="num">${pct(m.te,2)}</td><td>${bar(m.te/0.015)}</td><td>${chip(m.compliance)}</td></tr>`).join('')}
+  <tr style="font-weight:700"><td>Final (CIO ensemble)</td><td class="num">${pct(x.exp_ret)}</td><td class="num">${pct(x.vol)}</td><td class="num">—</td><td class="num">${pct(x.te,2)}</td><td>${bar(x.te/0.015)}</td><td>${chip(x.compliance_summary.overall)}</td></tr></table></div>
+  <div class="grid g2" style="margin-top:14px"><div class="card"><h2>Simulated history (hypothetical)</h2><table><tr><th></th><th class="num">Ann. return</th><th class="num">Vol</th><th class="num">Max DD</th><th class="num">Worst 12m</th></tr>
+  ${[['Proposed',x.backtest],['Glide path',x.backtest_neutral]].map(([l,b])=>`<tr><td>${l}</td><td class="num">${pct(b.ann_return)}</td><td class="num">${pct(b.ann_vol)}</td><td class="num">${pct(b.max_drawdown)}</td><td class="num">${pct(b.worst_12m)}</td></tr>`).join('')}</table>
+  <div class="small muted" style="margin-top:8px">Backtests are hypothetical and may carry look-ahead bias (IPS §9.5).</div></div>
+  <div class="card"><h2>Limit proximity — final proposal</h2><table>${x.compliance.filter(r=>typeof r.measured==='number'&&typeof r.limit==='number'&&r.status!=='OFF'&&!['sum_to_one','long_only'].includes(r.kind)).map(r=>`<tr><td class="mono">${esc(r.rule_id)}</td><td>${bar(Math.abs(r.measured)/Math.abs(r.limit||1))}</td><td class="num small">${fmtRule(r)}</td><td>${chip(r.status)}</td></tr>`).join('')}</table></div></div>`;
+};
+function bar(f){f=Math.max(0,Math.min(1.2,f||0));const c=f>1?'var(--crit)':f>0.8?'var(--warn)':'var(--good)';return `<div style="height:8px;background:var(--surface-2);border-radius:4px;min-width:90px" title="${Math.round(f*100)}% of limit"><div style="height:8px;width:${Math.min(f,1)*100}%;background:${c};border-radius:4px"></div></div>`}
+function fmtRule(r){const m=r.measured,l=r.limit;if(/BAND-/.test(r.rule_id))return `${(+m).toFixed(2)}pp / ${l}pp`;if(r.kind==='volatility_vs_neutral')return `${(+m).toFixed(2)}× / ${l}×`;return `${pct(m,2)} / ${pct(l,2)}`}
+
+V.cma = () => `<div class="card"><h2>10-year capital market assumptions</h2><p class="small muted">Candidates are computed in code; the CMA judge agent weights them; the final value is clipped to the range of the methods. Click a row to see the judge's reasoning.</p>
+  <div class="scroll"><table><tr><th>Asset class</th><th class="num">Historical</th><th class="num">Equilibrium</th><th class="num">Valuation / yield</th><th class="num">Regime-adj.</th><th class="num">Auto-blend</th><th class="num">Judge</th><th class="num">Judge − blend</th><th class="num">Vol</th></tr>
+  ${R.cma.map(c=>`<tr class="click" data-cma="${c.asset}"><td>${esc(c.name)}</td><td class="num">${pct(c.historical)}</td><td class="num">${pct(c.equilibrium)}</td><td class="num">${pct(c.building_block??c.yield_based)}</td><td class="num">${pct(c.regime_adjusted)}</td><td class="num">${pct(c.auto_blend)}</td><td class="num"><b>${pct(c.judge)}</b></td><td class="num">${pp(c.judge_minus_blend)}</td><td class="num">${pct(c.vol)}</td></tr>`).join('')}</table></div>
+  <div id="cmaWhy" style="margin-top:12px"></div></div>
+  <div class="card" style="margin-top:14px"><h2>Macro regime</h2><div class="row">${Object.entries(R.macro.scores).map(([k,v])=>`<span class="chip">${esc(k.replace('_',' '))}: ${v}</span>`).join('')}</div><div class="why" style="margin-top:10px">${esc(R.macro.rationale)}</div></div>`;
+
+V.agents = () => {
+  const v=state.vintage,x=R.vintages[v]; const vote=L.find(r=>r.step==='pc-review.borda-vote'&&r.portfolio_scope.includes('MTRS-'+v));
+  return `${vintageTabs()}<div class="grid g2"><div class="card"><h2>Ranking — ${v}</h2><p class="small muted">Modified Borda vote (top-3 = 3/2/1, bottom flag −2) blended with a metric composite.</p>
+  <table><tr><th>#</th><th>Method</th><th class="num">Votes</th><th class="num">Composite</th></tr>${x.ranking.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.method)}</td><td class="num">${r.votes>0?'+':''}${r.votes}</td><td class="num">${r.composite.toFixed(3)}</td></tr>`).join('')}</table></div>
+  <div class="card"><h2>Ballots</h2><table><tr><th>Voter</th><th>Lens</th><th>Top 3</th><th>Bottom flag</th></tr>${(vote?vote.output.ballots:[]).map(b=>`<tr><td>${esc(b.voter)}</td><td class="small">${esc(b.lens)}</td><td class="small">${b.top.map(esc).join(', ')}</td><td class="small">${esc(b.bottom_flag)}</td></tr>`).join('')}</table></div></div>`;
+};
+
+V.funds = () => {
+  const ud=Object.entries(U);
+  return `<div class="card"><h2>Underlying building-block funds</h2><p class="small muted">Each asset class is implemented through one underlying fund. Weights shown per vintage (proposed). Manager due-diligence and look-through workflows plug in here (roadmap Phase 5).</p>
+  <div class="scroll"><table><tr><th>Asset class</th><th>Benchmark</th><th>Pilot proxy</th><th>Liquidity</th><th>Derivatives</th>${VINT.map(v=>`<th class="num">${v}</th>`).join('')}</tr>
+  ${ud.map(([k,u])=>`<tr><td>${esc(u.name)}</td><td class="small">${esc(u.benchmark)}</td><td class="mono">${esc(u.identifiers.proxy_etf)}</td><td>${esc(u.liquidity)}</td><td>${u.uses_derivatives?'<span class="chip warn">yes</span>':'—'}</td>${VINT.map(v=>`<td class="num">${pct(R.vintages[v].final[k])}</td>`).join('')}</tr>`).join('')}</table></div></div>
+  <div class="grid g3" style="margin-top:14px">${['Watch list','Due-diligence queue','Manager events'].map(t=>`<div class="card"><h2>${t}</h2><div class="muted small">No items. Populated by manager-research agents once the manager-selection pipeline is enabled.</div></div>`).join('')}</div>`;
+};
+
+V.memo = () => `<div class="card md">${md(D.board_memo_md)}</div>`;
+V.report = () => `<div class="card md">${md(D.compliance_report_md)}</div>`;
+
+V.compliance = () => {
+  const rules=P.rules.map(r=>r.id);
+  const cell=(v,id)=>{const r=R.vintages[v].compliance.find(x=>x.rule_id===id);return r?`<td title="${esc(r.detail||'')}">${r.status==='OFF'?'<span class="muted small">n/a</span>':chip(r.status)}</td>`:'<td></td>'};
+  return `<div class="card"><h2>Rule results by vintage</h2><p class="small muted">Deterministic rule engine. Agents can explain results but cannot change them. "n/a" = rule not applicable to the selected entity types.</p>
+  <div class="scroll"><table><tr><th>Rule</th><th>IPS</th><th>Severity</th>${VINT.map(v=>`<th>${v}</th>`).join('')}</tr>${P.rules.map(r=>`<tr><td class="mono">${esc(r.id)}</td><td class="small">${esc(r.ips)}</td><td class="small">${esc(r.severity)}</td>${VINT.map(v=>cell(v,r.id)).join('')}</tr>`).join('')}</table></div></div>
+  <div class="grid g2" style="margin-top:14px"><div class="card"><h2>Attestations awaiting a human</h2>${(co.attestations_pending||[]).map(a=>{const r=P.rules.find(x=>x.id===a);return `<div style="margin-bottom:8px"><span class="mono">${esc(a)}</span><div class="small">${esc(r&&r.text)}</div></div>`}).join('')||'<span class="muted">None</span>'}</div>
+  <div class="card"><h2>Entity regimes in force</h2><div class="pill-list">${G.selected.map(s=>`<span class="chip info">${esc(s)}</span>`).join('')}</div><h3>Retention</h3>${G.retention_years} years<h3>Required human roles</h3><table>${G.required_roles.map(r=>`<tr><td>${esc(r)}</td><td>${G.human_roles[r]?esc(G.human_roles[r]):'<span class="chip crit">unfilled</span>'}</td></tr>`).join('')}</table></div></div>
+  <div class="card" style="margin-top:14px"><h2>Obligations mapped</h2><div class="scroll" style="max-height:340px"><table><tr><th>ID</th><th>Citation</th><th>Requirement</th><th>Regime</th></tr>${G.obligations.map(o=>`<tr><td class="mono">${esc(o.id)}</td><td class="small">${esc(o.cite)}</td><td class="small">${esc(o.summary)}</td><td class="small">${esc(o.regime)}</td></tr>`).join('')}</table></div><div class="small muted" style="margin-top:6px">Citations are a design aid pending counsel review.</div></div>`;
+};
+
+V.ledger = () => {
+  const f=state.ledgerFilter.toLowerCase();
+  const rows=L.filter(r=>!f||[r.dr_id,r.step,r.summary,r.actor.id,r.dr_type,(r.portfolio_scope||[]).join(' ')].join(' ').toLowerCase().includes(f));
+  const sel=state.ledgerSel?drById(state.ledgerSel):null;
+  return `<div class="card"><h2>Decision ledger</h2><p class="small muted">Every signal, decision and approval in this run. Hash-chained: ${D.ledger_verification.ok?'<span class="chip good">verified</span>':'<span class="chip crit">FAILED</span>'} <span class="mono">${esc(D.ledger_verification.message)}</span></p>
+  <div class="filters"><input id="lf" placeholder="Search step, actor, vintage, record ID…" value="${esc(state.ledgerFilter)}"><span class="small muted" style="align-self:center">${rows.length} of ${L.length}</span></div>
+  <div class="grid" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)"><div class="scroll"><table><tr><th>#</th><th>Type</th><th>Step</th><th>Summary</th></tr>${rows.map(r=>`<tr class="click ${sel&&sel.dr_id===r.dr_id?'sel':''}" data-dr="${r.dr_id}"><td class="small">${L.indexOf(r)+1}</td><td class="small">${esc(r.dr_type)}</td><td class="small mono">${esc(r.step)}</td><td class="small">${esc(r.summary)}</td></tr>`).join('')}</table></div>
+  <div>${sel?drDetail(sel):'<div class="muted">Select a record to see its full content, inputs and hash links.</div>'}</div></div></div>`;
+};
+function drDetail(r){return `<div class="card" style="box-shadow:none"><h2 class="mono">${esc(r.dr_id)}</h2>
+  <table><tr><td>Type</td><td>${esc(r.dr_type)}</td></tr><tr><td>Step</td><td class="mono">${esc(r.step)}</td></tr><tr><td>Actor</td><td>${esc(r.actor.id)} <span class="small muted">${esc(r.actor.model||r.actor.kind||'')} ${esc(r.actor.prompt_hash||'')}</span></td></tr>
+  <tr><td>Policy</td><td class="mono">${esc(r.policy_version)}</td></tr><tr><td>Scope</td><td>${(r.portfolio_scope||[]).map(esc).join(', ')||'—'}</td></tr><tr><td>Created</td><td class="small">${esc(r.created_at)}</td></tr>
+  <tr><td>Inputs</td><td>${(r.inputs||[]).map(i=>`<a href="#" class="mono small" data-dr="${i}">${i}</a>`).join('<br>')||'—'}</td></tr>
+  <tr><td>Prev hash</td><td class="mono small">${esc(r.prev_hash.slice(0,24))}…</td></tr><tr><td>Record hash</td><td class="mono small">${esc(r.record_hash.slice(0,24))}…</td></tr></table>
+  ${r.rationale?`<h3>Rationale</h3><div class="why">${esc(r.rationale)}</div>`:''}<h3>Full record</h3><pre>${esc(JSON.stringify(r,null,2))}</pre></div>`}
+
+// --------------------------------------------------------------- charts (SVG, hover tooltips)
+function glideChart(){
+  const el=$('#glideChart'); if(!el) return; const W=el.clientWidth||900,H=330,m={l:44,r:16,t:10,b:44};
+  const grp=[['Equity',P.groups.equity,'--s1'],['Real assets',P.groups.real_assets,'--s2'],['Fixed income',P.groups.fixed_income,'--s3'],['Cash',['cash'],'--s4']];
+  const an=[...P.anchors].sort((a,b)=>a[0]-b[0]); const ys=[]; for(let y=45;y>=-7;y-=0.5) ys.push(y);
+  const interp=(y)=>{const yy=Math.max(an[0][0],Math.min(an[an.length-1][0],y));let i=0;while(i<an.length-2&&an[i+1][0]<yy)i++;const a=an[i],b=an[i+1];const t=(yy-a[0])/((b[0]-a[0])||1);return P.assets.map((_,j)=>(a[j+1]+(b[j+1]-a[j+1])*t)/100)};
+  const comp=y=>{const w=interp(y);return grp.map(g=>g[1].reduce((s,a)=>s+w[P.assets.indexOf(a)],0))};
+  const X=y=>m.l+(45-y)/(52)*(W-m.l-m.r), Y=v=>m.t+(1-v)*(H-m.t-m.b);
+  let svg=`<svg width="${W}" height="${H}" role="img" aria-label="Glide path stacked area chart">`;
+  for(const g of [0,.25,.5,.75,1]) svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(g)}" y2="${Y(g)}" stroke="var(--line)"/><text x="${m.l-6}" y="${Y(g)+4}" text-anchor="end">${g*100}%</text>`;
+  for(const t of [40,30,20,10,0,-7]) svg+=`<text x="${X(t)}" y="${H-m.b+16}" text-anchor="middle">${t}</text>`;
+  svg+=`<text x="${(W)/2}" y="${H-1}" text-anchor="middle">Years to target date</text>`;
+  const C=ys.map(comp); let base=ys.map(()=>0);
+  grp.forEach((g,gi)=>{const top=base.map((b,i)=>b+C[i][gi]);
+    const d='M'+ys.map((y,i)=>`${X(y)},${Y(top[i])}`).join('L')+'L'+[...ys].reverse().map((y,i)=>`${X(y)},${Y(base[ys.length-1-i])}`).join('L')+'Z';
+    svg+=`<path d="${d}" fill="var(${g[2]})" stroke="var(--surface)" stroke-width="2"/>`; base=top;});
+  VINT.forEach(v=>{const y=R.vintages[v].years_to_target, eq=R.vintages[v].equity_neutral;svg+=`<circle cx="${X(y)}" cy="${Y(eq)}" r="5" fill="var(--surface)" stroke="var(--text)" stroke-width="2"/><text x="${X(y)}" y="${Y(eq)-9}" text-anchor="middle" style="fill:var(--text);font-weight:600">${v}</text>`});
+  svg+=`<line id="gx" y1="${m.t}" y2="${H-m.b}" stroke="var(--text-2)" stroke-dasharray="3 3" style="display:none"/><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent" id="ghit"/></svg><div class="tip" id="gtip"></div>`;
+  el.innerHTML=svg; const hit=el.querySelector('#ghit'),tip=el.querySelector('#gtip'),gx=el.querySelector('#gx');
+  hit.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();const px=e.clientX-r.left;const y=Math.round((45-(px-m.l)/(W-m.l-m.r)*52)*2)/2;const c=comp(y);
+    gx.setAttribute('x1',X(y));gx.setAttribute('x2',X(y));gx.style.display='';tip.style.display='block';tip.style.left=Math.min(px+12,W-170)+'px';tip.style.top='20px';
+    tip.innerHTML=`<b>${y} yrs to target</b>${grp.map((g,i)=>`<div><i style="display:inline-block;width:8px;height:8px;background:var(${g[2]});border-radius:2px;margin-right:6px"></i>${g[0]}: ${pct(c[i])}</div>`).join('')}`});
+  hit.addEventListener('mouseleave',()=>{tip.style.display='none';gx.style.display='none'});
+}
+function activeChart(){
+  const el=$('#activeChart'); if(!el) return; const x=R.vintages[state.vintage];
+  const rows=P.assets.map(a=>({a,d:x.final[a]-x.neutral[a],n:x.neutral[a],f:x.final[a]})).sort((p,q)=>q.d-p.d);
+  const W=el.clientWidth||520,rh=22,H=rows.length*rh+20,lw=205,max=Math.max(0.03,...rows.map(r=>Math.abs(r.d)));
+  const cx=lw+(W-lw-10)/2, S=v=>v/max*((W-lw-10)/2);
+  let svg=`<svg width="${W}" height="${H}" role="img" aria-label="Active weights bar chart"><line x1="${cx}" x2="${cx}" y1="0" y2="${H-14}" stroke="var(--mid)"/>`;
+  rows.forEach((r,i)=>{const y=i*rh+4,w=Math.abs(S(r.d)),x0=r.d>=0?cx:cx-w;
+    svg+=`<text x="${lw-8}" y="${y+12}" text-anchor="end" style="fill:var(--text-2)">${esc(nm(r.a))}</text><rect x="${x0}" y="${y+2}" width="${Math.max(w,1)}" height="14" rx="4" fill="var(${r.d>=0?'--pos':'--neg'})"/>
+    <rect x="${lw}" y="${y}" width="${W-lw}" height="${rh}" fill="transparent" data-i="${i}" class="ah"/>`});
+  svg+=`<text x="${cx}" y="${H-2}" text-anchor="middle">0</text><text x="${W-10}" y="${H-2}" text-anchor="end">${pp(max)}</text><text x="${lw}" y="${H-2}">${pp(-max)}</text></svg><div class="tip" id="atip"></div>`;
+  el.innerHTML=svg; const tip=el.querySelector('#atip');
+  el.querySelectorAll('.ah').forEach(h=>{h.addEventListener('mousemove',e=>{const r=rows[+h.dataset.i],b=el.getBoundingClientRect();tip.style.display='block';tip.style.left=Math.min(e.clientX-b.left+12,W-170)+'px';tip.style.top=(e.clientY-b.top+10)+'px';tip.innerHTML=`<b>${esc(nm(r.a))}</b>Glide path ${pct(r.n)}<br>Proposed ${pct(r.f)}<br>Active ${pp(r.d)}`});h.addEventListener('mouseleave',()=>tip.style.display='none')});
+}
+
+// --------------------------------------------------------------- markdown (subset)
+function md(src){const out=[];const lines=src.split('\n');let i=0;const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  while(i<lines.length){const l=lines[i];
+    if(/^#{1,4} /.test(l)){const n=l.match(/^#+/)[0].length;out.push(`<h${n}>${inl(l.slice(n+1))}</h${n}>`);i++;continue}
+    if(l.startsWith('|')){const t=[];while(i<lines.length&&lines[i].startsWith('|')){t.push(lines[i]);i++}const cells=r=>r.split('|').slice(1,-1).map(c=>c.trim());
+      out.push('<table><tr>'+cells(t[0]).map(c=>`<th>${inl(c)}</th>`).join('')+'</tr>'+t.slice(2).map(r=>'<tr>'+cells(r).map(c=>`<td>${inl(c)}</td>`).join('')+'</tr>').join('')+'</table>');continue}
+    if(l.startsWith('- ')){const t=[];while(i<lines.length&&lines[i].startsWith('- ')){t.push(`<li>${inl(lines[i].slice(2))}</li>`);i++}out.push('<ul>'+t.join('')+'</ul>');continue}
+    if(l.startsWith('> ')){out.push(`<blockquote>${inl(l.slice(2))}</blockquote>`);i++;continue}
+    if(l.trim()){out.push(`<p>${inl(l)}</p>`)}i++}
+  return out.join('')}
+
+// --------------------------------------------------------------- render + events
+function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();glideChart();activeChart()}
+function bind(){
+  document.querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.open;state.tab=ROLES[state.role].tabs.includes('portfolios')?'portfolios':ROLES[state.role].tabs.includes('risk')?'risk':state.tab;render()});
+  document.querySelectorAll('[data-vt]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.vt;render()});
+  document.querySelectorAll('[data-dr]').forEach(e=>e.onclick=(ev)=>{ev.preventDefault();if(!e.dataset.dr||e.dataset.dr==='null')return;
+    if(!ROLES[state.role].tabs.includes('ledger')){toast('The ledger opens in the Compliance and Audit workspaces. Record: '+e.dataset.dr);return}
+    state.ledgerSel=e.dataset.dr;state.tab='ledger';render()});
+  document.querySelectorAll('[data-cma]').forEach(e=>e.onclick=()=>{const a=e.dataset.cma;const r=L.find(x=>x.step===`ac-${a}.cma-judge`);
+    $('#cmaWhy').innerHTML=r?`<h3>${esc(nm(a))} — judge reasoning</h3><div class="why">${esc(r.rationale)}</div><div class="small" style="margin-top:6px">Method weights: ${Object.entries(r.output.weights).map(([k,v])=>`${esc(k)} ${(v*100).toFixed(0)}%`).join(' · ')} · path: ${esc(r.output.judge_path)} · record <span class="mono">${r.dr_id}</span></div>`:''});
+  const lf=$('#lf'); if(lf){lf.oninput=()=>{state.ledgerFilter=lf.value;const pos=lf.selectionStart;render();const n=$('#lf');n.focus();n.setSelectionRange(pos,pos)}}
+  document.querySelectorAll('[data-decide]').forEach(b=>b.onclick=()=>{const reason=$('#reason').value.trim();
+    if(!$('#ack').checked){toast('Confirm you read the rationale, dissent and compliance results.');return}
+    if(reason.length<10){toast('Please give a reason (at least 10 characters).');return}
+    if(b.dataset.decide==='approve'&&R.vintages[state.vintage].compliance_summary.FAIL>0){toast('Blocked: a hard limit FAILED. Approval is not possible.');return}
+    state.approvals.push({vintage:state.vintage,role:ROLES[state.role].approverRole,decision:b.dataset.decide,reason});toast('Decision recorded in this session.');render()});
+  const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
+}
+window.addEventListener('resize',()=>{glideChart();activeChart()});
+render();
+</script>
+</body>
+</html>

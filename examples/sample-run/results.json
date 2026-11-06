@@ -1,5 +1,5 @@
 {
-  "run_id": "run_tds_20261031_bcb3a0",
+  "run_id": "run_tds_20261031_64181e",
   "as_of": "2026-10-31",
   "macro": {
     "regime": "late_cycle",
@@ -348,12 +348,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.952034,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -417,11 +417,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -689,12 +689,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.9523,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -758,11 +758,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -1030,12 +1030,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.953992,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -1099,11 +1099,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -1371,12 +1371,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.954627,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -1440,11 +1440,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -1712,12 +1712,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.957108,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -1781,11 +1781,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -2053,12 +2053,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.957966,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -2122,11 +2122,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -2394,12 +2394,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.957541,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -2463,11 +2463,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -2735,12 +2735,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.956967,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -2804,11 +2804,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [
@@ -3076,12 +3076,12 @@
         {
           "rule_id": "RISK-VOL-BAND",
           "kind": "volatility_vs_neutral",
-          "status": "OFF",
-          "measured": null,
-          "limit": null,
+          "status": "PASS",
+          "measured": 0.956768,
+          "limit": 1.15,
           "severity": "warn",
           "ips": "\u00a76.4",
-          "detail": "Not applicable to selected entity types"
+          "detail": ""
         },
         {
           "rule_id": "LIQ-DAILY",
@@ -3145,11 +3145,11 @@
         }
       ],
       "compliance_summary": {
-        "PASS": 14,
+        "PASS": 15,
         "WARN": 0,
         "FAIL": 0,
         "ATTEST": 3,
-        "OFF": 1,
+        "OFF": 0,
         "overall": "PASS (attestations pending)"
       },
       "ranking": [

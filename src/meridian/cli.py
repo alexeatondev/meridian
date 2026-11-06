@@ -25,6 +25,18 @@ def main(argv=None):
     r.add_argument("--as-of", default="2026-10-31")
     r.add_argument("--entities", nargs="*")
 
+    u = sub.add_parser("ui", help="build the role-based Meridian Console for a run")
+    u.add_argument("run_dir", type=Path, nargs="?")
+    u.add_argument("--out", type=Path)
+
+    ap = sub.add_parser("approve", help="record a human approval decision in a run's ledger")
+    ap.add_argument("run_dir", type=Path)
+    ap.add_argument("--vintage", type=int, required=True)
+    ap.add_argument("--role", required=True)
+    ap.add_argument("--name", required=True)
+    ap.add_argument("--decision", choices=["approve", "reject", "request_changes"], required=True)
+    ap.add_argument("--reason", required=True)
+
     v = sub.add_parser("verify", help="verify a run's ledger integrity")
     v.add_argument("ledger", type=Path)
 
@@ -53,6 +65,13 @@ def main(argv=None):
         from .pipelines.target_date import run
         res = run(as_of=a.as_of, selected_entities=a.entities or None)
         print(f"run {res.run_id}\n  memo: {res.memo_path}\n  compliance: {res.compliance_report_path}\n  ledger: {res.ledger_ok}")
+    elif a.cmd == "ui":
+        from .ui.build import build
+        run_dir = a.run_dir or max((p for p in (Path("runs")).glob("run_*")), key=lambda p: p.stat().st_mtime)
+        print(build(run_dir, a.out))
+    elif a.cmd == "approve":
+        from .approvals import record_decision
+        print(record_decision(a.run_dir, a.vintage, a.role, a.name, a.decision, a.reason))
     elif a.cmd == "verify":
         ok, msg = verify(a.ledger)
         print(("OK " if ok else "FAILED ") + msg)

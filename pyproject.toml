@@ -23,12 +23,16 @@ snowflake = ["snowflake-connector-python>=3.6"]
 bloomberg = ["blpapi"]          # install from Bloomberg's package index
 factset = ["requests>=2.31"]
 dev = ["pytest>=8", "ruff>=0.5"]
+notebooks = ["jupyterlab>=4", "matplotlib>=3.8", "nbformat>=5", "nbclient>=0.10"]
 
 [project.scripts]
 meridian = "meridian.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+meridian = ["ui/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

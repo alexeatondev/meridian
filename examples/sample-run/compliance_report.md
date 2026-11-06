@@ -1,9 +1,9 @@
-# Compliance Review — run_tds_20261031_bcb3a0
+# Compliance Review — run_tds_20261031_64181e
 
 **Prepared by:** Agentic Compliance Officer (ACO) — AI agent. **Status: DRAFT.** Not an attestation by a Chief Compliance Officer.
 
 **Overall status:** CONDITIONAL
-**Ledger integrity:** OK — verified 116 records; head 73340997b2dd
+**Ledger integrity:** OK — verified 116 records; head 00d9607303ce
 
 ## Entity regimes in force
 
@@ -56,15 +56,15 @@ Record retention applied: **6 years** (strictest selected regime).
 
 | Vintage | PASS | WARN | FAIL | ATTEST | OFF |
 |---|---|---|---|---|---|
-| 2030 | 14 | 0 | 0 | 3 | 1 |
-| 2035 | 14 | 0 | 0 | 3 | 1 |
-| 2040 | 14 | 0 | 0 | 3 | 1 |
-| 2045 | 14 | 0 | 0 | 3 | 1 |
-| 2050 | 14 | 0 | 0 | 3 | 1 |
-| 2055 | 14 | 0 | 0 | 3 | 1 |
-| 2060 | 14 | 0 | 0 | 3 | 1 |
-| 2065 | 14 | 0 | 0 | 3 | 1 |
-| 2070 | 14 | 0 | 0 | 3 | 1 |
+| 2030 | 15 | 0 | 0 | 3 | 0 |
+| 2035 | 15 | 0 | 0 | 3 | 0 |
+| 2040 | 15 | 0 | 0 | 3 | 0 |
+| 2045 | 15 | 0 | 0 | 3 | 0 |
+| 2050 | 15 | 0 | 0 | 3 | 0 |
+| 2055 | 15 | 0 | 0 | 3 | 0 |
+| 2060 | 15 | 0 | 0 | 3 | 0 |
+| 2065 | 15 | 0 | 0 | 3 | 0 |
+| 2070 | 15 | 0 | 0 | 3 | 0 |
 
 ## Attestations awaiting a human
 
