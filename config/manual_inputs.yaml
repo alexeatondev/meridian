@@ -10,3 +10,21 @@ fundamentals.valuation:
     earnings_growth: null
     source: "Multpl, Shiller CAPE by month (Robert Shiller data), monthly reading Oct 2026"
     as_of: "2026-10-31"
+
+# Effective and credit-spread duration of each building block (years). Used for portfolio duration,
+# spread duration and rate/spread stress tests. Holdings look-through (iShares) overrides these when it
+# carries per-line durations; vendor feeds (Bloomberg/FactSet via Snowflake) override both when plugged in.
+fund.characteristics:
+  us_large_cap:      {eff_duration: 0.0, spread_duration: 0.0, source: "Equity — no duration", as_of: "2026-10-31"}
+  us_small_mid_cap:  {eff_duration: 0.0, spread_duration: 0.0, source: "Equity — no duration", as_of: "2026-10-31"}
+  intl_developed_eq: {eff_duration: 0.0, spread_duration: 0.0, source: "Equity — no duration", as_of: "2026-10-31"}
+  emerging_eq:       {eff_duration: 0.0, spread_duration: 0.0, source: "Equity — no duration", as_of: "2026-10-31"}
+  global_reits:      {eff_duration: 0.0, spread_duration: 0.0, source: "Equity (REITs) — no duration", as_of: "2026-10-31"}
+  commodities:       {eff_duration: 0.0, spread_duration: 0.0, source: "Commodity futures; T-bill collateral duration treated as 0", as_of: "2026-10-31"}
+  us_core_bond:      {eff_duration: 6.0, spread_duration: 3.1, source: "Pilot estimate: Bloomberg US Agg-type fund ~6 yrs; spread duration ≈ non-Treasury share (~52%) × duration. Replace with vendor data.", as_of: "2026-10-31"}
+  us_long_treasury:  {eff_duration: 15.5, spread_duration: 0.0, source: "Pilot estimate: Bloomberg US Long Treasury ~15–16 yrs; Treasuries carry no credit spread duration", as_of: "2026-10-31"}
+  us_tips_short:     {eff_duration: 2.4, spread_duration: 0.0, source: "iShares 0-5 Yr TIPS (same index as VTIP): effective duration ≈2.4 yrs (BlackRock fact sheet, Aug 2026)", as_of: "2026-08-31"}
+  us_high_yield:     {eff_duration: 3.3, spread_duration: 3.3, source: "Pilot estimate: US HY index ~3–3.5 yrs; all lines carry spread duration", as_of: "2026-10-31"}
+  intl_bond_hedged:  {eff_duration: 6.2, spread_duration: 2.4, source: "iShares IAGG effective duration 6.21 yrs (ishares.com, Oct 23 2026); spread duration ≈ non-government share (~39%) × duration", as_of: "2026-10-23"}
+  em_debt:           {eff_duration: 7.0, spread_duration: 7.0, source: "Pilot estimate: JPM EMBI GD ~7 yrs; USD sovereign spreads", as_of: "2026-10-31"}
+  cash:              {eff_duration: 0.1, spread_duration: 0.0, source: "0-3 month Treasury bills", as_of: "2026-10-31"}

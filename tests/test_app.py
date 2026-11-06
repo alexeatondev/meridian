@@ -107,6 +107,17 @@ def test_end_to_end(client, run_dir):
     assert ev.status_code == 200 and ev.json()["integrity"]["ok"]
 
 
+def test_risk_history_export(client, run_dir):
+    client.post("/api/ingest", headers={"Authorization": "Bearer test-ingest-token"},
+                files={"bundle": ("b.tgz", bundle(run_dir))})
+    assert client.get("/api/export/risk-history.csv").status_code == 401
+    r = client.get("/api/export/risk-history.csv", headers={"Authorization": "Bearer test-ingest-token"})
+    assert r.status_code == 200
+    import pandas as pd
+    df = pd.read_csv(io.StringIO(r.text))
+    assert {"total_risk", "active_var", "factor:equity", "factor:specific"} <= set(df["metric"]) and df["vintage"].nunique() == 9
+
+
 def test_origin_verify_blocks_direct_access(client, monkeypatch):
     monkeypatch.setenv("ORIGIN_VERIFY", "s3cret")
     assert client.get("/login").status_code == 403

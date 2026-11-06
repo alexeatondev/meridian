@@ -296,6 +296,13 @@ def export_positions(request: Request):
         return PlainTextResponse(store().positions_csv(Path(d) / "p.csv").read_text(), media_type="text/csv")
 
 
+@app.get("/api/export/risk-history.csv")
+def export_risk_history(request: Request):
+    _machine(request)
+    with tempfile.TemporaryDirectory() as d:
+        return PlainTextResponse(store().risk_history_csv(Path(d) / "r.csv").read_text(), media_type="text/csv")
+
+
 @app.get("/api/export/policy-overrides")
 def export_overrides(request: Request):
     _machine(request)

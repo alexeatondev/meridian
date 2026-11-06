@@ -31,7 +31,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-2
-      - name: Pull approved positions and policy overrides from the app
+      - name: Pull approved positions, recorded risk history and policy overrides from the app
         if: vars.AWS_DEPLOY_ROLE_ARN != ''
         run: |
           set -euo pipefail
@@ -43,6 +43,8 @@ jobs:
           mkdir -p data/positions
           curl -fsS -H "Authorization: Bearer $TOKEN" "$APP/api/export/positions.csv" -o data/positions/history.csv
           curl -fsS -H "Authorization: Bearer $TOKEN" "$APP/api/export/policy-overrides" -o overrides.json
+          mkdir -p data/risk
+          curl -fsS -H "Authorization: Bearer $TOKEN" "$APP/api/export/risk-history.csv" -o data/risk/history.csv || rm -f data/risk/history.csv
           python - <<'PY'
           import json
           from ruamel.yaml import YAML

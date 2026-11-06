@@ -1,0 +1,80 @@
+# Risk analytics configuration (risk team owns this file; changes are reviewed like policy).
+# Everything here is editable without code: factors, VaR settings, history length, stress scenarios.
+
+risk_model:
+  # Same estimator as portfolio construction so total risk / tracking error tie out across screens.
+  covariance: ledoit_wolf          # ledoit_wolf | sample
+  window: expanding                # expanding = all common history up to each date; or an integer number of months
+  history_months: 18               # length of the risk time series and factor history
+  var:
+    confidence: 0.95
+    horizon_months: 1              # VaR horizon; parametric (normal) VaR on the risk model's volatility
+    method: parametric_normal
+  # Spread duration counts every bond line whose sector is NOT in this list (government/cash lines carry
+  # rate duration only). Used when holdings look-through supplies per-line durations.
+  government_sectors: [Treasuries, Treasury, Government, Cash and/or Derivatives, Money Market, Cash, Cash Collateral and Margins]
+
+# Systematic factors, built from the excess returns (over cash) of the asset-class proxies.
+# definition: {asset_id: coefficient}. hedge_rates: true subtracts a duration-matched position in
+# us_long_treasury so the factor isolates spread / breakeven risk from interest-rate risk.
+# family groups factors for charts. Vendor factor models (Barra, Axioma, Bloomberg PORT) can replace this
+# block later by routing a factors.monthly dataset in config/data_sources.yaml.
+factors:
+  - {id: equity,      name: Global equity market,          family: Equity,      definition: {us_large_cap: 0.6, intl_developed_eq: 0.3, emerging_eq: 0.1}}
+  - {id: size,        name: Size (US small/mid vs large),   family: Equity,      definition: {us_small_mid_cap: 1, us_large_cap: -1}}
+  - {id: non_us_dev,  name: Non-US developed vs US,         family: Equity,      definition: {intl_developed_eq: 1, us_large_cap: -1}}
+  - {id: em_equity,   name: Emerging vs developed equity,   family: Equity,      definition: {emerging_eq: 1, intl_developed_eq: -1}}
+  - {id: rates,       name: US interest rates (duration),   family: Rates,       definition: {us_long_treasury: 1}}
+  - {id: credit,      name: Credit spread (high yield),     family: Credit,      definition: {us_high_yield: 1}, hedge_rates: true}
+  - {id: em_spread,   name: EM sovereign spread,            family: Credit,      definition: {em_debt: 1}, hedge_rates: true}
+  - {id: inflation,   name: Inflation (breakeven),          family: Inflation,   definition: {us_tips_short: 1}, hedge_rates: true}
+  - {id: real_estate, name: Real estate vs equity,          family: Real assets, definition: {global_reits: 1, us_large_cap: -1}}
+  - {id: commodities, name: Commodities,                    family: Real assets, definition: {commodities: 1}}
+
+# ------------------------------------------------------------------------------------------- stress tests
+stress:
+  # Historical replays: current weights x realized proxy returns over the window (inclusive month-ends).
+  historical:
+    - {id: gfc,          name: Global financial crisis,        start: 2007-11, end: 2009-02, kind: stress}
+    - {id: lehman,       name: Lehman collapse (Sep–Oct 2008), start: 2008-09, end: 2008-10, kind: stress}
+    - {id: euro_debt,    name: Euro sovereign debt crisis,     start: 2011-05, end: 2011-09, kind: stress}
+    - {id: taper,        name: Taper tantrum,                  start: 2013-05, end: 2013-06, kind: stress}
+    - {id: china_oil,    name: China devaluation & oil slump,  start: 2015-06, end: 2016-02, kind: stress}
+    - {id: q4_2018,      name: Q4 2018 sell-off,               start: 2018-10, end: 2018-12, kind: stress}
+    - {id: covid,        name: COVID-19 crash,                 start: 2020-02, end: 2020-03, kind: stress}
+    - {id: rates_2022,   name: 2022 inflation & rate shock,    start: 2022-01, end: 2022-09, kind: stress}
+    - {id: svb,          name: Regional bank stress (SVB),     start: 2023-03, end: 2023-03, kind: stress}
+    - {id: tariffs_2025, name: 2025 tariff shock,              start: 2025-02, end: 2025-04, kind: stress}
+    - {id: gfc_rebound,  name: 2009 recovery rally,            start: 2009-03, end: 2009-12, kind: rally}
+    - {id: covid_rebound, name: 2020 rebound,                  start: 2020-04, end: 2020-08, kind: rally}
+
+  # Hypothetical scenarios on a severity ladder: each driver moves k x its 1-month standard deviation
+  # (sign = direction); drivers not listed move by their expected value given the shocked ones
+  # (correlated propagation through the factor covariance) unless propagation: isolated. Correlations are
+  # estimated since 2002, when stocks and bonds mostly moved in opposite directions — use isolated (or an
+  # explicit multi-driver scenario like stagflation) where that relationship should not be assumed.
+  severities:
+    - {k: 1, label: Normal,   note: "≈ 1-in-6 months"}
+    - {k: 2, label: Elevated, note: "≈ 1-in-4 years"}
+    - {k: 3, label: Severe,   note: "≈ 1-in-60 years if normal; seen several times since 2000"}
+    - {k: 4, label: Extreme,  note: "tail; beyond most single-month history"}
+    - {k: 5, label: Crisis,   note: "far tail; reverse-stress territory"}
+  hypothetical:
+    - {id: equity_selloff,  name: Equity sell-off,               shocks: {equity: -1}}
+    - {id: rates_up,        name: Rates rise (bond sell-off),    shocks: {rates: -1}, propagation: isolated}
+    - {id: rates_down,      name: Rates fall (flight to quality), shocks: {rates: 1}, propagation: isolated}
+    - {id: credit_widening, name: Credit spreads widen,          shocks: {credit: -1, em_spread: -1}}
+    - {id: stagflation,     name: Stagflation,                   shocks: {equity: -1, rates: -1, inflation: 1}}
+    - {id: risk_on,         name: Risk-on rally,                 shocks: {equity: 1, credit: 1}}
+    - {id: usd_em_stress,   name: EM & non-US stress,            shocks: {em_equity: -1, em_spread: -1, non_us_dev: -1}}
+
+  # Custom scenario builder (console): drivers a user can shock directly, in market units.
+  drivers:
+    - {factor: equity,      label: Global equities,         unit: pct, min: -50, max: 30,  step: 1}
+    - {factor: rates,       label: US Treasury yields,      unit: bp,  min: -300, max: 300, step: 10, duration_of: us_long_treasury, sign: -1}
+    - {factor: credit,      label: High-yield spreads,      unit: bp,  min: -300, max: 1000, step: 25, duration_of: us_high_yield, sign: -1, spread: true}
+    - {factor: em_spread,   label: EM sovereign spreads,    unit: bp,  min: -300, max: 800, step: 25, duration_of: em_debt, sign: -1, spread: true}
+    - {factor: inflation,   label: Breakeven inflation,     unit: bp,  min: -200, max: 200, step: 10, duration_of: us_tips_short, sign: 1}
+    - {factor: commodities, label: Commodities,             unit: pct, min: -50, max: 60,  step: 1}
+    - {factor: real_estate, label: REITs vs equities,       unit: pct, min: -30, max: 30,  step: 1}
+    - {factor: em_equity,   label: EM vs developed equities, unit: pct, min: -30, max: 30, step: 1}

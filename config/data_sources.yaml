@@ -81,6 +81,12 @@ sources:
         us_tips_short:    {tenor: "5 Yr", duration: 2.5}
         intl_bond_hedged: {tenor: "10 Yr", duration: 7.0, expected_loss: 0.0005}
 
+  ishares:
+    provider: ishares
+    transport: http
+    enabled: true
+    # look-through holdings of each building block's holdings proxy (universe.yaml -> identifiers.holdings)
+
   manual:
     provider: manual
     transport: manual
@@ -217,6 +223,10 @@ routing:
     mode: merge
     sources: [bloomberg_snowflake, bloomberg_direct, fred, treasury, manual, cache]
     fallback: [synthetic]
+  fund.characteristics:
+    mode: merge
+    sources: [bloomberg_snowflake, factset_snowflake, files, manual, cache]
+  holdings.lookthrough: [files, ishares, cache]       # first source that answers serves all funds
   credit.ratings:
     mode: merge
     sources: [moodys_snowflake, sp_snowflake, fitch_snowflake, moodys_direct, sp_direct, fitch_direct, files]
@@ -226,6 +236,7 @@ license_review:
   fred: "public; some series (e.g. ICE BofA) are copyrighted — check series-level terms before redistribution"
   yahoo: "unofficial endpoint; personal/non-commercial use — replace with a licensed source before production"
   treasury: "US government data, public domain"
+  ishares: "holdings published on ishares.com for informational use — review BlackRock terms before redistribution or production use"
   manual: "each value cites its source in config/manual_inputs.yaml"
   file: "n/a"
   synthetic: "n/a"

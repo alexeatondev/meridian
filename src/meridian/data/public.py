@@ -304,6 +304,126 @@ class CsvUrlSource(DataSource):
         return df
 
 
+# ============================================================================================ iShares
+ISHARES_URL = ("https://www.ishares.com/us/products/{pid}/fund/1467271812596.ajax"
+               "?fileType=csv&fileName={ticker}_holdings&dataType=fund")
+
+
+def _num(x) -> float:
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return np.nan
+    s = str(x).replace(",", "").replace("%", "").strip()
+    if s in ("", "-", "--", "N/A"):
+        return np.nan
+    try:
+        return float(s)
+    except ValueError:
+        return np.nan
+
+
+def parse_ishares_holdings(raw: bytes) -> tuple[pd.DataFrame, str | None]:
+    """iShares holdings CSV: a few preamble lines ('Fund Holdings as of,"Nov 05, 2026"'), a header row
+    starting with 'Ticker', the positions, then a disclaimer footer. Columns vary by asset class."""
+    text = raw.decode("utf-8-sig", errors="replace")
+    lines = text.splitlines()
+    as_of = None
+    start = None
+    for i, l in enumerate(lines[:40]):
+        if l.lower().startswith("fund holdings as of"):
+            m = l.split(",", 1)[1].strip().strip('"') if "," in l else ""
+            try:
+                as_of = str(pd.Timestamp(m).date())
+            except Exception:  # noqa: BLE001
+                as_of = None
+        if l.startswith("Ticker,") or l.startswith('"Ticker",'):
+            start = i
+            break
+    if start is None:
+        raise DataUnavailable("iShares: holdings header row not found (format changed or not a holdings file)")
+    body = [lines[start]]
+    for l in lines[start + 1:]:
+        if not l.strip() or l.startswith('"The content') or l.startswith("\xa0"):
+            break
+        body.append(l)
+    df = pd.read_csv(io.StringIO("\n".join(body)), dtype=str)
+    df.columns = [c.strip() for c in df.columns]
+    return df, as_of
+
+
+def aggregate_holdings(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize iShares columns and aggregate to one row per security (equities) or issuer (bonds:
+    iShares 'Ticker' on bond lines is the issuer ticker). Durations are weight-averaged."""
+    col = {c.lower(): c for c in df.columns}
+    g = lambda *names: next((col[n] for n in names if n in col), None)  # noqa: E731
+    out = pd.DataFrame({
+        "ticker": df[g("ticker")].fillna("").str.strip() if g("ticker") else "",
+        "name": df[g("name")].fillna("").str.strip() if g("name") else "",
+        "sector": df[g("sector")].fillna("").str.strip() if g("sector") else "",
+        "asset_class": df[g("asset class")].fillna("").str.strip() if g("asset class") else "",
+        "country": df[g("location", "location of risk")].fillna("").str.strip() if g("location", "location of risk") else "",
+        "weight": df[g("weight (%)", "weight")].map(_num) / 100.0,
+        "duration": df[g("duration", "effective duration", "mod. duration")].map(_num) if g("duration", "effective duration", "mod. duration") else np.nan,
+    })
+    out = out[out["weight"].notna()]
+    out["ticker"] = out["ticker"].replace({"-": "", "--": ""})
+    is_bond = out["asset_class"].str.contains("Fixed Income", case=False, na=False)
+    key = np.where(out["ticker"] != "", out["ticker"], out["name"].str.upper().str[:40])
+    # the same ticker can be a stock and a bond issuer (JPM): keep them apart by asset class
+    out["security_id"] = [f"{k}|{c}|{ac}" for k, c, ac in zip(key, out["country"], out["asset_class"])]
+    out["dw"] = out["duration"].fillna(0) * out["weight"]
+    out["lines"] = 1
+    out["_bond"] = is_bond
+    # largest line names the aggregate (e.g. 'TREASURY NOTE' for issuer T)
+    out = out.sort_values("weight", ascending=False)
+    agg = out.groupby("security_id", sort=False).agg(
+        ticker=("ticker", "first"), name=("name", "first"), sector=("sector", "first"),
+        asset_class=("asset_class", "first"), country=("country", "first"),
+        weight=("weight", "sum"), dw=("dw", "sum"), lines=("lines", "sum"), bond=("_bond", "max")).reset_index()
+    agg["duration"] = np.where(agg["bond"] & (agg["weight"].abs() > 1e-12), agg["dw"] / agg["weight"].where(agg["weight"] != 0, 1), np.nan)
+    return agg.drop(columns=["dw", "bond"])
+
+
+class IsharesSource(DataSource):
+    """Daily look-through holdings of iShares ETFs (public CSV on ishares.com).
+    universe.yaml -> identifiers.holdings: [{provider: ishares, ticker: AGG, product_id: 239458, weight: 1.0}]
+    A blend of several funds (weights summing to 1) can stand in for one building block."""
+
+    def datasets(self):
+        return {"holdings.lookthrough"}
+
+    def fetch(self, req: Request) -> pd.DataFrame:
+        frames, notes = [], []
+        for a in req.assets:
+            for h in (a.get("identifiers", {}).get("holdings") or []):
+                if h.get("provider") != "ishares":
+                    continue
+                url = ISHARES_URL.format(pid=h["product_id"], ticker=h["ticker"])
+                try:
+                    raw = http_get(url, timeout=60)
+                    df, as_of = parse_ishares_holdings(raw)
+                    agg = aggregate_holdings(df)
+                except NetworkUnavailable:
+                    raise
+                except DataUnavailable as e:
+                    notes.append(f"{h['ticker']}: {e}")
+                    continue
+                except Exception as e:  # noqa: BLE001
+                    notes.append(f"{h['ticker']}: parse error {type(e).__name__}: {e}")
+                    continue
+                agg["weight"] = agg["weight"] * float(h.get("weight", 1.0))
+                agg["asset_id"], agg["fund_ticker"] = a["id"], h["ticker"]
+                agg["date"] = pd.Timestamp(as_of or req.as_of or datetime.now(timezone.utc).date())
+                agg["blend_weight"] = float(h.get("weight", 1.0))
+                frames.append(agg)
+                time.sleep(0.5)
+        if not frames:
+            raise DataUnavailable("iShares: no holdings retrieved. " + "; ".join(notes[:3]))
+        out = pd.concat(frames, ignore_index=True)
+        if notes:
+            out.attrs["warnings"] = notes
+        return out
+
+
 def write_cache(frames: dict[str, pd.DataFrame], root: Path, meta: dict) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     for ds, df in frames.items():

@@ -1,0 +1,19 @@
+iShares Core S&P 500 ETF
+Fund Holdings as of,"Nov 05, 2026"
+Inception Date,"May 15, 2000"
+Shares Outstanding,"1,000,000,000.00"
+Stock,"-"
+Bond,"-"
+Cash,"-"
+Other,"-"
+ 
+Ticker,Name,Sector,Asset Class,Market Value,Weight (%),Notional Value,Quantity,Price,Location,Exchange,Currency,FX Rate,Market Currency,Accrual Date
+"NVDA","NVIDIA CORP","Information Technology","Equity","50,000,000,000.00","8.00","50,000,000,000.00","250,000,000.00","200.00","United States","NASDAQ","USD","1.00","USD","-"
+"AAPL","APPLE INC","Information Technology","Equity","40,000,000,000.00","6.50","40,000,000,000.00","150,000,000.00","266.00","United States","NASDAQ","USD","1.00","USD","-"
+"MSFT","MICROSOFT CORP","Information Technology","Equity","38,000,000,000.00","6.00","38,000,000,000.00","73,000,000.00","520.00","United States","NASDAQ","USD","1.00","USD","-"
+"JPM","JPMORGAN CHASE & CO","Financials","Equity","9,000,000,000.00","1.50","9,000,000,000.00","30,000,000.00","300.00","United States","New York Stock Exchange Inc.","USD","1.00","USD","-"
+"ESZ6","S&P500 EMINI DEC 26","Cash and/or Derivatives","Futures","0.00","0.00","1,200,000,000.00","2,000.00","6,800.00","United States","Chicago Mercantile Exchange","USD","1.00","USD","-"
+"OTHER","ALL OTHER CONSTITUENTS (TEST FIXTURE)","Various","Equity","480,000,000,000.00","77.75","0.00","0.00","0.00","United States","-","USD","1.00","USD","-"
+"USD","USD CASH","Cash and/or Derivatives","Cash","1,500,000,000.00","0.25","1,500,000,000.00","1,500,000,000.00","100.00","United States","-","USD","1.00","USD","-"
+ 
+"The content contained herein is owned or licensed by BlackRock and/or its third-party information providers and is protected by applicable copyrights, trademarks, service marks, and/or other intellectual property rights."

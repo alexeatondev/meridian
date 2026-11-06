@@ -165,6 +165,14 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         "fundamentals.valuation": reg.get(Request("fundamentals.valuation", ulist, as_of=as_of)),
         "yields.current": reg.get(Request("yields.current", ulist, as_of=as_of)),
     }
+    # risk inputs: fund characteristics (durations) and look-through holdings; optional — risk analytics
+    # degrade gracefully (universe durations, no look-through) when no source can serve them
+    from ..data.base import DataUnavailable
+    for ds in ("fund.characteristics", "holdings.lookthrough"):
+        try:
+            res[ds] = reg.get(Request(ds, ulist, as_of=as_of))
+        except DataUnavailable:
+            pass
     snap = snapshot(res, out / "snapshot")
     synthetic = any(r.synthetic for r in res.values())
     synthetic_detail = {ds: r.notes for ds, r in res.items() if r.synthetic}
@@ -411,6 +419,39 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
              output={v: {"te": d["risk"]["te"], "budget": d["risk"]["budget"], "used_pct": d["risk"]["used_pct"],
                          "beta_5y": d["metrics"]["5y"]["portfolio"]["beta_vs_market"]} for v, d in vint_out.items()})
 
+    # 5c. risk analytics: fund risk metrics, decomposition, factors, stress tests, history, look-through --
+    from ..analytics import risk as RK
+    rcfg = RK.load_risk_config()
+    chars_df = res["fund.characteristics"].frame if "fund.characteristics" in res else None
+    hold_df = res["holdings.lookthrough"].frame if "holdings.lookthrough" in res else None
+    ch = RK.characteristics(assets, chars_df, hold_df, rcfg, universe)
+    rm = RK.risk_model(rets, rcfg, ch["eff_duration"])
+    W = {v: np.array([d["final"][a] for a in assets]) for v, d in vint_out.items()}
+    Bn = {v: np.array([d["neutral"][a] for a in assets]) for v, d in vint_out.items()}
+    snap_rows = []
+    for v, d in vint_out.items():
+        met = RK.fund_metrics(W[v], Bn[v], rm, ch, rcfg)
+        fd = RK.factor_decomposition(W[v], Bn[v], rm)
+        d["risk_analytics"] = {"metrics": met, "breakdown": RK.risk_breakdown(W[v], Bn[v], rm, tax), "factors": fd}
+        snap_rows += RK.risk_snapshot_rows(as_of, run_id, v, met, fd, "recorded")
+    risk_hist_path = (Path(out_root) / "risk_history.csv") if out_root else RK.RISK_HISTORY_PATH
+    recorded = pd.read_csv(risk_hist_path) if risk_hist_path.exists() else None
+    history = RK.risk_history(rets, rcfg, ch, policy, as_of, {str(v): W[v] for v in W}, run_id,
+                              positions_fn=lambda dt, v: positions_as_of(dt, v, assets, pos_path, before_run=run_id),
+                              recorded=recorded)
+    stress = RK.stress_tests(W, Bn, rets, rm, rcfg)
+    look = RK.lookthrough(hold_df, assets, universe, {a: universe[a]["identifiers"].get("proxy_etf", "") for a in assets})
+    RK.append_risk_history(snap_rows, risk_hist_path)
+    risk_out = {"model": RK.model_payload(rm, rcfg, ch), "history": history, "stress": stress, "lookthrough": look}
+    L.record(dr_type="signal", run_id=run_id, step="risk.analytics", actor=SYSTEM, policy_version=pv, inputs=[snap_dr],
+             summary=(f"Risk analytics: {len(rm.factors)} factors, {rm.months} months; {len(stress['historical'])} historical "
+                      f"and {len(stress['hypothetical'])} hypothetical scenarios; {len(set(h['date'] for h in history))}-month "
+                      f"history; look-through {'loaded (' + str(len(look['securities'])) + ' securities)' if look['available'] else 'not available'}"),
+             output={v: {k: round(d["risk_analytics"]["metrics"][k], 5) for k in ("total_risk", "active_risk", "eff_duration",
+                                                                                 "spread_duration", "var", "active_var", "diversification")}
+                     for v, d in vint_out.items()},
+             data_flags={"characteristics_source": ch["source"]})
+
     # 6. compliance officer agent --------------------------------------------------------------
     from ..compliance.officer import review as co_review
     co = co_review(run_id, regime_cfg, vint_out, synthetic_detail, L, policy)
@@ -432,6 +473,6 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                                                             "taxonomy": tax.leaves, "views": tax.raw["views"],
                                                             "market": dict(zip(assets, mkt_w.round(6))),
                                                             "market_name": tax.raw["market_benchmark"]["name"]},
-                                                  "vintages": vint_out, "compliance_officer": {k: v for k, v in co.items() if k != "report_md"},
+                                                  "vintages": vint_out, "risk": risk_out, "compliance_officer": {k: v for k, v in co.items() if k != "report_md"},
                                                   "snapshot": snap}, indent=2, default=str))
     return RunResult(run_id, out, vint_out, out / "board_memo.md", out / "compliance_report.md", verify(out / "ledger.jsonl"))

@@ -9,7 +9,7 @@
   color-scheme: light;
   --bg:#f4f3f0; --surface:#fcfcfb; --surface-2:#f0efec; --line:#e2e0da; --line-strong:#cfccc4;
   --text:#0b0b0b; --text-2:#52514e; --muted:#7a7873; --accent:#1f4e8c; --accent-ink:#ffffff;
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
   --pos:#2a78d6; --neg:#eb6834; --mid:#b9b7b0;
   --good:#1a7f37; --good-bg:#e6f4ea; --warn:#9a6700; --warn-bg:#fff4d6; --crit:#b42318; --crit-bg:#fde8e6; --info:#1f4e8c; --info-bg:#e8eef8; --off-bg:#eeedea;
   --radius:10px; --shadow:0 1px 2px rgba(0,0,0,.05),0 1px 1px rgba(0,0,0,.03);
@@ -19,7 +19,7 @@
   color-scheme: dark;
   --bg:#121211; --surface:#1a1a19; --surface-2:#232321; --line:#2e2e2b; --line-strong:#3c3c38;
   --text:#f0efec; --text-2:#c3c2b7; --muted:#9a998f; --accent:#7aa7e6; --accent-ink:#0b0b0b;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --pos:#3987e5; --neg:#d95926; --mid:#5a5a55;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; --pos:#3987e5; --neg:#d95926; --mid:#5a5a55;
   --good:#5cc27a; --good-bg:#16301f; --warn:#e3b341; --warn-bg:#352a0e; --crit:#f2766b; --crit-bg:#3a1714; --info:#7aa7e6; --info-bg:#172338; --off-bg:#262624;
 }}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
@@ -115,16 +115,17 @@ const allSynthetic = R.snapshot ? Object.values(R.snapshot.datasets||{}).every(d
 const co = R.compliance_officer || {};
 
 const ROLES = {
-  pm:        {label:'Portfolio Manager',     approverRole:'portfolio_manager', tabs:['home','products','positioning','portfolios','riskbudget','metrics','glide','approvals','agents']},
-  risk:      {label:'Risk Analytics',        approverRole:'risk',              tabs:['home','riskbudget','metrics','risk','positioning','portfolios','approvals']},
-  research:  {label:'Research / Analyst',    approverRole:null,                tabs:['home','positioning','metrics','cma','agents','glide']},
-  mgr:       {label:'Manager Selection',     approverRole:null,                tabs:['home','products','funds','positioning']},
-  lead:      {label:'Leadership / IC',       approverRole:'investment_committee', tabs:['home','products','memo','riskbudget','metrics','glide','approvals']},
-  compliance:{label:'Compliance',            approverRole:'chief_compliance_officer', tabs:['home','compliance','riskbudget','report','ledger']},
+  pm:        {label:'Portfolio Manager',     approverRole:'portfolio_manager', tabs:['home','products','positioning','portfolios','riskSummary','riskbudget','metrics','exposures','glide','approvals','agents']},
+  risk:      {label:'Risk Analytics',        approverRole:'risk',              tabs:['home','riskSummary','factors','stress','riskHistory','exposures','riskbudget','metrics','risk','positioning','portfolios','approvals']},
+  research:  {label:'Research / Analyst',    approverRole:null,                tabs:['home','positioning','metrics','factors','exposures','cma','agents','glide']},
+  mgr:       {label:'Manager Selection',     approverRole:null,                tabs:['home','products','funds','exposures','positioning']},
+  lead:      {label:'Leadership / IC',       approverRole:'investment_committee', tabs:['home','products','memo','riskSummary','stress','riskbudget','metrics','glide','approvals']},
+  compliance:{label:'Compliance',            approverRole:'chief_compliance_officer', tabs:['home','compliance','riskbudget','exposures','report','ledger']},
   audit:     {label:'Audit (read-only)',     approverRole:null,                tabs:['home','ledger','compliance','report']},
 };
 const TABS = {products:'Funds & vintages',positioning:'Positioning',riskbudget:'Risk budget',metrics:'Metrics',home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
-  risk:'Risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger'};
+  riskSummary:'Fund risk',factors:'Factor risk',stress:'Stress tests',riskHistory:'Risk history',exposures:'Look-through & search',
+  risk:'Candidate risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger'};
 const allowedRoles = () => LIVE ? LIVE.console_roles : Object.keys(ROLES);
 let state = {role: (()=>{const h=location.hash.slice(1);const ok=allowedRoles();return ok.includes(h)?h:ok[0]})(), tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
 
@@ -477,6 +478,264 @@ function activeChart(){
   el.querySelectorAll('.ah').forEach(h=>{h.addEventListener('mousemove',e=>{const r=rows[+h.dataset.i],b=el.getBoundingClientRect();tip.style.display='block';tip.style.left=Math.min(e.clientX-b.left+12,W-170)+'px';tip.style.top=(e.clientY-b.top+10)+'px';tip.innerHTML=`<b>${esc(nm(r.a))}</b>Glide path ${pct(r.n)}<br>Proposed ${pct(r.f)}<br>Active ${pp(r.d)}`});h.addEventListener('mouseleave',()=>tip.style.display='none')});
 }
 
+// --------------------------------------------------------------- risk analytics (fund risk, factors, stress, history, look-through)
+const RK = R.risk || null;
+const RM = RK ? RK.model : null;
+const FAM_ORDER = ['Equity','Rates','Credit','Inflation','Real assets','Specific'];
+const FAM_COLOR = {'Equity':'--s1','Rates':'--s2','Credit':'--s3','Inflation':'--s4','Real assets':'--s5','Specific':'--s6'};
+const pct2 = x => pct(x,2);
+const yrs = x => (x==null||isNaN(x))?'—':(+x).toFixed(2);
+const sgnY = x => {if(x==null||isNaN(x)) return '—'; if(Math.abs(x)<0.005) return '<span class="muted">0.00</span>'; return `<span class="${x>0?'up':'down'}">${x>0?'+':''}${(+x).toFixed(2)}</span>`};
+const sgnP = (x,d=2) => (x==null||isNaN(x))?'—':Math.abs(x)<0.5*Math.pow(10,-d-2)?`<span class="muted">${(0).toFixed(d)}%</span>`:`<span class="${x>0?'up':x<0?'down':''}">${x>=0?'+':''}${(x*100).toFixed(d)}%</span>`;
+const wv = v => P.assets.map(a=>R.vintages[v].final[a]);
+const bv = v => P.assets.map(a=>R.vintages[v].neutral[a]);
+state.rbGroup='tree'; state.fmode='total'; state.famDrill=''; state.sev=2; state.stView='portfolio'; state.tsMetric='total_risk';
+state.custom={}; state.prop='correlated'; state.ltOpen={}; state.ltQuery=''; state.ltSel=null;
+function noRisk(){return `<div class="card"><h2>Risk analytics not available for this run</h2><p class="muted">This run was produced before risk analytics were added. Start a new run to see fund risk, factors, stress tests, history and look-through.</p></div>`}
+function seg(name, opts, cur){return `<div class="vt-tabs" style="margin:0">${opts.map(([k,l])=>`<button class="${k===cur?'active':''}" data-seg="${name}" data-val="${esc(k)}">${l}</button>`).join('')}</div>`}
+function legendHtml(items){return `<div class="legend">${items.map(([l,c,dash])=>`<span>${dash?`<i style="background:none;border-top:2px dashed var(${c});height:0;border-radius:0;vertical-align:3px"></i>`:`<i style="background:var(${c})"></i>`}${esc(l)}</span>`).join('')}</div>`}
+function modelNote(){return RM?`<p class="small muted" style="margin-top:0">Risk model: ${esc(RM.description)} Window ${esc(RM.start)} → ${esc(RM.end)} (${RM.months} months, shrinkage ${RM.shrinkage}). VaR: ${(RM.var.confidence*100).toFixed(0)}%, ${RM.var.horizon_months}-month horizon, parametric (normal). Benchmark = each vintage's glide path. Figures are ex-ante and annualized unless stated.</p>`:''}
+
+// ---------- Fund risk
+V.riskSummary = () => {
+  if(!RK) return noRisk();
+  const rows=VINT.map(v=>({v,m:R.vintages[v].risk_analytics.metrics}));
+  const head=`<tr><th rowspan="2">Fund</th><th colspan="3" style="text-align:center">Total risk (vol)</th><th colspan="3" style="text-align:center">Effective duration (yrs)</th><th colspan="3" style="text-align:center">Credit spread duration (yrs)</th><th colspan="2" style="text-align:center">VaR ${(RM.var.confidence*100).toFixed(0)} (1m)</th><th colspan="2" style="text-align:center">Diversification</th></tr>
+   <tr><th class="num">Fund</th><th class="num">Bench</th><th class="num">Active</th><th class="num">Fund</th><th class="num">Bench</th><th class="num">Relative</th><th class="num">Fund</th><th class="num">Bench</th><th class="num">Relative</th><th class="num">VaR</th><th class="num">Active VaR</th><th class="num">Fund</th><th class="num">Bench</th></tr>`;
+  const body=rows.map(({v,m})=>`<tr class="click ${v===state.vintage?'sel':''}" data-rbv="${v}"><td>MTRS ${v}</td><td class="num">${pct2(m.total_risk)}</td><td class="num">${pct2(m.bench_total_risk)}</td><td class="num">${pct2(m.active_risk)}</td>
+    <td class="num">${yrs(m.eff_duration)}</td><td class="num">${yrs(m.bench_eff_duration)}</td><td class="num">${sgnY(m.rel_duration)}</td>
+    <td class="num">${yrs(m.spread_duration)}</td><td class="num">${yrs(m.bench_spread_duration)}</td><td class="num">${sgnY(m.rel_spread_duration)}</td>
+    <td class="num">${pct2(m.var)}</td><td class="num">${pct2(m.active_var)}</td><td class="num">${pct(m.diversification)}</td><td class="num">${pct(m.bench_diversification)}</td></tr>`).join('');
+  // % of total risk by asset class, fund vs benchmark
+  const tops=R.vintages[VINT[0]].risk_analytics.breakdown.nodes.filter(n=>n.depth===0).map(n=>n.node);
+  const nodeOf=(v,n)=>R.vintages[v].risk_analytics.breakdown.nodes.find(x=>x.node===n)||{};
+  const ac=`<table><tr><th>Fund</th>${tops.map(t=>`<th class="num">${t}<br><span class="small muted">fund / bench</span></th>`).join('')}</tr>${VINT.map(v=>`<tr class="click ${v===state.vintage?'sel':''}" data-rbv="${v}"><td>MTRS ${v}</td>${tops.map(t=>{const n=nodeOf(v,t);return `<td class="num">${pct(n.pct_total_risk)} <span class="muted">/ ${pct(n.bench_pct_total_risk)}</span></td>`}).join('')}</tr>`).join('')}</table>`;
+  const v=state.vintage, x=R.vintages[v], bd=x.risk_analytics.breakdown, m=x.risk_analytics.metrics;
+  const kp=(val,l,s='')=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${val}</div><div class="s">${s}</div></div>`;
+  return `${modelNote()}
+  <div class="card"><h2>Fund-level risk — all vintages</h2><div class="scroll"><table>${head}${body}</table></div>
+   <div class="small muted" style="margin-top:6px">Relative = fund − benchmark. Active VaR = VaR of the active positions vs the glide path. Diversification = 1 − fund volatility ÷ weighted sum of holding volatilities. Durations: ${esc(durSourceSummary())}. Click a fund to drill down.</div></div>
+  <div class="card" style="margin-top:14px"><h2>Share of total risk by asset class — fund vs benchmark</h2>${ac}</div>
+  <div class="section-title">Drill-down — MTRS ${v}</div>${vintageTabs()}
+  <div class="grid g4">${kp(pct2(m.total_risk),'Total risk','benchmark '+pct2(m.bench_total_risk))+kp(pct2(m.var),'VaR '+(RM.var.confidence*100).toFixed(0)+' (1 month)','active VaR '+pct2(m.active_var))+kp(yrs(m.eff_duration)+' yrs','Effective duration','relative '+(m.rel_duration>=0?'+':'')+yrs(m.rel_duration))+kp(pct(m.diversification),'Diversification','benchmark '+pct(m.bench_diversification))}</div>
+  <div class="grid g2" style="margin-top:14px">
+   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Risk breakdown — ${v}</h2>${seg('rbGroup',[['tree','By asset class'],['fund','By underlying fund']],state.rbGroup)}</div>
+    <div style="margin-top:10px">${state.rbGroup==='tree'?rbTree(bd):rbFunds(bd)}</div>
+    <div class="small muted" style="margin-top:6px">% of total risk = each holding's Euler contribution to fund volatility (sums to 100%). % of active risk = share of tracking error vs the glide path. ${esc(bd.note)}</div></div>
+   <div class="card"><h2>Weight vs. risk by holding — ${v}</h2>${legendHtml([['% of fund (weight)','--s1'],['% of total risk','--s2'],['Benchmark % of risk','--text',false]].slice(0,2))}<span class="small muted">◆ marks the benchmark's % of risk.</span><div class="chart" id="wrChart"></div></div>
+  </div>`;
+};
+function durSourceSummary(){const s=RM.characteristics.source;const lt=Object.values(s).filter(x=>String(x).startsWith('holdings')).length;return lt?`${lt} bond funds from holdings look-through, others from cited fund characteristics`:'cited fund characteristics (config/manual_inputs.yaml) until holdings look-through or a vendor feed is loaded'}
+function rbTree(bd){const rows=bd.nodes;
+  return `<div class="scroll" style="max-height:470px"><table class="tree"><tr><th>Exposure</th><th class="num">Weight</th><th class="num">Bench wt</th><th class="num">% of risk</th><th class="num">Bench % of risk</th><th class="num">Δ</th><th class="num">% of active risk</th></tr>
+  ${rows.map((r,i)=>{ if(hiddenRow(r)) return ''; const kids=hasKids(rows,i); const d=r.pct_total_risk-r.bench_pct_total_risk;
+    return `<tr class="${r.depth===0?'lvl0':''}"><td style="padding-left:${8+r.depth*18}px">${kids?`<button class="caret" data-node="${esc(r.node)}">${state.collapsed[r.node]?'▸':'▾'}</button>`:'<span class="caret-sp"></span>'}${esc(r.node.split('/').pop())}</td>
+    <td class="num">${pct(r.weight)}</td><td class="num">${pct(r.bench_weight)}</td><td class="num"><b>${pct(r.pct_total_risk)}</b></td><td class="num">${pct(r.bench_pct_total_risk)}</td><td class="num">${dpp(d)}</td><td class="num">${pct(r.pct_active_risk,0)}</td></tr>`}).join('')}</table></div>`}
+function rbFunds(bd){const rows=[...bd.assets].sort((a,b)=>b.pct_total_risk-a.pct_total_risk);
+  return `<div class="scroll" style="max-height:470px"><table><tr><th>Underlying fund</th><th class="num">Weight</th><th class="num">Standalone vol</th><th class="num">% of risk</th><th class="num">Bench % of risk</th><th class="num">Marginal risk</th><th class="num">% of active risk</th></tr>
+  ${rows.map(r=>`<tr><td>${esc(nm(r.asset))}</td><td class="num">${pct(r.weight)}</td><td class="num">${pct(r.standalone_vol)}</td><td class="num"><b>${pct(r.pct_total_risk)}</b></td><td class="num">${pct(r.bench_pct_total_risk)}</td><td class="num">${pct(r.marginal_risk)}</td><td class="num">${pct(r.pct_active_risk,0)}</td></tr>`).join('')}</table></div>`}
+function wrChart(){
+  const el=$('#wrChart'); if(!el||!RK) return; const bd=R.vintages[state.vintage].risk_analytics.breakdown;
+  const rows=[...bd.assets].filter(r=>r.weight>0.0005||r.bench_weight>0.0005).sort((a,b)=>b.pct_total_risk-a.pct_total_risk);
+  const W=el.clientWidth||520, rh=34, lw=190, H=rows.length*rh+24, max=Math.max(...rows.map(r=>Math.max(r.weight,r.pct_total_risk,r.bench_pct_total_risk)))*1.05;
+  const S=x=>Math.max(0,x)/max*(W-lw-46);
+  let svg=`<svg width="${W}" height="${H}" role="img" aria-label="Weight versus share of risk by holding">`;
+  [0,.25,.5,.75,1].forEach(g=>{const xx=lw+g*(W-lw-46);svg+=`<line x1="${xx}" x2="${xx}" y1="0" y2="${H-18}" stroke="var(--line)"/><text x="${xx}" y="${H-4}" text-anchor="middle">${(g*max*100).toFixed(0)}%</text>`});
+  rows.forEach((r,i)=>{const y=i*rh+4;
+    svg+=`<text x="${lw-8}" y="${y+16}" text-anchor="end" style="fill:var(--text-2)">${esc(nm(r.asset))}</text>
+    <rect x="${lw}" y="${y+2}" width="${Math.max(S(r.weight),1)}" height="11" rx="3" fill="var(--s1)"/>
+    <rect x="${lw}" y="${y+15}" width="${Math.max(S(r.pct_total_risk),1)}" height="11" rx="3" fill="var(--s2)"/>
+    <path d="M${lw+S(r.bench_pct_total_risk)} ${y+15} l5 5.5 l-5 5.5 l-5 -5.5z" fill="var(--text)" stroke="var(--surface)" stroke-width="1.5"/>
+    <text x="${lw+Math.max(S(r.weight),S(r.pct_total_risk))+12}" y="${y+18}" style="fill:var(--text-2)">${(r.pct_total_risk*100).toFixed(1)}%</text>
+    <rect x="0" y="${y}" width="${W}" height="${rh}" fill="transparent" class="wrh" data-i="${i}"/>`});
+  svg+=`</svg><div class="tip" id="wrtip"></div>`; el.innerHTML=svg; const tip=el.querySelector('#wrtip');
+  el.querySelectorAll('.wrh').forEach(h=>{h.addEventListener('mousemove',e=>{const r=rows[+h.dataset.i],b=el.getBoundingClientRect();tip.style.display='block';tip.style.left=Math.min(e.clientX-b.left+12,W-190)+'px';tip.style.top=(e.clientY-b.top+10)+'px';
+    tip.innerHTML=`<b>${esc(nm(r.asset))}</b>Weight ${pct(r.weight)} (bench ${pct(r.bench_weight)})<br>% of total risk ${pct(r.pct_total_risk)} (bench ${pct(r.bench_pct_total_risk)})<br>Risk per unit of weight ${(r.weight>0?r.pct_total_risk/r.weight:0).toFixed(2)}×<br>Standalone vol ${pct(r.standalone_vol)}`});h.addEventListener('mouseleave',()=>tip.style.display='none')});
+}
+
+// ---------- Factor risk
+V.factors = () => {
+  if(!RK) return noRisk();
+  const v=state.vintage, fd=R.vintages[v].risk_analytics.factors, cur=fd[state.fmode];
+  const fams=cur.families; const sys=1-cur.specific.pct;
+  const top=[...cur.factors].sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct))[0];
+  const kp=(val,l,s='')=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${val}</div><div class="s">${s}</div></div>`;
+  const famOpts=[['','All families'],['__noneq','All except Equity']].concat(FAM_ORDER.filter(f=>f!=='Specific').map(f=>[f,f]));
+  return `${modelNote()}${vintageTabs()}
+  <div class="row" style="margin-bottom:12px">${seg('fmode',[['total','Total risk'],['active','Active risk (vs glide path)'],['benchmark','Benchmark']],state.fmode)}</div>
+  <div class="grid g4">${kp(pct2(cur.vol),state.fmode==='active'?'Active risk (TE)':state.fmode==='benchmark'?'Benchmark risk':'Total risk','annualized')+kp(pct(sys),'Systematic (factor) share','specific '+pct(cur.specific.pct))+kp(`<span style="font-size:18px">${esc(top.name)}</span>`,'Largest factor',pct(top.pct)+' of variance')+kp(pct(fams['Equity']||0),'Equity family share','of variance')}</div>
+  <div class="grid g2" style="margin-top:14px">
+   <div class="card"><h2>Risk contribution by factor — ${v}</h2>${legendHtml(FAM_ORDER.map(f=>[f,FAM_COLOR[f]]))}<div class="chart" id="facBar"></div>
+     <div class="small muted">Share of ${state.fmode==='active'?'active variance':'variance'}; contributions sum to 100% with the specific (residual) term. Negative = the factor diversifies the rest.</div></div>
+   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Factor history — last ${RM.history_months} months</h2><select id="famDrill" style="width:auto">${famOpts.map(([k,l])=>`<option value="${esc(k)}" ${k===state.famDrill?'selected':''}>${l}</option>`).join('')}</select></div>
+     <div id="facHistLegend" style="margin-top:8px"></div><div class="chart" id="facHist"></div>
+     <div class="small muted">% of total variance by ${state.famDrill&&state.famDrill!=='__noneq'?'factor within '+esc(state.famDrill):'factor family'}, month-end, using data and weights as of each month (source per point in the tooltip). History is stored with every run.</div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Factor exposures and contributions — ${v}</h2><div class="scroll"><table><tr><th>Factor</th><th>Family</th><th class="num">Exposure (β)</th><th class="num">Bench β</th><th class="num">Active β</th><th class="num">Factor vol</th><th class="num">% of ${state.fmode==='active'?'active ':''}variance</th><th class="num">Risk contribution</th></tr>
+   ${cur.factors.map((f,i)=>{const t=fd.total.factors[i],b=fd.benchmark.factors[i];return `<tr><td>${esc(f.name)}</td><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(${FAM_COLOR[f.family]});margin-right:6px"></i>${esc(f.family)}</td><td class="num">${t.exposure.toFixed(3)}</td><td class="num">${b.exposure.toFixed(3)}</td><td class="num">${(t.exposure-b.exposure>=0?'+':'')+(t.exposure-b.exposure).toFixed(3)}</td><td class="num">${pct(f.factor_vol)}</td><td class="num"><b>${pct(f.pct)}</b></td><td class="num">${pct2(f.contribution)}</td></tr>`}).join('')}
+   <tr><td>Specific (residual)</td><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--s6);margin-right:6px"></i>Specific</td><td></td><td></td><td></td><td></td><td class="num"><b>${pct(cur.specific.pct)}</b></td><td class="num">${pct2(cur.specific.contribution)}</td></tr></table></div>
+   <details style="margin-top:8px"><summary class="small">How the factors are built</summary><table class="small">${RM.factors.map(f=>`<tr><td>${esc(f.name)}</td><td class="mono">${Object.entries(RM.coefficients[f.id]).map(([a,c])=>`${c>=0?'+':''}${c} × ${esc(a)}`).join('  ')}</td></tr>`).join('')}</table><div class="small muted">Excess returns over cash. Rate-hedged factors subtract a duration-matched long Treasury position. Fit (share of each fund's variance explained): ${Object.entries(RM.r2).map(([a,r])=>`${esc(nm(a))} ${(r*100).toFixed(0)}%`).join(' · ')}.</div></details></div>`;
+};
+function facBar(){
+  const el=$('#facBar'); if(!el||!RK) return; const cur=R.vintages[state.vintage].risk_analytics.factors[state.fmode];
+  const rows=cur.factors.map(f=>({n:f.name,fam:f.family,p:f.pct})).concat([{n:'Specific (residual)',fam:'Specific',p:cur.specific.pct}]);
+  const W=el.clientWidth||520, rh=24, lw=210, H=rows.length*rh+22, mx=Math.max(0.05,...rows.map(r=>Math.abs(r.p)));
+  const mn=Math.min(0,...rows.map(r=>r.p)); const span=mx-mn; const X=x=>lw+(x-mn)/span*(W-lw-50);
+  let svg=`<svg width="${W}" height="${H}" role="img" aria-label="Factor contribution bar chart"><line x1="${X(0)}" x2="${X(0)}" y1="0" y2="${H-16}" stroke="var(--mid)"/>`;
+  rows.forEach((r,i)=>{const y=i*rh+3,x0=Math.min(X(0),X(r.p)),w=Math.abs(X(r.p)-X(0));
+    svg+=`<text x="${lw-8}" y="${y+14}" text-anchor="end" style="fill:var(--text-2)">${esc(r.n)}</text><rect x="${x0}" y="${y+3}" width="${Math.max(w,1)}" height="14" rx="4" fill="var(${FAM_COLOR[r.fam]})"/>
+    <text x="${Math.max(X(0),X(r.p))+6}" y="${y+14}" style="fill:var(--text-2)">${(r.p*100).toFixed(1)}%</text>`});
+  svg+=`<text x="${X(0)}" y="${H-3}" text-anchor="middle">0%</text></svg>`; el.innerHTML=svg;
+}
+function lineChart(el, opt){
+  // opt: {x:[labels], series:[{name,color,dash,values,meta}], fmt, H}
+  if(!el) return; const W=el.clientWidth||560,H=opt.H||260,m={l:52,r:14,t:10,b:30};
+  const all=opt.series.flatMap(s=>s.values).filter(v=>v!=null&&!isNaN(v)); if(!all.length){el.innerHTML='<div class="muted small">No data.</div>';return}
+  let lo=Math.min(...all,opt.zero?0:Infinity),hi=Math.max(...all,opt.zero?0:-Infinity); if(hi-lo<1e-9){hi+=Math.abs(hi)*0.1+1e-3;lo-=Math.abs(lo)*0.1+1e-3}
+  const raw=(hi-lo)/4, mag=Math.pow(10,Math.floor(Math.log10(raw))), stp=[1,2,2.5,5,10].map(k=>k*mag).find(k=>k>=raw)||raw; lo=Math.floor(lo/stp)*stp; hi=Math.ceil(hi/stp)*stp; const nt=Math.round((hi-lo)/stp);
+  const n=opt.x.length, X=i=>m.l+(n<=1?0.5:i/(n-1))*(W-m.l-m.r), Y=v=>m.t+(1-(v-lo)/(hi-lo))*(H-m.t-m.b);
+  let svg=`<svg width="${W}" height="${H}" role="img" aria-label="${esc(opt.label||'line chart')}">`;
+  for(let g=0;g<=nt;g++){const v=lo+stp*g;svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${opt.fmt(v,stp)}</text>`}
+  if(lo<0&&hi>0) svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--mid)"/>`;
+  const step=Math.ceil(n/8); opt.x.forEach((l,i)=>{if((i%step===0&&(n-1-i>=step||i===0))||i===n-1) svg+=`<text x="${X(i)}" y="${H-m.b+16}" text-anchor="${n>1&&i===n-1?'end':n>1&&i===0?'start':'middle'}">${esc(l)}</text>`});
+  opt.series.forEach(s=>{const pts=s.values.map((v,i)=>v==null?null:`${X(i)},${Y(v)}`).filter(Boolean);
+    svg+=`<polyline points="${pts.join(' ')}" fill="none" stroke="var(${s.color})" stroke-width="2" ${s.dash?'stroke-dasharray="5 4"':''} stroke-linejoin="round"/>`;
+    if(n<=20) s.values.forEach((v,i)=>{if(v!=null) svg+=`<circle cx="${X(i)}" cy="${Y(v)}" r="${s.dash?2.5:3.5}" fill="var(${s.color})" stroke="var(--surface)" stroke-width="1.5"/>`});});
+  svg+=`<line class="cx" y1="${m.t}" y2="${H-m.b}" stroke="var(--text-2)" stroke-dasharray="3 3" style="display:none"/><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent" class="hit"/></svg><div class="tip"></div>`;
+  el.innerHTML=svg; const hit=el.querySelector('.hit'),tip=el.querySelector('.tip'),cx=el.querySelector('.cx');
+  hit.addEventListener('mousemove',e=>{const b=el.getBoundingClientRect();const px=e.clientX-b.left;const i=Math.max(0,Math.min(n-1,Math.round((px-m.l)/((W-m.l-m.r)||1)*(n-1))));
+    cx.setAttribute('x1',X(i));cx.setAttribute('x2',X(i));cx.style.display='';tip.style.display='block';tip.style.left=Math.min(X(i)+12,W-220)+'px';tip.style.top='14px';
+    tip.innerHTML=`<b>${esc(opt.x[i])}</b>${opt.series.map(s=>`<div><i style="display:inline-block;width:8px;height:8px;background:var(${s.color});border-radius:2px;margin-right:6px"></i>${esc(s.name)}: ${s.values[i]==null?'—':opt.fmt(s.values[i])}</div>`).join('')}${opt.foot?`<div class="small muted" style="margin-top:4px">${esc(opt.foot(i))}</div>`:''}`});
+  hit.addEventListener('mouseleave',()=>{tip.style.display='none';cx.style.display='none'});
+}
+function histRows(v){return (RK.history||[]).filter(h=>h.vintage===v).sort((a,b)=>a.date<b.date?-1:1)}
+function facHist(){
+  const el=$('#facHist'); if(!el||!RK) return; const rows=histRows(state.vintage);
+  const fams=state.famDrill==='__noneq'?FAM_ORDER.filter(f=>f!=='Equity'):FAM_ORDER;
+  const groups=state.famDrill&&state.famDrill!=='__noneq'? RM.factors.filter(f=>f.family===state.famDrill).map(f=>({name:f.name,ids:[f.id]})) : fams.map(f=>({name:f,ids:f==='Specific'?['specific']:RM.factors.filter(x=>x.family===f).map(x=>x.id)}));
+  const colors=state.famDrill&&state.famDrill!=='__noneq'?['--s1','--s2','--s3','--s4','--s5','--s6']:fams.map(f=>FAM_COLOR[f]);
+  const series=groups.map((g,i)=>({name:g.name,color:colors[i%colors.length],values:rows.map(r=>g.ids.reduce((s,id)=>s+((r.factors||{})[id]||0),0))}));
+  $('#facHistLegend').innerHTML=legendHtml(series.map(s=>[s.name,s.color]));
+  lineChart(el,{x:rows.map(r=>r.date.slice(0,7)),series,fmt:(v,ax)=>(v*100).toFixed(ax?(ax*100<1?1:0):1)+'%',label:'Factor share of variance over time',foot:i=>rows[i].source});
+}
+
+// ---------- Stress tests
+function sevLabel(k){const s=RM.severities.find(x=>x.k===k);return s?s.label:k}
+V.stress = () => {
+  if(!RK) return noRisk();
+  const S=RK.stress, key=state.stView;
+  const cell=x=>{if(x==null) return '<td class="num muted">—</td>';const a=Math.min(Math.abs(x)/0.3,1);const bg=x<0?`rgba(235,104,52,${0.08+a*0.35})`:`rgba(42,120,214,${0.06+a*0.3})`;return `<td class="num" style="background:${key==='active'?'transparent':bg}">${sgnP(x,1)}</td>`};
+  const hist=S.historical.filter(h=>h.available);
+  const sevBtns=seg('sev',RM.severities.map(s=>[String(s.k),`${s.label} (${s.k}σ)`]),String(state.sev));
+  const lvl=h=>h.levels.find(l=>l.k===state.sev);
+  return `<p class="small muted" style="margin-top:0">${esc(S.method)}</p>
+  <div class="row" style="margin-bottom:12px"><span class="small muted">Show</span>${seg('stView',[['portfolio','Fund return'],['benchmark','Benchmark return'],['active','Active (fund − benchmark)']],key)}</div>
+  <div class="card"><h2>Historical scenarios — replayed on today's portfolios</h2><div class="scroll"><table><tr><th>Scenario</th><th>Window</th>${VINT.map(v=>`<th class="num">${v}</th>`).join('')}</tr>
+   ${hist.map(h=>`<tr><td>${esc(h.name)} ${h.kind==='rally'?'<span class="chip info">rally</span>':''}</td><td class="small">${esc(h.start)} → ${esc(h.end)} (${h.months}m)</td>${VINT.map(v=>cell(h.vintages[v][key])).join('')}</tr>`).join('')}
+   <tr><td>Worst single month since ${esc(RM.start.slice(0,7))}</td><td class="small">per fund</td>${VINT.map(v=>`<td class="num" title="${esc(S.worst_month[v].worst_month_date)}">${key==='portfolio'?sgnP(S.worst_month[v].worst_month,1):'—'}</td>`).join('')}</tr></table></div></div>
+  <div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Hypothetical scenarios — severity ladder</h2>${sevBtns}</div>
+   <p class="small muted">${esc((RM.severities.find(s=>s.k===state.sev)||{}).note||'')}. Each shocked driver moves ${state.sev}× its 1-month standard deviation.</p>
+   <div class="scroll"><table><tr><th>Scenario</th><th>Propagation</th>${VINT.map(v=>`<th class="num">${v}</th>`).join('')}</tr>
+   ${S.hypothetical.map(h=>`<tr><td>${esc(h.name)}</td><td class="small">${esc(h.propagation)}</td>${VINT.map(v=>cell(lvl(h).vintages[v][key])).join('')}</tr>`).join('')}</table></div></div>
+  <div class="grid g2" style="margin-top:14px">
+   <div class="card"><h2>Normal to extreme — MTRS ${state.vintage}</h2>${vintageTabs()}<div id="ladderLegend"></div><div class="chart" id="ladder"></div><div class="small muted">Fund return under each hypothetical scenario as severity rises from 1σ to 5σ.</div></div>
+   <div class="card"><h2>Build a scenario</h2><p class="small muted" style="margin-top:0">Set any market moves; unset drivers ${state.prop==='correlated'?'move with their historical correlation to the ones you set':'stay at zero'}. Duration-based for rates and spreads (linear, no convexity).</p>
+    <div class="row" style="margin-bottom:8px">${seg('prop',[['correlated','Correlated'],['isolated','Isolated']],state.prop)}<button class="btn" id="cusReset">Reset</button></div>
+    <table class="small">${RM.drivers.map(d=>{const val=state.custom[d.factor]||0;return `<tr><td style="width:40%">${esc(d.label)}</td><td><input type="range" min="${d.min}" max="${d.max}" step="${d.step}" value="${val}" data-drv="${d.factor}" style="padding:0;border:0"></td><td class="num" style="width:70px" id="dv_${d.factor}">${val>0?'+':''}${val}${d.unit==='pct'?'%':'bp'}</td></tr>`}).join('')}</table>
+    <div id="cusOut" style="margin-top:10px"></div></div>
+  </div>`;
+};
+function ladder(){
+  const el=$('#ladder'); if(!el||!RK) return; const v=String(state.vintage); const S=RK.stress.hypothetical; const cols=['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+  const series=S.map((h,i)=>({name:h.name,color:cols[i%8],values:h.levels.map(l=>l.vintages[v][state.stView])}));
+  $('#ladderLegend').innerHTML=legendHtml(series.map(s=>[s.name,s.color]));
+  lineChart(el,{x:RM.severities.map(s=>`${s.label} ${s.k}σ`),series,fmt:(x,ax)=>(x>=0?'+':'')+(x*100).toFixed(ax?(ax*100<1?1:0):1)+'%',zero:true,label:'Stress severity ladder'});
+}
+function solve(A,b){const n=b.length,M=A.map((r,i)=>[...r,b[i]]);for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(M[r][i])>Math.abs(M[p][i]))p=r;[M[i],M[p]]=[M[p],M[i]];const d=M[i][i]||1e-12;for(let r=0;r<n;r++){if(r===i)continue;const f=M[r][i]/d;for(let c=i;c<=n;c++)M[r][c]-=f*M[i][c]}}return M.map((r,i)=>r[n]/(r[i]||1e-12))}
+function customScenario(){
+  const ids=RM.factors.map(f=>f.id), ch=RM.characteristics; const shocks={};
+  RM.drivers.forEach(d=>{const val=+(state.custom[d.factor]||0); if(!val) return;
+    shocks[d.factor]= d.unit==='pct'? val/100 : (d.sign||1)*(d.spread?ch.spread_duration[d.duration_of]:ch.eff_duration[d.duration_of])*val/1e4;});
+  const S=Object.keys(shocks).map(k=>ids.indexOf(k)); const f=ids.map(()=>0); S.forEach((i,j)=>f[i]=shocks[ids[i]]);
+  if(S.length&&state.prop==='correlated'&&S.length<ids.length){const Fss=S.map(i=>S.map(j=>RM.F[i][j]));const x=solve(Fss,S.map(i=>f[i]));
+    ids.forEach((_,o)=>{if(S.includes(o))return; f[o]=S.reduce((s,i,j)=>s+RM.F[o][i]*x[j],0)})}
+  const r=RM.B.map(row=>dot(row,f)); return {f,r};
+}
+function customOut(){
+  const el=$('#cusOut'); if(!el||!RK) return; const {f,r}=customScenario(); const any=Object.values(state.custom).some(x=>+x);
+  if(!any){el.innerHTML='<div class="small muted">Move a slider to see the impact on every fund.</div>';return}
+  el.innerHTML=`<table><tr><th>Fund</th><th class="num">Fund</th><th class="num">Benchmark</th><th class="num">Active</th></tr>${VINT.map(v=>{const p=dot(wv(v),r),b=dot(bv(v),r);return `<tr><td>MTRS ${v}</td><td class="num">${sgnP(p,1)}</td><td class="num">${sgnP(b,1)}</td><td class="num">${sgnP(p-b,2)}</td></tr>`}).join('')}</table>
+  <details><summary class="small">Implied moves</summary><table class="small"><tr><th>Building block</th><th class="num">Return</th></tr>${P.assets.map((a,i)=>`<tr><td>${esc(nm(a))}</td><td class="num">${sgnP(r[i],1)}</td></tr>`).join('')}</table>
+  <table class="small"><tr><th>Factor</th><th class="num">Move</th></tr>${RM.factors.map((x,i)=>`<tr><td>${esc(x.name)}</td><td class="num">${sgnP(f[i],1)}</td></tr>`).join('')}</table></details>`;
+}
+
+// ---------- Risk history
+const TS = {total_risk:['Total risk','bench_total_risk',pct2],active_risk:['Active risk (tracking error)',null,pct2],eff_duration:['Effective duration','bench_eff_duration',v=>yrs(v)+' yrs'],
+  spread_duration:['Credit spread duration','bench_spread_duration',v=>yrs(v)+' yrs'],diversification:['Diversification','bench_diversification',v=>pct(v)],var:['VaR '+(RM?(RM.var.confidence*100).toFixed(0):'95')+' (1 month)','bench_var',pct2]};
+V.riskHistory = () => {
+  if(!RK) return noRisk();
+  const rows=histRows(state.vintage), [lbl,bk,fmt]=TS[state.tsMetric];
+  const srcCount=rows.reduce((a,r)=>{const k=r.source.startsWith('this run')?'from this run':r.source.startsWith('recorded (')?'recorded snapshots':r.source.startsWith('recorded positions')?'reconstructed from recorded positions':'reconstructed from the glide path';a[k]=(a[k]||0)+1;return a},{});
+  return `${modelNote()}${vintageTabs()}
+  <div class="row" style="margin-bottom:12px">${seg('tsMetric',Object.entries(TS).map(([k,v])=>[k,v[0]]),state.tsMetric)}</div>
+  <div class="card"><h2>${esc(lbl)} — MTRS ${state.vintage}, last ${rows.length} months</h2>${legendHtml(bk?[['Fund','--s1'],['Benchmark (glide path)','--text-2',true]]:[['Fund','--s1']])}<div class="chart" id="tsChart"></div>
+   <div class="small muted">Each point uses data available at that month-end. Weights: recorded positions where they exist, otherwise the glide path for that date; the latest point is this run's proposal. Points: ${Object.entries(srcCount).map(([k,n])=>`${n} ${esc(k)}`).join(' · ')}. Durations use current fund characteristics for every month until a vendor or holdings history is loaded.</div></div>
+  <div class="card" style="margin-top:14px"><h2>Data</h2><div class="scroll" style="max-height:360px"><table><tr><th>Month</th><th class="num">Total risk</th><th class="num">Bench</th><th class="num">Active</th><th class="num">Eff. dur</th><th class="num">Bench dur</th><th class="num">Spread dur</th><th class="num">Diversification</th><th class="num">VaR</th><th>Weights from</th></tr>
+   ${[...rows].reverse().map(r=>`<tr><td>${esc(r.date)}</td><td class="num">${pct2(r.total_risk)}</td><td class="num">${pct2(r.bench_total_risk)}</td><td class="num">${pct2(r.active_risk)}</td><td class="num">${yrs(r.eff_duration)}</td><td class="num">${yrs(r.bench_eff_duration)}</td><td class="num">${yrs(r.spread_duration)}</td><td class="num">${pct(r.diversification)}</td><td class="num">${pct2(r.var)}</td><td class="small">${esc(r.source)}</td></tr>`).join('')}</table></div></div>`;
+};
+function tsChart(){
+  const el=$('#tsChart'); if(!el||!RK) return; const rows=histRows(state.vintage), [lbl,bk,fmt]=TS[state.tsMetric];
+  const isPct=!/duration/.test(state.tsMetric);
+  const series=[{name:'Fund',color:'--s1',values:rows.map(r=>r[state.tsMetric])}]; if(bk) series.push({name:'Benchmark',color:'--text-2',dash:true,values:rows.map(r=>r[bk])});
+  lineChart(el,{x:rows.map(r=>r.date.slice(0,7)),series,fmt:(v,ax)=>isPct?(v*100).toFixed(ax?(ax*100<0.1?2:1):2)+'%':(+v).toFixed(ax?(ax<0.1?2:1):2)+(ax?'':' yrs'),label:lbl+' over time',foot:i=>rows[i].source,H:280});
+}
+
+// ---------- Look-through & ticker search
+const LT = RK ? RK.lookthrough : null;
+let LTIDX=null;
+function ltIndex(){ if(LTIDX||!LT||!LT.available) return LTIDX; const by={};
+  Object.entries(LT.funds).forEach(([a,f])=>f.holdings.forEach(([s,w,d])=>{(by[s]=by[s]||[]).push([a,w,d])}));
+  LTIDX={by, text:LT.securities.map(s=>(s[0]+' '+s[1]).toLowerCase())}; return LTIDX; }
+function secExposure(v, s){ const idx=ltIndex(); return (idx.by[s]||[]).reduce((t,[a,w])=>t+R.vintages[v].final[a]*w,0); }
+function secLabel(s){const x=LT.securities[s];return (x[0]&&x[0]!==x[1])?`<span class="mono">${esc(x[0])}</span> ${esc(x[1])}`:esc(x[1])}
+V.exposures = () => {
+  if(!RK) return noRisk();
+  if(!LT||!LT.available) return `<div class="card"><h2>Look-through holdings not loaded</h2><p class="muted">${esc(LT?LT.note:'')}</p><p class="small">The monthly data refresh downloads the public holdings of each building block's proxy fund (iShares). Licensed holdings (FactSet, Bloomberg, custodian files) plug in through <span class="mono">holdings.lookthrough</span> in <span class="mono">config/data_sources.yaml</span>.</p></div>`;
+  const q=state.ltQuery.trim().toLowerCase(), idx=ltIndex();
+  let search='';
+  if(q.length>=1){ const hits=[]; idx.text.forEach((t,i)=>{if(t.startsWith(q)||t.includes(' '+q)||(q.length>2&&t.includes(q)))hits.push(i)});
+    const ranked=hits.map(s=>({s,mx:Math.max(...VINT.map(v=>secExposure(v,s))),exact:(LT.securities[s][0]||'').toLowerCase()===q})).sort((a,b)=>(b.exact-a.exact)||(b.mx-a.mx)).slice(0,25);
+    const sel=state.ltSel!=null&&hits.includes(state.ltSel)?state.ltSel:(ranked[0]||{}).s;
+    search=`<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);margin-top:10px"><div class="scroll" style="max-height:420px"><table><tr><th>Security / issuer</th><th>Country</th><th class="num">Max exposure</th></tr>${ranked.map(r=>`<tr class="click ${r.s===sel?'sel':''}" data-ltsel="${r.s}"><td>${secLabel(r.s)}<div class="small muted">${esc(LT.securities[r.s][3])} · ${esc(LT.securities[r.s][2])}</div></td><td class="small">${esc(LT.securities[r.s][4])}</td><td class="num">${pct(r.mx,3)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">No match</td></tr>'}</table></div>
+     <div>${sel!=null?secDetail(sel):''}</div></div>`; }
+  const v=state.vintage, x=R.vintages[v];
+  const top=Object.keys(idx.by).map(s=>({s:+s,e:secExposure(v,+s)})).sort((a,b)=>b.e-a.e).slice(0,25);
+  const funds=P.assets.filter(a=>x.final[a]>0||LT.funds[a]).map(a=>({a,w:x.final[a],f:LT.funds[a]}));
+  return `<div class="card"><h2>Find a security across all portfolios</h2><div class="filters"><input id="ltq" placeholder="Ticker or name, e.g. AAPL, NVDA, Treasury, Toyota" value="${esc(state.ltQuery)}" style="min-width:360px"><span class="small muted" style="align-self:center">${LT.securities.length.toLocaleString()} securities/issuers across ${Object.keys(LT.funds).length} building blocks · holdings as of ${esc(LT.as_of)}</span></div>${search||'<div class="small muted">Type a ticker or name to see every vintage that holds it, how much, and through which underlying fund.</div>'}</div>
+  <div class="section-title">Security exposure by portfolio</div>${vintageTabs()}
+  <div class="grid g2"><div class="card"><h2>Underlying funds — drill into holdings (MTRS ${v})</h2><div class="scroll" style="max-height:620px"><table><tr><th>Building block</th><th>Look-through proxy</th><th class="num">Weight</th><th class="num">Holdings</th></tr>
+   ${funds.map(({a,w,f})=>`<tr class="click" data-ltfund="${a}"><td><span class="caret">${state.ltOpen[a]?'▾':'▸'}</span>${esc(nm(a))}</td><td class="small">${f?f.proxies.map(p=>`${esc(p.ticker)}${p.blend_weight<1?' '+(p.blend_weight*100).toFixed(0)+'%':''}`).join(' + ')+(f.return_proxy&&!f.proxies.some(p=>p.ticker===f.return_proxy)?` <span class="muted">(returns: ${esc(f.return_proxy)})</span>`:''):'<span class="muted">none</span>'}</td><td class="num">${pct(w)}</td><td class="num">${f?f.securities.toLocaleString():'—'}</td></tr>
+   ${state.ltOpen[a]&&f?`<tr><td colspan="4" style="padding:0 0 8px 24px"><table class="small"><tr><th>Security / issuer</th><th>Sector</th><th class="num">% of fund</th><th class="num">% of portfolio</th><th class="num">Duration</th></tr>${f.holdings.slice(0,state.ltOpen[a]==='all'?2000:25).map(([s,hw,d])=>`<tr class="click" data-ltjump="${s}"><td>${secLabel(s)}</td><td>${esc(LT.securities[s][2])}</td><td class="num">${pct(hw,2)}</td><td class="num">${pct(hw*w,3)}</td><td class="num">${d==null?'—':d.toFixed(2)}</td></tr>`).join('')}</table>${f.holdings.length>25&&state.ltOpen[a]!=='all'?`<button class="btn" data-ltall="${a}" style="margin-top:6px">Show all ${f.holdings.length.toLocaleString()}</button>`:''}<div class="small muted">Coverage ${pct(f.coverage)} of fund · ${f.lines.toLocaleString()} positions${f.proxies[0]?' · as of '+esc(f.proxies[0].as_of):''}</div></td></tr>`:''}`).join('')}</table></div></div>
+   <div class="card"><h2>Largest look-through exposures (MTRS ${v})</h2><div class="scroll" style="max-height:620px"><table><tr><th>Security / issuer</th><th>Via</th><th class="num">% of portfolio</th></tr>${top.map(t=>`<tr class="click" data-ltjump="${t.s}"><td>${secLabel(t.s)}</td><td class="small">${idx.by[t.s].filter(([a])=>x.final[a]>0).map(([a])=>esc(LT.funds[a].proxies.map(p=>p.ticker).join('+'))).join(', ')}</td><td class="num">${pct(t.e,2)}</td></tr>`).join('')}</table></div>
+   <div class="small muted" style="margin-top:6px">${esc(LT.note)}</div></div></div>`;
+};
+function secDetail(s){const idx=ltIndex();const x=LT.securities[s];const via=idx.by[s]||[];
+  return `<div class="card" style="box-shadow:none"><h2>${secLabel(s)}</h2><div class="small muted">${esc(x[3])} · ${esc(x[2])} · ${esc(x[4])}</div>
+  <h3>Held through</h3><table class="small"><tr><th>Building block</th><th>Proxy</th><th class="num">% of that fund</th></tr>${via.map(([a,w])=>`<tr><td>${esc(nm(a))}</td><td>${esc(LT.funds[a].proxies.map(p=>p.ticker).join('+'))}</td><td class="num">${pct(w,3)}</td></tr>`).join('')}</table>
+  <h3>Exposure by portfolio</h3><table><tr><th>Fund</th><th class="num">% of portfolio</th><th>Through</th></tr>${VINT.map(v=>{const e=secExposure(v,s);return `<tr class="${e>0?'':'muted'}"><td>MTRS ${v}</td><td class="num"><b>${pct(e,3)}</b></td><td class="small">${via.filter(([a])=>R.vintages[v].final[a]>0).map(([a,w])=>`${esc(nm(a))} ${pct(R.vintages[v].final[a]*w,3)}`).join(' · ')}</td></tr>`}).join('')}</table></div>`}
+function bindRisk(){
+  document.querySelectorAll('[data-seg]').forEach(b=>b.onclick=()=>{const k=b.dataset.seg;let v=b.dataset.val;if(k==='sev')v=+v;state[k]=v;render()});
+  const fdd=$('#famDrill'); if(fdd) fdd.onchange=()=>{state.famDrill=fdd.value;render()};
+  document.querySelectorAll('[data-drv]').forEach(inp=>inp.oninput=()=>{state.custom[inp.dataset.drv]=+inp.value;const d=RM.drivers.find(x=>x.factor===inp.dataset.drv);$('#dv_'+d.factor).textContent=(inp.value>0?'+':'')+inp.value+(d.unit==='pct'?'%':'bp');customOut()});
+  const cr=$('#cusReset'); if(cr) cr.onclick=()=>{state.custom={};render()};
+  const q=$('#ltq'); if(q){q.oninput=()=>{state.ltQuery=q.value;state.ltSel=null;const pos=q.selectionStart;render();const n=$('#ltq');n.focus();n.setSelectionRange(pos,pos)}}
+  document.querySelectorAll('[data-ltsel]').forEach(e=>e.onclick=()=>{state.ltSel=+e.dataset.ltsel;render()});
+  document.querySelectorAll('[data-ltfund]').forEach(e=>e.onclick=()=>{const a=e.dataset.ltfund;state.ltOpen[a]=state.ltOpen[a]?false:true;render()});
+  document.querySelectorAll('[data-ltall]').forEach(e=>e.onclick=(ev)=>{ev.stopPropagation();state.ltOpen[e.dataset.ltall]='all';render()});
+  document.querySelectorAll('[data-ltjump]').forEach(e=>e.onclick=()=>{const s=+e.dataset.ltjump;const t=LT.securities[s];state.ltQuery=t[0]||t[1];state.ltSel=s;render();window.scrollTo({top:0,behavior:'smooth'})});
+}
+function riskCharts(){wrChart();facBar();facHist();ladder();customOut();tsChart()}
+
 // --------------------------------------------------------------- markdown (subset)
 function md(src){const out=[];const lines=src.split('\n');let i=0;const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
   while(i<lines.length){const l=lines[i];
@@ -489,7 +748,7 @@ function md(src){const out=[];const lines=src.split('\n');let i=0;const inl=s=>e
   return out.join('')}
 
 // --------------------------------------------------------------- render + events
-function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();glideChart();activeChart()}
+function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();bindRisk();glideChart();activeChart();riskCharts()}
 document.addEventListener('click',e=>{const b=e.target.closest('#copyCmd');if(!b)return;});
 function bind(){
   document.querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.open;state.tab=ROLES[state.role].tabs.includes('portfolios')?'portfolios':ROLES[state.role].tabs.includes('risk')?'risk':state.tab;render()});
@@ -541,7 +800,7 @@ function bind(){
         .then(cr=>{toast(`${cr.id}: ${cr.status}`);setTimeout(()=>location.reload(),800)}).catch(e=>toast(e.message))}});
   const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
 }
-window.addEventListener('resize',()=>{glideChart();activeChart()});
+window.addEventListener('resize',()=>{glideChart();activeChart();riskCharts()});
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(ROLES[h]&&h!==state.role){state.role=h;state.tab=null;render()}});
 render();
 </script>

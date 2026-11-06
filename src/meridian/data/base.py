@@ -17,6 +17,11 @@ CANONICAL = {
     "fundamentals.valuation": ["asset_id", "date", "cape", "dividend_yield", "earnings_growth"],
     "credit.ratings": ["entity_id", "agency", "rating", "outlook", "date"],
     "yields.current": ["asset_id", "date", "yield", "duration", "expected_loss"],
+    # risk characteristics of each building-block fund (years); vendor feeds may add yield, oas, rating
+    "fund.characteristics": ["asset_id", "date", "eff_duration", "spread_duration"],
+    # look-through holdings of each building-block fund; weight = fraction of that fund (decimal).
+    # Optional columns: ticker, asset_class, sector, country, duration, lines (positions aggregated)
+    "holdings.lookthrough": ["asset_id", "fund_ticker", "date", "security_id", "name", "weight"],
 }
 
 
@@ -27,6 +32,8 @@ MERGE_KEYS = {
     "fundamentals.valuation": ["asset_id"],
     "credit.ratings": ["entity_id", "agency"],
     "yields.current": ["asset_id"],
+    "fund.characteristics": ["asset_id"],
+    "holdings.lookthrough": ["asset_id", "fund_ticker", "security_id"],
 }
 TIME_SERIES = {"returns.monthly"}
 

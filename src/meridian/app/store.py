@@ -172,6 +172,27 @@ class Store:
         pd.DataFrame(rows, columns=["as_of", "vintage", "asset", "weight", "run_id", "status"]).to_csv(path, index=False)
         return path
 
+    def risk_history_csv(self, path: Path) -> Path:
+        """Point-in-time risk snapshots recorded by every ingested run (one row per run, vintage, metric)."""
+        import pandas as pd
+        cols = ["as_of", "vintage", "run_id", "source", "metric", "value"]
+        rows = []
+        with self.Session() as s:
+            for run in s.execute(select(Run)).scalars():
+                for v, d in ((run.results or {}).get("vintages") or {}).items():
+                    ra = d.get("risk_analytics")
+                    if not ra:
+                        continue
+                    for k, val in ra["metrics"].items():
+                        if isinstance(val, (int, float)) and not k.startswith("var_"):
+                            rows.append([run.as_of, int(v), run.id, "recorded", k, float(val)])
+                    for f in ra["factors"]["total"]["factors"]:
+                        rows.append([run.as_of, int(v), run.id, "recorded", f"factor:{f['id']}", float(f["pct"])])
+                    rows.append([run.as_of, int(v), run.id, "recorded", "factor:specific",
+                                 float(ra["factors"]["total"]["specific"]["pct"])])
+        pd.DataFrame(rows, columns=cols).to_csv(path, index=False)
+        return path
+
     # ------------------------------------------------------------------ governance
     @contextlib.contextmanager
     def governance_workspace(self, policy_path: Path):
