@@ -382,6 +382,14 @@ def aggregate_holdings(df: pd.DataFrame) -> pd.DataFrame:
         "weight": df[g("weight (%)", "weight")].map(_num) / 100.0,
         "duration": df[g("duration", "effective duration", "mod. duration")].map(_num) if g("duration", "effective duration", "mod. duration") else np.nan,
     })
+    # iShares rounds 'Weight (%)' to 0.01%, which loses ~20% of a fund with thousands of tiny lines (AGG).
+    # Market values are exact: derive weights from them when they are present and sum to something sensible.
+    mvc = g("market value")
+    if mvc is not None:
+        mv = df[mvc].map(_num)
+        tot = mv.sum(skipna=True)
+        if tot > 0 and mv.notna().sum() >= 0.9 * out["weight"].notna().sum():
+            out["weight"] = (mv / tot).where(out["weight"].notna(), np.nan)
     out = out[out["weight"].notna()]
     out["ticker"] = out["ticker"].replace({"-": "", "--": ""})
     is_bond = out["asset_class"].str.contains("Fixed Income", case=False, na=False)
