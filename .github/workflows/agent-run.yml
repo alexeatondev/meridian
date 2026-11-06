@@ -33,6 +33,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MERIDIAN_MODEL: ${{ inputs.model }}
           MERIDIAN_LLM: "on"
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           meridian run target-date --as-of "${{ inputs.as_of }}" | tee run.txt
           RUN=$(ls -td runs/run_* | head -1)

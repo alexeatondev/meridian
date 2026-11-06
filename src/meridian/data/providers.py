@@ -103,7 +103,9 @@ class FileSource(DataSource):
             if p.exists():
                 df = reader(p)
                 if "date" in df:
-                    df["date"] = pd.to_datetime(df["date"])
+                    df["date"] = pd.to_datetime(df["date"]).dt.normalize()
+                    if req.dataset == "returns.monthly":
+                        df["date"] = df["date"] + pd.offsets.MonthEnd(0)
                 if req.assets and "asset_id" in df:
                     df = df[df["asset_id"].isin([a["id"] for a in req.assets])]
                 if "_source" in df:          # cache files keep upstream provenance
@@ -267,8 +269,9 @@ SOURCE_TYPES = {
 
 
 def build_source(name: str, cfg: dict, connections: dict) -> DataSource:
-    from .public import CsvUrlSource, FredSource, ManualSource, YahooSource
-    public = {"fred": FredSource, "yahoo": YahooSource, "manual": ManualSource, "csv_url": CsvUrlSource}
+    from .public import CsvUrlSource, FredSource, ManualSource, TreasurySource, YahooSource
+    public = {"fred": FredSource, "yahoo": YahooSource, "manual": ManualSource, "csv_url": CsvUrlSource,
+              "treasury": TreasurySource}
     if cfg.get("provider") in public:
         return public[cfg["provider"]](name, cfg, connections)
     if cfg.get("transport") == "snowflake":

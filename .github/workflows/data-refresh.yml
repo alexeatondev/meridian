@@ -22,6 +22,7 @@ jobs:
         with: {python-version: "3.12"}
       - run: pip install -e .
       - name: Refresh cache from live sources
+        env: {FRED_API_KEY: "${{ secrets.FRED_API_KEY }}"}
         run: |
           ARGS=""; if [ -n "${{ inputs.as_of }}" ]; then ARGS="--as-of ${{ inputs.as_of }}"; fi
           meridian data refresh $ARGS | tee refresh.json

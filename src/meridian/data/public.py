@@ -70,6 +70,7 @@ class FredSource(DataSource):
          return_series: {asset_id: {series: ID}}  # annualized % yield -> monthly return (T-bills)
     """
     BASE = "https://fred.stlouisfed.org/graph/fredgraph.csv?id="
+    API = "https://api.stlouisfed.org/fred/series/observations?series_id={sid}&api_key={key}&file_type=json"
 
     def datasets(self):
         o = self.options
@@ -77,7 +78,17 @@ class FredSource(DataSource):
                                ("returns.monthly", "return_series")) if o.get(k)}
 
     def series(self, sid: str, end=None) -> pd.Series:
-        s = parse_fred_csv(http_get(self.BASE + sid), sid)
+        """Uses the official FRED API when FRED_API_KEY is set (reliable from cloud runners);
+        otherwise the keyless fredgraph CSV download."""
+        import os
+        key = os.getenv(self.options.get("api_key_env", "FRED_API_KEY"))
+        if key:
+            j = json.loads(http_get(self.API.format(sid=sid, key=key), timeout=60))
+            obs = j.get("observations") or []
+            s = pd.Series(pd.to_numeric([o["value"] for o in obs], errors="coerce"),
+                          index=pd.to_datetime([o["date"] for o in obs])).dropna()
+        else:
+            s = parse_fred_csv(http_get(self.BASE + sid, timeout=60), sid)
         return s[s.index <= pd.Timestamp(end)] if end is not None else s
 
     def fetch(self, req: Request) -> pd.DataFrame:
@@ -139,6 +150,49 @@ class FredSource(DataSource):
         return df
 
 
+# ============================================================================================ US Treasury
+class TreasurySource(DataSource):
+    """US Treasury daily par yield curve (home.treasury.gov), no key. Serves yields.current and the
+    10y-2y curve indicator. options.yields: {asset_id: {tenor: '3 Mo'|'5 Yr'|..., duration, expected_loss}}"""
+    URL = ("https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/"
+           "{y}/all?type=daily_treasury_yield_curve&field_tdr_date_value={y}&page&_format=csv")
+
+    def datasets(self):
+        out = {"yields.current"} if self.options.get("yields") else set()
+        return out | ({"macro.indicators"} if self.options.get("curve_indicator", True) else set())
+
+    def curve(self, end) -> pd.DataFrame:
+        end = pd.Timestamp(end)
+        frames = []
+        for y in (end.year, end.year - 1):
+            try:
+                frames.append(pd.read_csv(io.BytesIO(http_get(self.URL.format(y=y), timeout=60))))
+            except NetworkUnavailable:
+                raise
+            except Exception:  # noqa: BLE001
+                continue
+        if not frames:
+            raise DataUnavailable("Treasury: no yield curve data")
+        df = pd.concat(frames)
+        df["Date"] = pd.to_datetime(df["Date"])
+        return df[df["Date"] <= end].sort_values("Date")
+
+    def fetch(self, req: Request) -> pd.DataFrame:
+        c = self.curve(req.as_of or req.end)
+        last = c.iloc[-1]
+        if req.dataset == "macro.indicators":
+            return pd.DataFrame([{"indicator": "yield_curve_10y2y_bp", "date": last["Date"],
+                                  "value": float((last["10 Yr"] - last["2 Yr"]) * 100), "series": "UST 10Y-2Y"}])
+        rows = []
+        for aid, spec in self.options["yields"].items():
+            if req.assets and aid not in {a["id"] for a in req.assets}:
+                continue
+            rows.append({"asset_id": aid, "date": last["Date"], "yield": float(last[spec["tenor"]]) / 100,
+                         "duration": float(spec.get("duration", 0)), "expected_loss": float(spec.get("expected_loss", 0)),
+                         "series": f"UST {spec['tenor']}"})
+        return pd.DataFrame(rows)
+
+
 # ============================================================================================ Yahoo
 def parse_yahoo_chart(raw: bytes) -> pd.Series:
     j = json.loads(raw)
@@ -150,7 +204,9 @@ def parse_yahoo_chart(raw: bytes) -> pd.Series:
     adj = ((r.get("indicators") or {}).get("adjclose") or [{}])[0].get("adjclose") or []
     if not ts or not adj:
         raise DataUnavailable("Yahoo: no adjclose")
-    idx = pd.to_datetime(ts, unit="s", utc=True).tz_convert(None) + pd.offsets.MonthEnd(0)
+    # bars are stamped at exchange-local midnight on the 1st; normalize to a clean month-end date
+    idx = (pd.to_datetime(ts, unit="s", utc=True).tz_convert("America/New_York").tz_localize(None).normalize()
+           + pd.offsets.MonthEnd(0))
     s = pd.Series(adj, index=idx, dtype="float64").dropna()
     return s[~s.index.duplicated(keep="last")]
 

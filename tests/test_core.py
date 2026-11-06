@@ -65,7 +65,7 @@ def test_ledger_detects_tampering(tmp_path):
 
 
 def test_data_routing_falls_back_to_synthetic_and_records_attempts():
-    reg = DataRegistry.from_config(overrides={"bloomberg_snowflake": True})   # enabled but no credentials
+    reg = DataRegistry.from_config(overrides={"bloomberg_snowflake": True, "cache": False})   # enabled but no credentials
     u = load_universe()
     res = reg.get(Request("returns.monthly", list(u.values()), start="2010-01-31", end="2026-10-31"))
     assert res.synthetic and res.source == "synthetic"
