@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-11-06T19:59:29.547474+00:00",
+  "refreshed_at": "2026-11-06T20:03:20.369931+00:00",
   "as_of": "2026-11-06",
   "datasets": {
     "returns.monthly": {
@@ -40,9 +40,9 @@
     },
     "holdings.lookthrough": {
       "status": "ok",
-      "rows": 11600,
+      "rows": 13115,
       "sources": {
-        "ishares": 11600
+        "ishares": 13115
       }
     }
   },
@@ -227,13 +227,8 @@
       "dataset": "holdings.lookthrough",
       "source": "ishares",
       "status": "ok",
-      "rows": 11600,
-      "synthetic": false,
-      "warnings": [
-        "IVV: parse error KeyError: None",
-        "IJH: parse error KeyError: None",
-        "IJR: parse error KeyError: None"
-      ]
+      "rows": 13115,
+      "synthetic": false
     }
   ]
 }
