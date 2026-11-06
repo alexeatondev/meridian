@@ -1,0 +1,14 @@
+asset_id,date,eff_duration,spread_duration,citation,_source
+us_large_cap,2026-10-31,0.0,0.0,Equity — no duration,manual
+us_small_mid_cap,2026-10-31,0.0,0.0,Equity — no duration,manual
+intl_developed_eq,2026-10-31,0.0,0.0,Equity — no duration,manual
+emerging_eq,2026-10-31,0.0,0.0,Equity — no duration,manual
+global_reits,2026-10-31,0.0,0.0,Equity (REITs) — no duration,manual
+commodities,2026-10-31,0.0,0.0,Commodity futures; T-bill collateral duration treated as 0,manual
+us_core_bond,2026-10-31,6.0,3.1,Pilot estimate: Bloomberg US Agg-type fund ~6 yrs; spread duration ≈ non-Treasury share (~52%) × duration. Replace with vendor data.,manual
+us_long_treasury,2026-10-31,15.5,0.0,Pilot estimate: Bloomberg US Long Treasury ~15–16 yrs; Treasuries carry no credit spread duration,manual
+us_tips_short,2026-08-31,2.4,0.0,"iShares 0-5 Yr TIPS (same index as VTIP): effective duration ≈2.4 yrs (BlackRock fact sheet, Aug 2026)",manual
+us_high_yield,2026-10-31,3.3,3.3,Pilot estimate: US HY index ~3–3.5 yrs; all lines carry spread duration,manual
+intl_bond_hedged,2026-10-23,6.2,2.4,"iShares IAGG effective duration 6.21 yrs (ishares.com, Oct 23 2026); spread duration ≈ non-government share (~39%) × duration",manual
+em_debt,2026-10-31,7.0,7.0,Pilot estimate: JPM EMBI GD ~7 yrs; USD sovereign spreads,manual
+cash,2026-10-31,0.1,0.0,0-3 month Treasury bills,manual

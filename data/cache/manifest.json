@@ -1,5 +1,5 @@
 {
-  "refreshed_at": "2026-11-06T16:42:27.958168+00:00",
+  "refreshed_at": "2026-11-06T19:54:00.411335+00:00",
   "as_of": "2026-11-06",
   "datasets": {
     "returns.monthly": {
@@ -30,6 +30,16 @@
       "sources": {
         "manual": 1
       }
+    },
+    "fund.characteristics": {
+      "status": "ok",
+      "rows": 13,
+      "sources": {
+        "manual": 13
+      }
+    },
+    "holdings.lookthrough": {
+      "status": "kept previous cache: No source could serve holdings.lookthrough; tried ['files', 'ishares', 'cache']"
     }
   },
   "attempts": [
@@ -175,6 +185,48 @@
     {
       "dataset": "fundamentals.valuation",
       "source": "synthetic",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fund.characteristics",
+      "source": "bloomberg_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fund.characteristics",
+      "source": "factset_snowflake",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fund.characteristics",
+      "source": "files",
+      "status": "skipped"
+    },
+    {
+      "dataset": "fund.characteristics",
+      "source": "manual",
+      "status": "ok",
+      "rows": 13,
+      "synthetic": false
+    },
+    {
+      "dataset": "fund.characteristics",
+      "source": "cache",
+      "status": "skipped"
+    },
+    {
+      "dataset": "holdings.lookthrough",
+      "source": "files",
+      "status": "skipped"
+    },
+    {
+      "dataset": "holdings.lookthrough",
+      "source": "ishares",
+      "status": "unavailable: iShares: no holdings retrieved. IVV: iShares: holdings header row not found (format changed or not a holdings file); IJH: iShares: holdings header row not found (format changed or not a holdings file); IJR: iShares: holdings header row not found (format changed or not a holdings file)"
+    },
+    {
+      "dataset": "holdings.lookthrough",
+      "source": "cache",
       "status": "skipped"
     }
   ]
