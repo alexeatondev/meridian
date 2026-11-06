@@ -37,8 +37,10 @@ def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, mode
         bottom = d["ranking"][-1]
         L += [f"**{v}** — ensemble: `{d['ensemble']}`. Peer-vote leaders: {top}. Lowest ranked: {bottom['method']} ({bottom['votes']:+d}).  ",
               f"Effective N {d['eff_n']:.1f}; simulated max drawdown {_p(d['backtest']['max_drawdown'])} vs glide path {_p(d['backtest_neutral']['max_drawdown'])}.", ""]
-    first = next(iter(vint.values()))
-    L += ["## 5. Rationale and what would make this wrong", "", first["rationale"], ""]
+    first_v, first = next(iter(vint.items()))
+    L += ["## 5. Rationale and what would make this wrong", "",
+          f"*CIO agent reasoning for the {first_v} vintage shown; every vintage's reasoning is in the Console and the decision ledger.*", "",
+          first["rationale"], ""]
     L += [f"- {c}" for c in first["invalidation_conditions"]]
     L += ["", "## 6. Largest tactical positions (2050 vintage)", "", "| Asset class | Glide path | Proposed | Active |", "|---|---|---|---|"]
     d50 = vint.get(2050) or first

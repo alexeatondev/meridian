@@ -43,7 +43,12 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
 
     narrative = None
     j = llm.judge(spec, "Write a concise compliance review narrative for this run. Do not change any rule result.",
-                  {"findings": findings, "fails": fails, "warns": warns, "obligations": regime.obligations},
+                  {"findings": findings, "fails": fails, "warns": warns, "obligations": regime.obligations,
+                   "ledger_integrity": {"ok": ok, "detail": chain_msg},
+                   "retention_years_applied": regime.retention_years,
+                   "data_synthetic": synthetic,
+                   "rule_results_by_vintage": {str(v): {r["rule_id"]: r["status"] for r in d["compliance"]} for v, d in vintages.items()},
+                   "required_human_roles": {r: regime.human_roles.get(r) for r in regime.required_roles}},
                   '{"narrative": str, "recommended_actions": [str]}')
     if j:
         narrative = j.get("narrative")
