@@ -18,7 +18,12 @@ def main(argv=None):
     e.add_argument("action", choices=["show", "set", "list"])
     e.add_argument("names", nargs="*")
 
-    sub.add_parser("data", help="show data source status and routing")
+    d = sub.add_parser("data", help="list, plug in/out, route, test and refresh data sources")
+    d.add_argument("action", nargs="?", default="list", choices=["list", "enable", "disable", "route", "test", "refresh"])
+    d.add_argument("args", nargs="*")
+    d.add_argument("--mode", default="merge", choices=["merge", "first"])
+    d.add_argument("--fallback", nargs="*", default=None)
+    d.add_argument("--as-of")
 
     r = sub.add_parser("run", help="run a pipeline")
     r.add_argument("pipeline", choices=["target-date"])
@@ -55,12 +60,35 @@ def main(argv=None):
                               "rule_patterns": reg.rule_patterns, "reports": reg.reports,
                               "production_blockers": reg.production_blockers}, indent=2))
     elif a.cmd == "data":
-        reg = DataRegistry.from_config()
-        for s in reg.status():
-            print(f"{s['source']:22s} {s['provider']:10s} {s['transport']:10s} enabled={s['enabled']!s:5s} license={s['license_review']}")
-        print("\nrouting:")
-        for ds, route in reg.cfg["routing"].items():
-            print(f"  {ds:24s} -> {' > '.join(route)}")
+        from .data import manage
+        from .data.registry import route_spec
+        if a.action == "enable":
+            for n in a.args:
+                manage.set_enabled(n, True)
+            print("enabled:", a.args)
+        elif a.action == "disable":
+            for n in a.args:
+                manage.set_enabled(n, False)
+            print("disabled:", a.args)
+        elif a.action == "route":
+            manage.set_route(a.args[0], a.args[1:], a.mode, a.fallback)
+            print(f"routing {a.args[0]}: {a.mode} {a.args[1:]} fallback={a.fallback}")
+        elif a.action == "test":
+            print(json.dumps(manage.test_source(a.args[0], a.as_of), indent=2, default=str))
+        elif a.action == "refresh":
+            print(json.dumps(manage.refresh(a.as_of), indent=2, default=str)[:6000])
+        else:
+            reg = DataRegistry.from_config()
+            print(f"{'source':22s} {'provider':10s} {'transport':10s} {'on':5s} datasets")
+            for s in reg.status():
+                print(f"{s['source']:22s} {s['provider']:10s} {s['transport']:10s} {('yes' if s['enabled'] else 'no'):5s} {', '.join(s['datasets'])}")
+            print("\nrouting (earlier source wins; fallback only fills what nobody covered):")
+            for ds in reg.cfg["routing"]:
+                mode, src, fb = route_spec(reg.cfg, ds)
+                on = {k for k, v in reg.cfg["sources"].items() if v.get("enabled")}
+                fmt = lambda xs: " > ".join(x if x in on else f"({x})" for x in xs)
+                print(f"  {ds:24s} [{mode}] {fmt(src)}" + (f"  | fallback: {fmt(fb)}" if fb else ""))
+            print("\n(source) = configured but unplugged")
     elif a.cmd == "run":
         from .pipelines.target_date import run
         res = run(as_of=a.as_of, selected_entities=a.entities or None)

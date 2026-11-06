@@ -1,0 +1,49 @@
+name: data-refresh
+# Fetches live public data (FRED, Yahoo Finance, manual inputs) and commits a point-in-time copy to
+# data/cache. Runs monthly and on demand. Git history of data/cache is the point-in-time record.
+on:
+  schedule:
+    - cron: "17 13 3 * *"     # 3rd of each month, 13:17 UTC
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: "As-of date (YYYY-MM-DD); blank = today"
+        required: false
+permissions:
+  contents: write
+concurrency: {group: data-refresh, cancel-in-progress: false}
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -e .
+      - name: Refresh cache from live sources
+        run: |
+          ARGS=""; if [ -n "${{ inputs.as_of }}" ]; then ARGS="--as-of ${{ inputs.as_of }}"; fi
+          meridian data refresh $ARGS | tee refresh.json
+      - name: Summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          m = json.load(open("data/cache/manifest.json"))
+          print(f"## Data refresh — as of {m['as_of']}\n")
+          print("| Dataset | Status | Rows | Sources |\n|---|---|---|---|")
+          for ds, s in m["datasets"].items():
+              print(f"| {ds} | {s['status'][:80]} | {s.get('rows','')} | {s.get('sources','')} |")
+          print("\n### Source attempts\n")
+          for a in m["attempts"]:
+              w = ("; warnings: " + "; ".join(a["warnings"])) if a.get("warnings") else ""
+              print(f"- `{a['dataset']}` ← **{a['source']}**: {a['status'][:160]}{w[:400]}")
+          PY
+      - name: Commit point-in-time cache
+        run: |
+          git config user.name "meridian-data-bot"
+          git config user.email "meridian-data-bot@users.noreply.github.com"
+          git add data/cache
+          if git diff --cached --quiet; then echo "No data changes"; exit 0; fi
+          git commit -m "data: refresh public data cache ($(date -u +%Y-%m-%d))"
+          git push

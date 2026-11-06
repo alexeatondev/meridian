@@ -1,0 +1,12 @@
+# Hand-maintained inputs (source: manual). Each value cites where it came from and when.
+# Leave a field null to let the next source in routing supply it (shown per field in lineage).
+# Review at least quarterly. Free valuation data for non-US markets is scarce — plug in a vendor
+# (S&P/FactSet via Snowflake) or add cited values here.
+
+fundamentals.valuation:
+  us_large_cap:
+    cape: 41.07
+    dividend_yield: null
+    earnings_growth: null
+    source: "Multpl, Shiller CAPE by month (Robert Shiller data), monthly reading Oct 2026"
+    as_of: "2026-10-31"

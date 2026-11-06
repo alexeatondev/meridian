@@ -87,12 +87,17 @@ class SyntheticSource(DataSource):
 # File drops (Parquet/CSV) — one file per canonical dataset, e.g. data/drops/returns.monthly.parquet
 # --------------------------------------------------------------------------------------------
 class FileSource(DataSource):
+    def _root(self) -> Path:
+        from .. import REPO_ROOT
+        r = Path(self.options.get("root", "./data/drops"))
+        return r if r.is_absolute() else REPO_ROOT / r
+
     def datasets(self):
-        root = Path(self.options.get("root", "./data/drops"))
+        root = self._root()
         return {p.stem for p in root.glob("*.*")} if root.exists() else set()
 
     def fetch(self, req: Request) -> pd.DataFrame:
-        root = Path(self.options.get("root", "./data/drops"))
+        root = self._root()
         for ext, reader in ((".parquet", pd.read_parquet), (".csv", pd.read_csv)):
             p = root / f"{req.dataset}{ext}"
             if p.exists():
@@ -101,6 +106,10 @@ class FileSource(DataSource):
                     df["date"] = pd.to_datetime(df["date"])
                 if req.assets and "asset_id" in df:
                     df = df[df["asset_id"].isin([a["id"] for a in req.assets])]
+                if "_source" in df:          # cache files keep upstream provenance
+                    df = df.rename(columns={"_source": "_upstream"})
+                if req.end and "date" in df and req.dataset == "returns.monthly":
+                    df = df[df["date"] <= pd.Timestamp(req.end) + pd.offsets.MonthEnd(0)]
                 return df
         raise DataUnavailable(f"No file for {req.dataset} in {root}")
 
@@ -258,6 +267,10 @@ SOURCE_TYPES = {
 
 
 def build_source(name: str, cfg: dict, connections: dict) -> DataSource:
+    from .public import CsvUrlSource, FredSource, ManualSource, YahooSource
+    public = {"fred": FredSource, "yahoo": YahooSource, "manual": ManualSource, "csv_url": CsvUrlSource}
+    if cfg.get("provider") in public:
+        return public[cfg["provider"]](name, cfg, connections)
     if cfg.get("transport") == "snowflake":
         return SnowflakeSource(name, cfg, connections)
     cls = SOURCE_TYPES.get((cfg.get("provider"), cfg.get("transport")))

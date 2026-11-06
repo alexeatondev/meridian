@@ -29,8 +29,11 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
     ok, chain_msg = verify(ledger.path)
     findings = []
     if synthetic:
-        findings.append("Run used SYNTHETIC data. Outputs are for system testing only; they are not investment "
-                        "advice and may not be used in marketing (hypothetical performance).")
+        detail = "; ".join(f"{k} ({v})" for k, v in synthetic.items()) if isinstance(synthetic, dict) else "all datasets"
+        findings.append(f"Run used SYNTHETIC data for: {detail}. Outputs are for system testing only; they are not "
+                        "investment advice and may not be used in marketing (hypothetical performance).")
+    findings.append("Public data sources in use carry non-commercial or series-level terms (see "
+                    "config/data_sources.yaml → license_review); licensed data is required before production.")
     findings += [f"Production blocker: {b}" for b in regime.production_blockers]
     if fails:
         findings.append(f"{len(fails)} hard-limit FAIL(s) — proposals blocked from approval.")

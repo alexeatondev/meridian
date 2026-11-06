@@ -6,13 +6,17 @@ def _p(x, d=1):
     return f"{x * 100:.{d}f}%"
 
 
-def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, model_label, snapshot_id) -> str:
+def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, model_label, snapshot_id, snap=None) -> str:
     L = [f"# Board Memo — Meridian Target Retirement Series", "",
          f"**Run:** `{run_id}` · **As of:** {as_of} · **Policy:** `{policy.id}` · **Data snapshot:** `{snapshot_id}`  ",
          f"**Judgment engine:** {model_label} · **Compliance review:** {co['status']} · **Autonomy:** {regime.autonomy_level} (human approval required)", ""]
     if synthetic:
-        L += ["> **SYNTHETIC DATA — SYSTEM TEST ONLY.** Figures below come from generated data, not market data. "
-              "They are hypothetical, are not investment advice, and must not be used in any marketing material.", ""]
+        parts = "; ".join(f"{k}: {v}" for k, v in synthetic.items()) if isinstance(synthetic, dict) else "all data"
+        L += [f"> **CONTAINS SYNTHETIC DATA — SYSTEM TEST ONLY.** Generated data was used for — {parts}. "
+              "Figures are hypothetical, are not investment advice, and must not be used in any marketing material.", ""]
+    if snap:
+        L += ["**Data sources:** " + "; ".join(f"{ds} ← {', '.join(f'{s} ({n})' for s, n in m.get('contributions', {}).items())}"
+                                               for ds, m in snap["datasets"].items()), ""]
     L += ["## 1. Recommendation", "",
           "Hold each vintage within its tactical band around the strategic glide path, implementing the CIO agent's ensemble "
           "allocations below once approved by the designated approvers. No vintage requires a glide-path (strategic) change.", "",

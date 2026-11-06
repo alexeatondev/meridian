@@ -20,6 +20,17 @@ CANONICAL = {
 }
 
 
+# keys used to merge rows from several sources (higher-priority source wins per key)
+MERGE_KEYS = {
+    "returns.monthly": ["asset_id", "date"],
+    "macro.indicators": ["indicator"],
+    "fundamentals.valuation": ["asset_id"],
+    "credit.ratings": ["entity_id", "agency"],
+    "yields.current": ["asset_id"],
+}
+TIME_SERIES = {"returns.monthly"}
+
+
 class DataUnavailable(RuntimeError):
     """Raised when a source cannot serve a request (not configured, no creds, no coverage)."""
 
@@ -42,6 +53,7 @@ class Result:
     transport: str
     synthetic: bool = False
     notes: str = ""
+    sources: dict = field(default_factory=dict)   # source name -> rows (or columns) contributed
 
 
 class DataSource(ABC):
@@ -67,8 +79,15 @@ class DataSource(ABC):
 
     def result(self, req: Request) -> Result:
         df = self.fetch(req)
-        validate(req.dataset, df)
-        return Result(df, self.name, self.provider, self.transport, synthetic=self.transport == "generated")
+        if df is None or df.empty:
+            raise DataUnavailable(f"{self.name}: empty result for {req.dataset}")
+        missing_keys = [k for k in MERGE_KEYS[req.dataset] if k not in df.columns]
+        if missing_keys:
+            raise DataUnavailable(f"{self.name}: frame missing key columns {missing_keys}")
+        df = df.copy()
+        df["_source"] = self.name
+        return Result(df, self.name, self.provider, self.transport, synthetic=self.transport == "generated",
+                      sources={self.name: len(df)})
 
 
 def validate(dataset: str, df: pd.DataFrame) -> None:

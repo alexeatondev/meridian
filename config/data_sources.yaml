@@ -1,14 +1,27 @@
-# Data connectivity — plug providers in or out without code changes.
+# Data connectivity — plug sources in or out without code changes.
 #
-# A *source* = provider (who owns the data) + transport (how we reach it).
-#   transport: direct     -> vendor API/SDK (Bloomberg BLPAPI, FactSet API, S&P, Moody's, Fitch ...)
-#   transport: snowflake  -> vendor data delivered into Snowflake (Marketplace share or internal data product)
-#   transport: file       -> Parquet/CSV drops
-#   transport: generated  -> deterministic synthetic data (pilot/testing only; always labeled SYNTHETIC)
+# A *source* = provider (who owns the data) + transport (how Meridian reaches it).
+#   transport: http       -> free/public web sources (FRED, Yahoo Finance, any CSV URL)
+#   transport: manual     -> hand-maintained values with a cited source (config/manual_inputs.yaml)
+#   transport: file       -> Parquet/CSV files (incl. data/cache, written by `meridian data refresh`)
+#   transport: direct     -> licensed vendor API/SDK (Bloomberg, FactSet, S&P, Moody's, Fitch)
+#   transport: snowflake  -> vendor data delivered into Snowflake
+#   transport: generated  -> deterministic synthetic data (testing only; always flagged SYNTHETIC)
 #
-# *routing* lists, per canonical dataset, the sources to try in priority order.
-# The first enabled + healthy source wins; failures fall through and are recorded in the ledger.
-# Credentials are NEVER stored here — only env-var names.
+# Plug / unplug from the command line (comments in this file are preserved):
+#   meridian data list                                  # sources, status, routing
+#   meridian data enable bloomberg_snowflake            # plug in
+#   meridian data disable yahoo                         # unplug
+#   meridian data route returns.monthly yahoo fred cache --mode merge --fallback synthetic
+#   meridian data test fred                             # try a source live
+#   meridian data refresh                               # fetch live sources -> data/cache (point-in-time)
+#
+# Routing per canonical dataset:
+#   [a, b, c]                                -> "first": first source that succeeds serves everything
+#   {mode: merge, sources: [...], fallback: [...]}
+#                                            -> all sources combined, earlier wins per key; each row records
+#                                               its source. Fallback is used only for assets/keys nobody covered.
+# Credentials are never stored here — only environment-variable names.
 
 connections:
   snowflake_main:
@@ -20,6 +33,54 @@ connections:
     database: MARKET_DATA
 
 sources:
+  # ------------------------------------------------------------------ free / public (enabled)
+  yahoo:
+    provider: yahoo
+    transport: http
+    enabled: true
+    # tickers per asset class: config/universe.yaml -> identifiers.yahoo (first = primary, rest extend history)
+
+  fred:
+    provider: fred
+    transport: http
+    enabled: true
+    options:
+      indicators:
+        real_gdp_growth_yoy:    {series: GDPC1, transform: yoy_pct, periods: 4}
+        cpi_yoy:                {series: CPIAUCSL, transform: yoy_pct, periods: 12}
+        core_cpi_yoy:           {series: CPILFESL, transform: yoy_pct, periods: 12}
+        unemployment_rate:      {series: UNRATE}
+        unemployment_change_6m: {series: UNRATE, transform: diff, periods: 6}
+        policy_rate:            {series: FEDFUNDS}
+        policy_rate_change_6m:  {series: FEDFUNDS, transform: diff, periods: 6}
+        ig_spread_bp:           {series: BAMLC0A0CM, transform: x100}
+        hy_spread_bp:           {series: BAMLH0A0HYM2, transform: x100}
+        yield_curve_10y2y_bp:   {series: T10Y2Y, transform: x100}
+        cfnai_ma3:              {series: CFNAIMA3}          # Chicago Fed activity index (free PMI substitute)
+      yields:                                               # starting yields -> fixed-income CMAs
+        cash:             {series: DTB3, duration: 0.25}
+        us_core_bond:     {series: [DGS5, BAMLC0A0CMEY], duration: 6.0, expected_loss: 0.0010}   # approx: avg of 5y UST and IG corp yield
+        us_long_treasury: {series: DGS30, duration: 15.5}
+        us_tips_short:    {series: DGS5, duration: 2.5}      # real yield + breakeven ≈ nominal 5y
+        us_high_yield:    {series: BAMLH0A0HYM2EY, duration: 3.3, expected_loss: 0.0150}
+        intl_bond_hedged: {series: DGS10, duration: 7.0, expected_loss: 0.0005}             # approx: hedged yield ≈ USD rates
+        em_debt:          {series: BAMLEMCBPIEY, duration: 7.0, expected_loss: 0.0090}
+        commodities:      {series: DTB3, duration: 0.0}      # collateral yield
+      return_series:
+        cash: {series: DTB3}                                 # monthly T-bill return = prior yield / 12
+
+  manual:
+    provider: manual
+    transport: manual
+    enabled: true
+    options: {path: config/manual_inputs.yaml}
+
+  cache:
+    provider: file
+    transport: file
+    enabled: true
+    options: {root: data/cache}                              # written by `meridian data refresh`
+
   synthetic:
     provider: synthetic
     transport: generated
@@ -30,8 +91,9 @@ sources:
     provider: file
     transport: file
     enabled: false
-    options: {root: ./data/drops}
+    options: {root: data/drops}
 
+  # ------------------------------------------------------------------ licensed vendors (plug in when available)
   bloomberg_direct:
     provider: bloomberg
     transport: direct
@@ -82,7 +144,7 @@ sources:
           FROM SP_GLOBAL.ISSUER_RATINGS WHERE rating_date <= %(as_of)s
       fundamentals.valuation:
         sql: >
-          SELECT asset_key AS asset_id, as_of_date AS date, pe_fwd, cape, dividend_yield, earnings_growth
+          SELECT asset_key AS asset_id, as_of_date AS date, cape, dividend_yield, earnings_growth
           FROM SP_GLOBAL.INDEX_VALUATIONS WHERE as_of_date <= %(as_of)s
         key_field: snowflake_key
 
@@ -127,15 +189,33 @@ sources:
     options: {base_url_env: SP_API_URL, api_key_env: SP_API_KEY}
 
 routing:
-  returns.monthly:        [bloomberg_snowflake, factset_snowflake, bloomberg_direct, factset_direct, files, synthetic]
-  macro.indicators:       [bloomberg_snowflake, files, synthetic]
-  fundamentals.valuation: [sp_snowflake, factset_snowflake, files, synthetic]
-  credit.ratings:         [moodys_snowflake, sp_snowflake, fitch_snowflake, moodys_direct, sp_direct, fitch_direct, files]
-  yields.current:         [bloomberg_snowflake, bloomberg_direct, files, synthetic]
+  returns.monthly:
+    mode: merge
+    sources: [bloomberg_snowflake, factset_snowflake, bloomberg_direct, factset_direct, yahoo, fred, files, cache]
+    fallback: [synthetic]
+  macro.indicators:
+    mode: merge
+    sources: [bloomberg_snowflake, fred, manual, cache]
+    fallback: [synthetic]
+  fundamentals.valuation:
+    mode: merge
+    sources: [sp_snowflake, factset_snowflake, manual, cache]
+    fallback: [synthetic]
+  yields.current:
+    mode: merge
+    sources: [bloomberg_snowflake, bloomberg_direct, fred, manual, cache]
+    fallback: [synthetic]
+  credit.ratings:
+    mode: merge
+    sources: [moodys_snowflake, sp_snowflake, fitch_snowflake, moodys_direct, sp_direct, fitch_direct, files]
 
-# Per-provider AI-use license check. A source cannot be enabled for LLM-visible
-# use until its license has been reviewed (see docs/09-data-integration.md).
+# Licensing / terms review per provider. Keep current before any production or external use.
 license_review:
+  fred: "public; some series (e.g. ICE BofA) are copyrighted — check series-level terms before redistribution"
+  yahoo: "unofficial endpoint; personal/non-commercial use — replace with a licensed source before production"
+  manual: "each value cites its source in config/manual_inputs.yaml"
+  file: "n/a"
+  synthetic: "n/a"
   bloomberg: pending
   factset: pending
   sp_global: pending

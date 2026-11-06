@@ -40,7 +40,9 @@ class RunResult:
 
 # ------------------------------------------------------------------------------------------ macro
 def classify_regime(m: dict) -> dict:
-    growth = np.clip((m["real_gdp_growth_yoy"] - 2.0) / 1.5 + (m["pmi"] - 50) / 5 - m["unemployment_change_6m"] / 0.5, -2, 2)
+    # activity term: ISM-style PMI if a source provides it, else Chicago Fed National Activity Index (3m avg)
+    activity = (m["pmi"] - 50) / 5 if "pmi" in m else (m.get("cfnai_ma3", 0.0) / 0.5)
+    growth = np.clip((m["real_gdp_growth_yoy"] - 2.0) / 1.5 + activity - m["unemployment_change_6m"] / 0.5, -2, 2)
     inflation = np.clip((m["core_cpi_yoy"] - 2.0) / 1.0, -2, 2)
     policy = np.clip(-m["policy_rate_change_6m"] / 0.5, -2, 2)          # + = easing
     fin = np.clip(-(m["hy_spread_bp"] - 400) / 150, -2, 2)              # + = loose
@@ -165,9 +167,10 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     }
     snap = snapshot(res, out / "snapshot")
     synthetic = any(r.synthetic for r in res.values())
+    synthetic_detail = {ds: r.notes for ds, r in res.items() if r.synthetic}
     snap_dr = L.record(dr_type="signal", run_id=run_id, step="data.snapshot", actor=SYSTEM, policy_version=pv,
-                       summary=f"Snapshot {snap['snapshot_id']} ({'SYNTHETIC — pilot only' if synthetic else 'vendor data'})",
-                       output=snap, data_flags={"synthetic": synthetic, "routing_attempts": reg.attempts})
+                       summary=f"Snapshot {snap['snapshot_id']} " + (f"(partly SYNTHETIC: {', '.join(synthetic_detail)})" if synthetic else "(no synthetic data)"),
+                       output=snap, data_flags={"synthetic": synthetic, "synthetic_detail": synthetic_detail, "routing_attempts": reg.attempts})
     rets = to_wide_returns(res["returns.monthly"].frame, assets)
     macro = dict(zip(res["macro.indicators"].frame["indicator"], res["macro.indicators"].frame["value"]))
     val, yl = res["fundamentals.valuation"].frame, res["yields.current"].frame
@@ -366,7 +369,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
 
     # 6. compliance officer agent --------------------------------------------------------------
     from ..compliance.officer import review as co_review
-    co = co_review(run_id, regime_cfg, vint_out, synthetic, L, policy)
+    co = co_review(run_id, regime_cfg, vint_out, synthetic_detail, L, policy)
     (out / "compliance_report.md").write_text(co["report_md"])
 
     if llm.enabled:
@@ -376,7 +379,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
 
     # 7. board memo ----------------------------------------------------------------------------
     from .memo import board_memo
-    memo = board_memo(run_id, as_of, mv, cma_table, vint_out, regime_cfg, co, synthetic, policy, llm.label, snap["snapshot_id"])
+    memo = board_memo(run_id, as_of, mv, cma_table, vint_out, regime_cfg, co, synthetic_detail, policy, llm.label, snap["snapshot_id"], snap)
     (out / "board_memo.md").write_text(memo)
     L.record(dr_type="signal", run_id=run_id, step="board-memo", actor=actor(load_agent("board-memo-writer"), llm),
              policy_version=pv, summary="Board memo generated", output={"path": "board_memo.md"})
