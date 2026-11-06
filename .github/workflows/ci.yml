@@ -3,13 +3,16 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: pip install -e ".[dev]"
-      - run: pytest
-        env: {MERIDIAN_LLM: "off"}
-      - name: Golden pipeline run (synthetic data, offline judgment)
-        env: {MERIDIAN_LLM: "off"}
+      - run: pip install -e ".[dev,app,llm]"
+      # tests run against the committed point-in-time cache (data/cache); live sources are exercised by
+      # the data-refresh workflow, not by unit tests
+      - run: pytest -q
+        env: {MERIDIAN_LLM: "off", MERIDIAN_OFFLINE: "1"}
+      - name: Golden pipeline run (cached data, offline judgment)
+        env: {MERIDIAN_LLM: "off", MERIDIAN_OFFLINE: "1"}
         run: meridian run target-date --as-of 2026-10-31

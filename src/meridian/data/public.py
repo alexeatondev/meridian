@@ -36,7 +36,10 @@ class NetworkUnavailable(DataUnavailable):
 
 
 def http_get(url: str, timeout: int = 30, retries: int = 1) -> bytes:
+    import os
     import urllib.error
+    if os.getenv("MERIDIAN_OFFLINE", "").lower() in ("1", "true", "yes"):
+        raise NetworkUnavailable(f"offline mode (MERIDIAN_OFFLINE): not fetching {url.split('/')[2]}")
     last = None
     for i in range(retries + 1):
         try:
@@ -305,8 +308,10 @@ class CsvUrlSource(DataSource):
 
 
 # ============================================================================================ iShares
-ISHARES_URL = ("https://www.ishares.com/us/products/{pid}/fund/1467271812596.ajax"
-               "?fileType=csv&fileName={ticker}_holdings&dataType=fund")
+ISHARES_URLS = ("https://www.ishares.com/us/products/{pid}/fund/1467271812596.ajax"
+                "?fileType=csv&fileName={ticker}_holdings&dataType=fund",
+                "https://www.ishares.com/us/products/{pid}/{slug}/1467271812596.ajax"
+                "?fileType=csv&fileName={ticker}_holdings&dataType=fund")
 
 
 def _num(x) -> float:
@@ -335,11 +340,13 @@ def parse_ishares_holdings(raw: bytes) -> tuple[pd.DataFrame, str | None]:
                 as_of = str(pd.Timestamp(m).date())
             except Exception:  # noqa: BLE001
                 as_of = None
-        if l.startswith("Ticker,") or l.startswith('"Ticker",'):
+        if l.lstrip('"').startswith("Ticker") and "Name" in l and "Weight" in l:
             start = i
             break
     if start is None:
-        raise DataUnavailable("iShares: holdings header row not found (format changed or not a holdings file)")
+        snippet = " | ".join(x.strip()[:80] for x in lines[:4])
+        raise DataUnavailable(f"iShares: holdings header row not found (format changed or not a holdings file); "
+                              f"{len(raw)} bytes, starts: {snippet!r}")
     body = [lines[start]]
     for l in lines[start + 1:]:
         if not l.strip() or l.startswith('"The content') or l.startswith("\xa0"):
@@ -397,10 +404,20 @@ class IsharesSource(DataSource):
             for h in (a.get("identifiers", {}).get("holdings") or []):
                 if h.get("provider") != "ishares":
                     continue
-                url = ISHARES_URL.format(pid=h["product_id"], ticker=h["ticker"])
                 try:
-                    raw = http_get(url, timeout=60)
-                    df, as_of = parse_ishares_holdings(raw)
+                    df = as_of = None
+                    errs = []
+                    for tmpl in ISHARES_URLS:
+                        url = tmpl.format(pid=h["product_id"], ticker=h["ticker"], slug=h.get("slug", "fund"))
+                        try:
+                            df, as_of = parse_ishares_holdings(http_get(url, timeout=60))
+                            break
+                        except NetworkUnavailable:
+                            raise
+                        except DataUnavailable as e:
+                            errs.append(str(e))
+                    if df is None:
+                        raise DataUnavailable(errs[0])
                     agg = aggregate_holdings(df)
                 except NetworkUnavailable:
                     raise
