@@ -25,6 +25,9 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 07 | Operating-Entity Profiles | Compliance, leadership |
 | 08 | Data Integration | Engineering, data |
 | 09 | Agentic Compliance Officer | Compliance, audit |
+| 10 | User Interfaces (console, notebooks, hosted app) | Everyone |
+| 11 | Positioning, Risk Budgets & Adjustments | PMs, risk, research |
+| 12 | Risk Analytics (fund risk, factors, stress tests, history, look-through) | Risk, PMs, research, leadership |
 | IPS | `policies/ips/meridian-target-retirement-series-ips.md` | Everyone |
 
 ## Guiding principles

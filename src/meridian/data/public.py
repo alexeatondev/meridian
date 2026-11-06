@@ -308,7 +308,8 @@ class CsvUrlSource(DataSource):
 
 
 # ============================================================================================ iShares
-ISHARES_URLS = ("https://www.ishares.com/us/products/{pid}/fund/1467271812596.ajax"
+ISHARES_URLS = ("https://www.ishares.com/us/products/{pid}/x/latest-holdings.csv",           # current (2026)
+                "https://www.ishares.com/us/products/{pid}/fund/1467271812596.ajax"
                 "?fileType=csv&fileName={ticker}_holdings&dataType=fund",
                 "https://www.ishares.com/us/products/{pid}/{slug}/1467271812596.ajax"
                 "?fileType=csv&fileName={ticker}_holdings&dataType=fund")
@@ -328,7 +329,8 @@ def _num(x) -> float:
 
 def parse_ishares_holdings(raw: bytes) -> tuple[pd.DataFrame, str | None]:
     """iShares holdings CSV: a few preamble lines ('Fund Holdings as of,"Nov 05, 2026"'), a header row
-    starting with 'Ticker', the positions, then a disclaimer footer. Columns vary by asset class."""
+    starting with 'Ticker' (equity funds) or 'Name' (bond funds have no ticker column), the positions,
+    then a disclaimer footer. Columns vary by asset class."""
     text = raw.decode("utf-8-sig", errors="replace")
     lines = text.splitlines()
     as_of = None
@@ -340,7 +342,8 @@ def parse_ishares_holdings(raw: bytes) -> tuple[pd.DataFrame, str | None]:
                 as_of = str(pd.Timestamp(m).date())
             except Exception:  # noqa: BLE001
                 as_of = None
-        if l.lstrip('"').startswith("Ticker") and "Name" in l and "Weight" in l:
+        h = l.lstrip('"')
+        if (h.startswith("Ticker") or h.startswith("Name")) and "Name" in l and "Weight" in l:
             start = i
             break
     if start is None:

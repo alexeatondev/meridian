@@ -1,0 +1,19 @@
+iShares Core U.S. Aggregate Bond ETF
+Fund Holdings as of,"Nov 05, 2026"
+Inception Date,"Sep 22, 2003"
+Shares Outstanding,"1,200,000,000.00"
+Stock,"-"
+Bond,"-"
+Cash,"-"
+Other,"-"
+ 
+Name,Sector,Asset Class,Market Value,Weight (%),Notional Value,Par Value,CUSIP,ISIN,SEDOL,Price,Location,Exchange,Currency,Duration,YTM (%),FX Rate,Maturity,Coupon (%),Mod. Duration,Yield to Call (%),Yield to Worst (%),Real Duration,Real YTM (%),Market Currency,Accrual Date,Effective Date
+"TREASURY NOTE","Treasuries","Fixed Income","1,250,000,000.00","30.00","1,250,000,000.00","1,260,000,000.00","91282CJL6","US91282CJL60","-","99.10","United States","-","USD","5.80","4.10","1.00","Nov 15, 2033","4.50","5.70","-","4.10","-","-","USD","-","-"
+"TREASURY BOND","Treasuries","Fixed Income","500,000,000.00","12.00","500,000,000.00","520,000,000.00","912810TW8","US912810TW80","-","96.20","United States","-","USD","16.10","4.60","1.00","Nov 15, 2053","4.75","16.00","-","4.60","-","-","USD","-","-"
+"UMBS 30YR TBA(REG A)","MBS Pass-Through","Fixed Income","1,000,000,000.00","25.00","1,000,000,000.00","1,050,000,000.00","01F052616","-","-","95.00","United States","-","USD","6.20","5.30","1.00","Dec 15, 2056","5.00","6.10","-","5.30","-","-","USD","-","-"
+"BANK OF AMERICA CORP MTN","Banking","Fixed Income","300,000,000.00","8.00","300,000,000.00","310,000,000.00","06051GKY4","US06051GKY43","-","97.00","United States","-","USD","5.40","5.10","1.00","Jul 22, 2033","4.57","5.30","-","5.10","-","-","USD","-","-"
+"BANK OF AMERICA CORP","Banking","Fixed Income","120,000,000.00","3.00","120,000,000.00","125,000,000.00","06051GHY8","US06051GHY89","-","96.00","United States","-","USD","3.00","5.00","1.00","Jan 23, 2029","3.97","2.90","-","5.00","-","-","USD","-","-"
+"JPMORGAN CHASE & CO","Banking","Fixed Income","800,000,000.00","20.00","800,000,000.00","810,000,000.00","46647PCV6","US46647PCV69","-","99.00","United States","-","USD","4.00","5.00","1.00","Apr 22, 2032","4.91","3.90","-","5.00","-","-","USD","-","-"
+"BLK CSH FND TREASURY SL AGENCY","Cash and/or Derivatives","Money Market","80,000,000.00","2.00","80,000,000.00","80,000,000.00","-","-","-","1.00","United States","-","USD","0.12","4.30","1.00","-","4.30","0.10","-","-","-","-","USD","-","-"
+ 
+"The content contained herein is owned or licensed by BlackRock and/or its third-party information providers and is protected by applicable copyrights, trademarks, service marks, and/or other intellectual property rights."

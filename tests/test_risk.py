@@ -98,3 +98,11 @@ def test_pipeline_risk_outputs_and_history(tmp_path):
     # the October run uses the September run's recorded (point-in-time) snapshot for September
     sep = [h for h in hist if h["date"] == "2026-09-30"]
     assert sep and all(h["source"] == f"recorded ({r0.run_id})" for h in sep)
+
+
+def test_ishares_bond_file_without_ticker_column_aggregates_by_name():
+    df, as_of = parse_ishares_holdings((FIX / "ishares_bond_noticker_sample.csv").read_bytes())
+    assert "Ticker" not in df.columns and len(df) == 7
+    agg = aggregate_holdings(df)
+    assert abs(agg["weight"].sum() - 1.0) < 1e-9
+    assert agg["security_id"].str.startswith("BANK OF AMERICA CORP").sum() == 2   # distinct names stay distinct

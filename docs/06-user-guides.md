@@ -23,11 +23,16 @@
 **Good practice:** challenge at least one assumption per approval; if the CIO memo's "what would make this wrong" conditions are already near, escalate.
 
 ## 2. Risk Analytics
-1. *Validate CRO reports* — Risk console → run → each candidate's ex-ante vol, VaR/CVaR, max drawdown, concentration, factor tilts, liquidity, derivatives exposure (delta-adjusted & notional), counterparty.
-2. *Stress testing* — Stress lab → historical (2008, 2020, 2022 rates) and hypothetical shocks; save scenarios to the library so agents use them.
-3. *Limit monitoring* — Limits dashboard (daily post-trade); proximity alerts at policy-set thresholds.
-4. *Model challenge* — open any agent → Validation tab → outcomes vs. realized, baseline comparisons, monoculture/disagreement metrics → file a **Challenge** (creates a tracked item for the owner).
-5. *Approve material rebalances* — second approver where the approval matrix requires Risk.
+Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk**. Methods and definitions: `docs/12-risk-analytics.md`.
+1. *Fund-level check* — **Fund risk**: scan every vintage's total vs benchmark risk, active risk, relative duration, relative credit spread duration, VaR 95 / active VaR 95 and diversification. Click a vintage to drill down: risk breakdown by asset class (expand Equity → US/Non-US → size, Developed/Emerging; Fixed Income → long/short-dated → core/HY/TIPS/short-term income) or by underlying fund, and the weight-vs-risk chart (a holding whose risk bar is far longer than its weight bar is a concentrated risk).
+2. *Factor review* — **Factor risk**: switch Total / Active / Benchmark; read which factors drive variance and how exposures differ from the glide path. In **Factor history** pick *All except Equity* to see rates, credit, inflation and real-asset risk over the last 18 months, or drill into one family.
+3. *Stress testing* — **Stress tests**: choose Fund / Benchmark / Active, read historical replays, then step the hypothetical ladder from Normal (1σ) to Crisis (5σ). Use **Build a scenario** for ad-hoc moves (e.g. equities −20%, yields +100bp); switch Correlated/Isolated to see how much of the loss comes from correlation assumptions. Scenario definitions live in `config/risk.yaml` (change-controlled).
+4. *Trend monitoring* — **Risk history**: pick a metric; the tooltip and table show whether each month is a recorded point-in-time snapshot, reconstructed from recorded positions, or reconstructed from the glide path.
+5. *Look-through & search* — type a ticker or name (e.g. `NVDA`, `Treasury`) to see every vintage's exposure and the underlying funds it comes through; expand an underlying fund to see its holdings.
+6. *Limit monitoring* — **Risk budget** shows % of the tracking-error budget used per vintage, with proximity colors at the policy warning threshold.
+7. *Validate CRO reports* — **Candidate risk**: each PC method's ex-ante vol, TE vs limit and compliance before the CIO ensemble.
+8. *Approve material rebalances* — second approver where the approval matrix requires Risk.
+9. *Deeper work* — `notebooks/04_risk_analytics_workbench.ipynb` reproduces every console figure and lets you change weights, scenarios and factors.
 
 ## 3. Research
 1. *Own CMA methods* — CMA workbench → per asset class: each method's estimate, confidence, judge choice, history of forecast vs. realized.

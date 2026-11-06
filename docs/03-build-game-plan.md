@@ -5,9 +5,11 @@
 ## Status (2026-11-06)
 - Repo live: github.com/alexeatondev/meridian
 - Done: entity-regime selection, policy-as-code + IPS for the target-date pilot, plug-and-play data layer (direct + Snowflake), CMA judge, 7 PC agents, peer review and Borda vote, CRO, CIO ensemble, board memo, deterministic compliance engine, Agentic Compliance Officer, hash-chained ledger, tests, CI.
-- Running on synthetic data, shadow mode. Live LLM judgment runs via the `agent-run` GitHub workflow (key held as the `ANTHROPIC_API_KEY` repository secret). First live run 2026-11-06: 23 calls, 0 fallbacks, all vintages PASS. Key rotation reminder scheduled for 2026-12-02.
-- Also done: role-adaptive Meridian Console, `meridian approve`, Jupyter workbenches (PM, research, compliance/audit).
-- Next: real data source (Snowflake or vendor API), API + SSO-served Console with direct ledger writes, portfolio hierarchy/look-through (Phase 4).
+- Real public data end to end (Yahoo, FRED via API, US Treasury, cited manual inputs); synthetic only for non-US valuations (flagged). Live LLM judgment via the `agent-run` workflow. Key rotation reminder scheduled for 2026-12-02.
+- Console and notebooks: role-adaptive Meridian Console; positioning with drill-down, risk budgets and governed changes, portfolio metrics, PM/analyst weight adjustments; Jupyter workbenches (PM, research, compliance/audit, risk analytics).
+- Risk analytics (docs/12): fund-level risk (total/benchmark/active, relative duration, credit spread duration, VaR 95, active VaR 95, diversification), risk breakdown by asset class and fund, weight-vs-risk, 10-factor model with 18-month history, historical and hypothetical stress tests (normal → crisis) with a scenario builder, risk time series, iShares holdings look-through and ticker search.
+- Hosted multi-user app (FastAPI + Postgres + Cognito + CloudFront on AWS via CDK) built and tested; first deploy waiting on AWS to finish lifting Free-plan restrictions after the upgrade to the Paid plan.
+- Next: first AWS deploy and sign-in; operating loop automation/notifications; vendor data (holdings, characteristics, factor model); second product type; human CCO.
 
 ## Strategy in one paragraph
 Rebuild the paper's SAA pipeline first on public data in **shadow mode** (no money moves), wrapped from day one in the decision ledger and the compliance engine — those two are what make this a product rather than a research demo. Then widen: portfolio hierarchy and look-through, fixed income and derivatives analytics, manager selection/FoF, and finally implementation proposals to your OMS. Learning agents come last, behind change control. Run in parallel against the human process for at least two quarters before any approval workflow is live.
