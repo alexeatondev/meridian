@@ -113,7 +113,7 @@ const ROLES = {
 };
 const TABS = {home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
   risk:'Risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger'};
-let state = {role: (location.hash.match(/role=(\w+)/)||[])[1] || 'pm', tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
+let state = {role: (()=>{const h=location.hash.slice(1);return ROLES[h]?h:'pm'})(), tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
 
 function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600)}
 function chip(status){const s=String(status||'');const c=s.startsWith('PASS')||s==='CLEAR'?'good':(s==='WARN'||s==='CONDITIONAL'||s==='ATTEST'||s.includes('pending'))?'warn':(s==='FAIL'||s==='BLOCKED')?'crit':'';return `<span class="chip ${c}">${esc(s)}</span>`}
@@ -124,7 +124,7 @@ function drById(id){return L.find(r=>r.dr_id===id)}
 // --------------------------------------------------------------- shell
 function renderShell(){
   const sel=$('#role'); sel.innerHTML=Object.entries(ROLES).map(([k,r])=>`<option value="${k}" ${k===state.role?'selected':''}>${r.label}</option>`).join('');
-  sel.onchange=()=>{state.role=sel.value;state.tab=null;location.hash='role='+state.role;render()};
+  sel.onchange=()=>{state.role=sel.value;state.tab=null;try{location.hash=state.role}catch(e){};render()};
   const role=ROLES[state.role]; if(!state.tab||!role.tabs.includes(state.tab)) state.tab=role.tabs[0];
   $('#nav').innerHTML=role.tabs.map(t=>`<button class="${t===state.tab?'active':''}" data-t="${t}">${TABS[t]}</button>`).join('');
   document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.t;render()});
@@ -348,6 +348,7 @@ function bind(){
   const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
 }
 window.addEventListener('resize',()=>{glideChart();activeChart()});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(ROLES[h]&&h!==state.role){state.role=h;state.tab=null;render()}});
 render();
 </script>
 </body>
