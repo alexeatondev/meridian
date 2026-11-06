@@ -1,0 +1,143 @@
+# Data connectivity — plug providers in or out without code changes.
+#
+# A *source* = provider (who owns the data) + transport (how we reach it).
+#   transport: direct     -> vendor API/SDK (Bloomberg BLPAPI, FactSet API, S&P, Moody's, Fitch ...)
+#   transport: snowflake  -> vendor data delivered into Snowflake (Marketplace share or internal data product)
+#   transport: file       -> Parquet/CSV drops
+#   transport: generated  -> deterministic synthetic data (pilot/testing only; always labeled SYNTHETIC)
+#
+# *routing* lists, per canonical dataset, the sources to try in priority order.
+# The first enabled + healthy source wins; failures fall through and are recorded in the ledger.
+# Credentials are NEVER stored here — only env-var names.
+
+connections:
+  snowflake_main:
+    account_env: SNOWFLAKE_ACCOUNT
+    user_env: SNOWFLAKE_USER
+    private_key_path_env: SNOWFLAKE_PRIVATE_KEY_PATH   # key-pair auth recommended
+    role: MERIDIAN_READER
+    warehouse: MERIDIAN_WH
+    database: MARKET_DATA
+
+sources:
+  synthetic:
+    provider: synthetic
+    transport: generated
+    enabled: true
+    options: {seed: 20261031, start: "1999-01-31"}
+
+  files:
+    provider: file
+    transport: file
+    enabled: false
+    options: {root: ./data/drops}
+
+  bloomberg_direct:
+    provider: bloomberg
+    transport: direct
+    enabled: false
+    options: {host: localhost, port: 8194, field_total_return: TOT_RETURN_INDEX_GROSS_DVDS}
+
+  bloomberg_snowflake:
+    provider: bloomberg
+    transport: snowflake
+    connection: snowflake_main
+    enabled: false
+    datasets:
+      returns.monthly:
+        sql: >
+          SELECT asset_key AS asset_id, month_end AS date, total_return AS ret
+          FROM BLOOMBERG.MONTHLY_TOTAL_RETURNS
+          WHERE asset_key IN (%(asset_keys)s) AND month_end BETWEEN %(start)s AND %(end)s
+        key_field: snowflake_key
+
+  factset_direct:
+    provider: factset
+    transport: direct
+    enabled: false
+    options: {base_url: "https://api.factset.com", username_env: FACTSET_USERNAME, api_key_env: FACTSET_API_KEY}
+
+  factset_snowflake:
+    provider: factset
+    transport: snowflake
+    connection: snowflake_main
+    enabled: false
+    datasets:
+      returns.monthly:
+        sql: >
+          SELECT asset_key AS asset_id, month_end AS date, total_return AS ret
+          FROM FACTSET.MONTHLY_TOTAL_RETURNS
+          WHERE asset_key IN (%(asset_keys)s) AND month_end BETWEEN %(start)s AND %(end)s
+        key_field: snowflake_key
+
+  sp_snowflake:
+    provider: sp_global
+    transport: snowflake
+    connection: snowflake_main
+    enabled: false
+    datasets:
+      credit.ratings:
+        sql: >
+          SELECT entity_id, 'S&P' AS agency, rating, outlook, rating_date AS date
+          FROM SP_GLOBAL.ISSUER_RATINGS WHERE rating_date <= %(as_of)s
+      fundamentals.valuation:
+        sql: >
+          SELECT asset_key AS asset_id, as_of_date AS date, pe_fwd, cape, dividend_yield, earnings_growth
+          FROM SP_GLOBAL.INDEX_VALUATIONS WHERE as_of_date <= %(as_of)s
+        key_field: snowflake_key
+
+  moodys_snowflake:
+    provider: moodys
+    transport: snowflake
+    connection: snowflake_main
+    enabled: false
+    datasets:
+      credit.ratings:
+        sql: >
+          SELECT entity_id, 'Moodys' AS agency, rating, outlook, rating_date AS date
+          FROM MOODYS.ISSUER_RATINGS WHERE rating_date <= %(as_of)s
+
+  fitch_snowflake:
+    provider: fitch
+    transport: snowflake
+    connection: snowflake_main
+    enabled: false
+    datasets:
+      credit.ratings:
+        sql: >
+          SELECT entity_id, 'Fitch' AS agency, rating, outlook, rating_date AS date
+          FROM FITCH.ISSUER_RATINGS WHERE rating_date <= %(as_of)s
+
+  moodys_direct:
+    provider: moodys
+    transport: direct
+    enabled: false
+    options: {base_url_env: MOODYS_API_URL, api_key_env: MOODYS_API_KEY}
+
+  fitch_direct:
+    provider: fitch
+    transport: direct
+    enabled: false
+    options: {base_url_env: FITCH_API_URL, api_key_env: FITCH_API_KEY}
+
+  sp_direct:
+    provider: sp_global
+    transport: direct
+    enabled: false
+    options: {base_url_env: SP_API_URL, api_key_env: SP_API_KEY}
+
+routing:
+  returns.monthly:        [bloomberg_snowflake, factset_snowflake, bloomberg_direct, factset_direct, files, synthetic]
+  macro.indicators:       [bloomberg_snowflake, files, synthetic]
+  fundamentals.valuation: [sp_snowflake, factset_snowflake, files, synthetic]
+  credit.ratings:         [moodys_snowflake, sp_snowflake, fitch_snowflake, moodys_direct, sp_direct, fitch_direct, files]
+  yields.current:         [bloomberg_snowflake, bloomberg_direct, files, synthetic]
+
+# Per-provider AI-use license check. A source cannot be enabled for LLM-visible
+# use until its license has been reviewed (see docs/09-data-integration.md).
+license_review:
+  bloomberg: pending
+  factset: pending
+  sp_global: pending
+  moodys: pending
+  fitch: pending

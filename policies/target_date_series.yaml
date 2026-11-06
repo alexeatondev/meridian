@@ -1,0 +1,75 @@
+# Policy-as-code for the Meridian Target Retirement Series.
+# Human-readable source of truth: policies/ips/meridian-target-retirement-series-ips.md
+# Every rule cites the IPS section it implements. Changes require Research/PM author + Compliance approval.
+
+policy_id: ips-mtrs
+version: "1.0.0"
+effective_date: "2026-11-06"
+status: draft          # draft | adopted (adoption requires the governing body's recorded approval)
+ips_document: policies/ips/meridian-target-retirement-series-ips.md
+
+series:
+  name: Meridian Target Retirement Series
+  vintages: [2030, 2035, 2040, 2045, 2050, 2055, 2060, 2065, 2070]
+  assumed_retirement_age: 65
+  glide_path_type: through        # equity keeps declining until landing point
+  landing_years_after_target: 7
+  benchmark: custom_glide_path_composite
+  secondary_benchmark: "S&P Target Date Index of the same vintage"
+  rebalance: {calendar: quarterly, drift_trigger_pp: 2.0, glide_path_step: monthly}
+
+# Strategic glide path: neutral weights (%) by years to target date.
+# Linear interpolation between anchor rows; flat beyond the ends. Each row sums to 100.
+glide_path:
+  asset_order: [us_large_cap, us_small_mid_cap, intl_developed_eq, emerging_eq, global_reits, commodities,
+                us_core_bond, us_long_treasury, us_tips_short, us_high_yield, intl_bond_hedged, em_debt, cash]
+  anchors:
+    #  yrs   LC  SMID Intl  EM REIT Cmd Core Long TIPS  HY IntB EMD Cash
+    - [ 40,  47,   9,  24,  6,   3,  1,   6,   2,   0,  1,   1,  0,   0]
+    - [ 25,  46,   8,  23,  6,   3,  1,   8,   2,   0,  1,   2,  0,   0]
+    - [ 15,  40,   6,  20,  5,   3,  1,  14,   3,   2,  2,   3,  1,   0]
+    - [ 10,  35,   5,  17,  4,   2,  1,  18,   3,   5,  2,   5,  1,   2]
+    - [  5,  30,   4,  14,  3,   2,  1,  20,   2,   9,  2,   6,  1,   6]
+    - [  0,  26,   3,  12,  2,   2,  1,  22,   1,  12,  2,   7,  1,   9]
+    - [ -7,  18,   2,   8,  1,   1,  0,  25,   0,  17,  1,   8,  0,  19]
+
+groups:
+  equity: [us_large_cap, us_small_mid_cap, intl_developed_eq, emerging_eq]
+  real_assets: [global_reits, commodities]
+  growth_assets: [us_large_cap, us_small_mid_cap, intl_developed_eq, emerging_eq, global_reits]
+  fixed_income: [us_core_bond, us_long_treasury, us_tips_short, us_high_yield, intl_bond_hedged, em_debt]
+  below_ig: [us_high_yield, em_debt]
+  non_us_equity: [intl_developed_eq, emerging_eq]
+  inflation_sensitive: [us_tips_short, commodities, global_reits]
+
+# Rule library. kind -> evaluated by meridian.compliance.engine (deterministic).
+# `applies_to_regimes: any` = always on. Otherwise on only if a listed regime pack is selected.
+rules:
+  - {id: POL-SUM,            kind: sum_to_one,     tolerance: 0.0005,                       severity: hard, ips: "§7.1"}
+  - {id: POL-LONG-ONLY,      kind: long_only,                                               severity: hard, ips: "§7.1"}
+  - {id: POL-BAND-ASSET,     kind: band_vs_neutral, per_asset_pp: 3.0,                       severity: hard, ips: "§6.3"}
+  - {id: POL-BAND-EQUITY,    kind: group_band_vs_neutral, group: equity, pp: 5.0,           severity: hard, ips: "§6.3"}
+  - {id: POL-BAND-GROWTH,    kind: group_band_vs_neutral, group: growth_assets, pp: 5.0,    severity: hard, ips: "§6.3"}
+  - {id: CONC-BELOW-IG,      kind: group_max, group: below_ig, max: 0.10,                   severity: hard, ips: "§7.3"}
+  - {id: CONC-NONUS-EQ,      kind: group_share_of_group_max, group: non_us_equity, of: equity, max: 0.45, severity: hard, ips: "§7.3"}
+  - {id: CONC-CASH,          kind: asset_max, asset: cash, max: 0.25,                       severity: hard, ips: "§7.3"}
+  - {id: CONC-SINGLE-FUND,   kind: asset_max_all, max: 0.50,                                severity: hard, ips: "§7.3"}
+  - {id: TE-NEUTRAL,         kind: tracking_error_max, vs: neutral, max: 0.015,              severity: hard, ips: "§6.4"}
+  - {id: TE-WARN,            kind: tracking_error_max, vs: neutral, max: 0.010,              severity: warn, ips: "§6.4"}
+  - {id: RISK-VOL-BAND,      kind: volatility_vs_neutral, max_ratio: 1.15,                   severity: warn, ips: "§6.4"}
+  - {id: LIQ-DAILY,          kind: liquidity_all, allowed: [daily],                         severity: hard, ips: "§7.4"}
+  - {id: LIQ-ILLIQUID-15,    kind: illiquid_max, max: 0.15,  applies_to_regimes: [registered_fund], severity: hard, ips: "§7.4"}
+  - {id: DERIV-LDU,          kind: derivatives_exposure_max, max: 0.10, applies_to_regimes: [registered_fund, cftc_derivatives], severity: hard, ips: "§7.5"}
+  - {id: FOF-12D1,           kind: attestation, text: "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented", applies_to_regimes: [registered_fund], severity: hard, ips: "§9.2"}
+  - {id: ERISA-AFFILIATE-PT, kind: attestation, text: "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary", applies_to_regimes: [erisa_plan, bank_cit], severity: hard, ips: "§9.3"}
+  - {id: CONF-AFFILIATE-DISCLOSE, kind: attestation, text: "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents", applies_to_regimes: [sec_ria], severity: hard, ips: "§9.1"}
+
+risk_objectives:
+  tracking_error_budget_vs_neutral: 0.015
+  max_tactical_shift_equity_pp: 5.0
+approvals:
+  glide_path_change: [investment_committee]
+  tactical_tilt: [portfolio_manager, risk]
+  rebalance_routine: [portfolio_manager]
+  policy_change: [portfolio_manager, chief_compliance_officer]
+  exception: [chief_compliance_officer]

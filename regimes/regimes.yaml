@@ -1,0 +1,124 @@
+# Regulatory regime packs.
+# Each operating-entity type switches on a set of obligations, compliance rules,
+# record-retention minimums, required human roles and required reports.
+# The selected entity profile (config/entity_profile.yaml) merges every pack that is selected:
+#   - obligations / rules / reports / roles  -> union
+#   - retention_years                        -> maximum
+#   - approval_overrides                     -> strictest (most approvers)
+#
+# CITATIONS ARE A DESIGN AID, NOT LEGAL ADVICE. Every pack is marked `counsel_review: required`
+# until a qualified human compliance officer or counsel signs it off.
+
+packs:
+
+  sec_ria:
+    name: SEC-registered investment adviser
+    regulators: [SEC]
+    counsel_review: required
+    retention_years: 5            # Advisers Act Rule 204-2 baseline (first 2 years in an appropriate office)
+    required_human_roles: [chief_compliance_officer, portfolio_manager]
+    obligations:
+      - {id: IA-FID,   cite: "Advisers Act §206; SEC 2019 fiduciary interpretation", summary: "Duty of care and loyalty; best interest; full and fair disclosure of conflicts"}
+      - {id: IA-CP,    cite: "Rule 206(4)-7", summary: "Written compliance policies and procedures, annual review, designated CCO (a natural person)"}
+      - {id: IA-REC,   cite: "Rule 204-2", summary: "Books and records, including records supporting recommendations and performance"}
+      - {id: IA-MKT,   cite: "Rule 206(4)-1", summary: "Marketing rule; hypothetical performance (backtests) restricted and disclosed"}
+      - {id: IA-ADV,   cite: "Form ADV Part 2A", summary: "Disclose methods of analysis incl. use of AI/agents and material risks"}
+      - {id: IA-COE,   cite: "Rule 204A-1", summary: "Code of ethics; personal trading"}
+      - {id: SP-PRIV,  cite: "Regulation S-P (2024 amendments)", summary: "Safeguards, incident response, customer notification, service-provider oversight"}
+    rules: [POL-*, TE-*, LIQ-*, CONC-*, CONF-AFFILIATE-DISCLOSE]
+    reports: [annual_compliance_review, form_adv_update]
+
+  broker_dealer:
+    name: Broker-dealer (FINRA member)
+    regulators: [SEC, FINRA]
+    counsel_review: required
+    retention_years: 6            # Exchange Act Rule 17a-4 (varies 3-6 years by record type)
+    required_human_roles: [chief_compliance_officer, registered_principal]
+    obligations:
+      - {id: BD-REC,   cite: "Exchange Act Rules 17a-3 / 17a-4", summary: "Records; WORM or audit-trail electronic storage"}
+      - {id: BD-SUP,   cite: "FINRA Rules 3110 / 3120", summary: "Supervisory system incl. supervision of AI agents; testing"}
+      - {id: BD-COMM,  cite: "FINRA Rule 2210", summary: "Communications with the public (board memos shared externally)"}
+      - {id: BD-RBI,   cite: "Regulation Best Interest / FINRA 2111", summary: "Applies only if recommendations go to retail customers (out of scope v1)"}
+      - {id: BD-AI,    cite: "FINRA 2026 Annual Regulatory Oversight Report — GenAI/AI agents", summary: "Assess obligations before deploying; supervise agent autonomy, scope, auditability"}
+      - {id: SP-PRIV,  cite: "Regulation S-P (2024 amendments)", summary: "Safeguards, incident response, customer notification"}
+    rules: [POL-*, TE-*, LIQ-*, CONC-*]
+    reports: [annual_3120_report]
+    approval_overrides:
+      rebalance_material: [portfolio_manager, registered_principal]
+
+  registered_fund:
+    name: Adviser to 1940 Act registered funds (mutual fund / ETF)
+    regulators: [SEC]
+    counsel_review: required
+    retention_years: 6            # Rule 31a-2 (varies by record; some permanent)
+    required_human_roles: [chief_compliance_officer, derivatives_risk_manager, liquidity_program_administrator, fund_board]
+    obligations:
+      - {id: IC-CP,    cite: "Rule 38a-1", summary: "Fund compliance program; board-approved; CCO reports to board"}
+      - {id: IC-DIV,   cite: "ICA §5(b)(1)", summary: "Diversified fund 75-5-10 test (look-through not applied to funds held)"}
+      - {id: IC-FOF,   cite: "ICA §12(d)(1); Rule 12d1-4", summary: "Fund-of-funds acquisition limits / conditions"}
+      - {id: IC-DERIV, cite: "Rule 18f-4", summary: "Derivatives program & VaR limit, or limited-derivatives-user exception (≤10% derivatives exposure)"}
+      - {id: IC-LIQ,   cite: "Rule 22e-4", summary: "Liquidity risk management program; 15% illiquid cap"}
+      - {id: IC-VAL,   cite: "Rule 2a-5", summary: "Fair value determinations"}
+      - {id: IC-NAME,  cite: "Rule 35d-1 (names rule)", summary: "80% policy if name suggests a focus"}
+    rules: [POL-*, TE-*, LIQ-*, CONC-*, DERIV-LDU, LIQ-ILLIQUID-15, FOF-12D1]
+    reports: [board_cco_report, form_n_port_inputs]
+
+  private_fund:
+    name: Private fund adviser
+    regulators: [SEC]
+    counsel_review: required
+    retention_years: 5
+    required_human_roles: [chief_compliance_officer]
+    obligations:
+      - {id: PF-PF,    cite: "Form PF", summary: "Periodic reporting fed from Meridian holdings/exposures"}
+      - {id: PF-CUST,  cite: "Rule 206(4)-2", summary: "Custody / audited financials"}
+    rules: [POL-*, TE-*, CONC-*]
+    reports: [form_pf_inputs]
+
+  erisa_plan:
+    name: ERISA plan fiduciary / investment manager (e.g., 401(k) target-date QDIA)
+    regulators: [DOL]
+    counsel_review: required
+    retention_years: 6            # ERISA §107 baseline
+    required_human_roles: [plan_fiduciary_committee]
+    obligations:
+      - {id: ER-PRUD,  cite: "ERISA §404(a)", summary: "Prudence and loyalty; documented process"}
+      - {id: ER-PT,    cite: "ERISA §406 / PTEs", summary: "Prohibited transactions incl. affiliated-fund use"}
+      - {id: ER-QDIA,  cite: "29 CFR 2550.404c-5", summary: "QDIA conditions for target-date funds used as default"}
+      - {id: ER-FEE,   cite: "ERISA §408(b)(2) / 404a-5", summary: "Fee disclosure"}
+    rules: [POL-*, TE-*, LIQ-*, CONC-*, ERISA-AFFILIATE-PT]
+    reports: [plan_committee_report]
+
+  bank_cit:
+    name: Bank / trust company sponsoring a collective investment trust (CIT)
+    regulators: [OCC_or_state_banking]
+    counsel_review: required
+    retention_years: 6
+    required_human_roles: [trust_committee]
+    obligations:
+      - {id: CIT-9.18, cite: "12 CFR 9.18 (national banks) or state analogue", summary: "Written plan, fiduciary audit, valuation, admission/withdrawal"}
+      - {id: ER-PRUD,  cite: "ERISA §404(a)", summary: "CITs for qualified plans are ERISA plan-asset vehicles"}
+    rules: [POL-*, TE-*, LIQ-*, CONC-*, ERISA-AFFILIATE-PT]
+    reports: [fiduciary_audit_inputs]
+
+  pension_endowment_ocio:
+    name: Asset owner (pension / endowment / foundation) or OCIO
+    regulators: [STATE_or_DOL_or_none]
+    counsel_review: required
+    retention_years: 7
+    required_human_roles: [investment_committee]
+    obligations:
+      - {id: AO-UPMIFA, cite: "UPMIFA (endowments) / state public-pension statutes", summary: "Prudent investor standard; IPS adoption by board"}
+    rules: [POL-*, TE-*, LIQ-*, CONC-*]
+    reports: [investment_committee_report]
+
+  cftc_derivatives:
+    name: Derivatives user — CFTC/NFA considerations (add-on)
+    regulators: [CFTC, NFA]
+    counsel_review: required
+    retention_years: 5            # CFTC Rule 1.31
+    required_human_roles: []
+    obligations:
+      - {id: CF-CPO,   cite: "CEA; CFTC Rules 4.5 / 4.13(a)(3)", summary: "CPO/CTA registration or exclusion/exemption analysis"}
+    rules: [DERIV-*]
+    reports: [cftc_exemption_reaffirmation]

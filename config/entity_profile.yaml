@@ -1,0 +1,27 @@
+# Which legal entity (or entities) operate Meridian for this deployment.
+# Select one or more packs from regimes/regimes.yaml. The system merges them and
+# automatically adjusts: compliance rules enabled, retention, required approvers,
+# required human roles, reports, and the disclosures the board memo must carry.
+#
+# Change with:   meridian entities set sec_ria registered_fund erisa_plan
+# Inspect with:  meridian entities show
+
+firm_name: "Meridian Investment Management (hypothetical)"
+selected_entities:
+  - sec_ria
+  - registered_fund
+  - erisa_plan
+  - cftc_derivatives
+
+# Named humans filling required roles. Production runs are BLOCKED while any required
+# role is unfilled. The agentic compliance officer supports — but cannot be — the CCO.
+human_roles:
+  chief_compliance_officer: null
+  portfolio_manager: "Dev (Alex Eaton)"
+  derivatives_risk_manager: null
+  liquidity_program_administrator: null
+  fund_board: null
+  plan_fiduciary_committee: null
+
+operating_mode: shadow      # shadow | parallel | production
+autonomy_level: L3          # L2 analysis only | L3 proposals need human approval

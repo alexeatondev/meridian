@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meridian"
+version = "0.1.0"
+description = "Meridian — agentic multi-asset portfolio management with policy-as-code and an immutable decision ledger"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "scipy>=1.11",
+  "cvxpy>=1.4",
+  "pyyaml>=6.0",
+  "pydantic>=2.5",
+  "jsonschema>=4.20",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic>=0.40"]
+snowflake = ["snowflake-connector-python>=3.6"]
+bloomberg = ["blpapi"]          # install from Bloomberg's package index
+factset = ["requests>=2.31"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+meridian = "meridian.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

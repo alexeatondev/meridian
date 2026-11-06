@@ -1,0 +1,3310 @@
+{
+  "run_id": "run_tds_20261031_bcb3a0",
+  "as_of": "2026-10-31",
+  "macro": {
+    "regime": "late_cycle",
+    "confidence": 0.69,
+    "scores": {
+      "growth": -1.03,
+      "inflation": 0.8,
+      "monetary_policy": 1.0,
+      "financial_conditions": 0.47
+    },
+    "rationale": "Growth score -1.03, inflation 0.8, policy 1.0, financial conditions 0.47 \u2192 late_cycle (rule-based classifier)."
+  },
+  "cma": [
+    {
+      "asset": "us_large_cap",
+      "name": "US Large Cap Equity",
+      "historical": 0.0803,
+      "equilibrium": 0.0956,
+      "building_block": 0.0537,
+      "cape_yield": 0.0584,
+      "regime_adjusted": 0.0703,
+      "auto_blend": 0.0717,
+      "judge": 0.0673,
+      "judge_minus_blend": -0.0044,
+      "vol": 0.155
+    },
+    {
+      "asset": "us_small_mid_cap",
+      "name": "US Small/Mid Cap Equity",
+      "historical": 0.0708,
+      "equilibrium": 0.1084,
+      "building_block": 0.0626,
+      "cape_yield": 0.0745,
+      "regime_adjusted": 0.0608,
+      "auto_blend": 0.0754,
+      "judge": 0.0759,
+      "judge_minus_blend": 0.0004,
+      "vol": 0.195
+    },
+    {
+      "asset": "intl_developed_eq",
+      "name": "International Developed Equity",
+      "historical": 0.0546,
+      "equilibrium": 0.0967,
+      "building_block": 0.0766,
+      "cape_yield": 0.0846,
+      "regime_adjusted": 0.0446,
+      "auto_blend": 0.0714,
+      "judge": 0.0719,
+      "judge_minus_blend": 0.0004,
+      "vol": 0.165
+    },
+    {
+      "asset": "emerging_eq",
+      "name": "Emerging Markets Equity",
+      "historical": 0.0449,
+      "equilibrium": 0.1143,
+      "building_block": 0.0942,
+      "cape_yield": 0.0957,
+      "regime_adjusted": 0.0349,
+      "auto_blend": 0.0768,
+      "judge": 0.0832,
+      "judge_minus_blend": 0.0064,
+      "vol": 0.215
+    },
+    {
+      "asset": "global_reits",
+      "name": "Global Real Estate (REITs)",
+      "historical": 0.0401,
+      "equilibrium": 0.1046,
+      "building_block": 0.0758,
+      "cape_yield": 0.0766,
+      "regime_adjusted": 0.0301,
+      "auto_blend": 0.0654,
+      "judge": 0.0672,
+      "judge_minus_blend": 0.0018,
+      "vol": 0.195
+    },
+    {
+      "asset": "commodities",
+      "name": "Diversified Commodities",
+      "historical": 0.0128,
+      "equilibrium": 0.0572,
+      "yield_based": 0.0385,
+      "regime_adjusted": 0.0385,
+      "auto_blend": 0.0367,
+      "judge": 0.0378,
+      "judge_minus_blend": 0.0011,
+      "vol": 0.165
+    },
+    {
+      "asset": "us_core_bond",
+      "name": "US Core Bond (Aggregate)",
+      "historical": 0.0469,
+      "equilibrium": 0.0408,
+      "yield_based": 0.0435,
+      "regime_adjusted": 0.0455,
+      "auto_blend": 0.0442,
+      "judge": 0.044,
+      "judge_minus_blend": -0.0002,
+      "vol": 0.045
+    },
+    {
+      "asset": "us_long_treasury",
+      "name": "US Long Treasury",
+      "historical": 0.0574,
+      "equilibrium": 0.0353,
+      "yield_based": 0.0475,
+      "regime_adjusted": 0.0495,
+      "auto_blend": 0.0474,
+      "judge": 0.0477,
+      "judge_minus_blend": 0.0002,
+      "vol": 0.12
+    },
+    {
+      "asset": "us_tips_short",
+      "name": "Short-Term TIPS",
+      "historical": 0.0364,
+      "equilibrium": 0.0396,
+      "yield_based": 0.039,
+      "regime_adjusted": 0.039,
+      "auto_blend": 0.0385,
+      "judge": 0.0388,
+      "judge_minus_blend": 0.0003,
+      "vol": 0.03
+    },
+    {
+      "asset": "us_high_yield",
+      "name": "US High Yield",
+      "historical": 0.0516,
+      "equilibrium": 0.0605,
+      "yield_based": 0.054,
+      "regime_adjusted": 0.054,
+      "auto_blend": 0.055,
+      "judge": 0.0544,
+      "judge_minus_blend": -0.0006,
+      "vol": 0.09
+    },
+    {
+      "asset": "intl_bond_hedged",
+      "name": "International Bonds (USD-hedged)",
+      "historical": 0.0472,
+      "equilibrium": 0.0409,
+      "yield_based": 0.0415,
+      "regime_adjusted": 0.0435,
+      "auto_blend": 0.0433,
+      "judge": 0.0424,
+      "judge_minus_blend": -0.0009,
+      "vol": 0.04
+    },
+    {
+      "asset": "em_debt",
+      "name": "Emerging Markets Debt (USD)",
+      "historical": 0.0629,
+      "equilibrium": 0.0566,
+      "yield_based": 0.057,
+      "regime_adjusted": 0.059,
+      "auto_blend": 0.0589,
+      "judge": 0.058,
+      "judge_minus_blend": -0.0009,
+      "vol": 0.095
+    },
+    {
+      "asset": "cash",
+      "name": "Cash / Treasury Bills",
+      "historical": 0.0289,
+      "equilibrium": 0.0387,
+      "yield_based": 0.0385,
+      "regime_adjusted": 0.0385,
+      "auto_blend": 0.0361,
+      "judge": 0.0376,
+      "judge_minus_blend": 0.0014,
+      "vol": 0.006
+    }
+  ],
+  "vintages": {
+    "2030": {
+      "years_to_target": 3.17,
+      "neutral": {
+        "us_large_cap": 0.2854,
+        "us_small_mid_cap": 0.0363,
+        "intl_developed_eq": 0.1327,
+        "emerging_eq": 0.0263,
+        "global_reits": 0.02,
+        "commodities": 0.01,
+        "us_core_bond": 0.2073,
+        "us_long_treasury": 0.0163,
+        "us_tips_short": 0.101,
+        "us_high_yield": 0.02,
+        "intl_bond_hedged": 0.0637,
+        "em_debt": 0.01,
+        "cash": 0.071
+      },
+      "final": {
+        "us_large_cap": 0.2832,
+        "us_small_mid_cap": 0.0241,
+        "intl_developed_eq": 0.1397,
+        "emerging_eq": 0.0189,
+        "global_reits": 0.0116,
+        "commodities": 0.0091,
+        "us_core_bond": 0.2119,
+        "us_long_treasury": 0.031,
+        "us_tips_short": 0.0979,
+        "us_high_yield": 0.0187,
+        "intl_bond_hedged": 0.0673,
+        "em_debt": 0.0168,
+        "cash": 0.0698
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.4807268993839825,
+      "equity_final": 0.46589971566136507,
+      "exp_ret": 0.055671976576368715,
+      "vol": 0.0799823071530526,
+      "te": 0.0052020681067910255,
+      "eff_n": 6.012230168306157,
+      "backtest": {
+        "ann_return": 0.060085791662173316,
+        "ann_vol": 0.08010255545523796,
+        "max_drawdown": -0.22493756433913237,
+        "worst_12m": -0.16796774957604876
+      },
+      "backtest_neutral": {
+        "ann_return": 0.060017569824466266,
+        "ann_vol": 0.0841687759639022,
+        "max_drawdown": -0.24043997821937557,
+        "worst_12m": -0.17869419082613702
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 0.009141,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.46129,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: us_long_treasury"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.482718,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 46.6% vs neutral 48.1%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.32013,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 47.8% vs neutral 50.1%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.035511,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.34041,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.069791,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.283193,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.005202,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.005202,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.076433,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.786,
+          "votes": 8
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.7,
+          "votes": 6
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.686,
+          "votes": 9
+        },
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.616,
+          "votes": 8
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.554,
+          "votes": 6
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.465,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.17,
+          "votes": -7
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.05624489659151259,
+          "vol": 0.08401201259751415,
+          "te": 0.0,
+          "sharpe": 0.21121856318958904,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.055517255944581546,
+          "vol": 0.07604033803961696,
+          "te": 0.012241590792243335,
+          "sharpe": 0.22379248150784875,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.05566914360379642,
+          "vol": 0.07774279679263371,
+          "te": 0.011718706604534333,
+          "sharpe": 0.2208454585135691,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.05379393361315209,
+          "vol": 0.07213913182921794,
+          "te": 0.014399884337505072,
+          "sharpe": 0.21200606696181096,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.05419310573114611,
+          "vol": 0.07439009404274194,
+          "te": 0.01269536228836055,
+          "sharpe": 0.21095692824543816,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.05771550652963825,
+          "vol": 0.09034411979916603,
+          "te": 0.008195180779146247,
+          "sharpe": 0.21269238742215993,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.056771589443256394,
+          "vol": 0.08881300146023442,
+          "te": 0.007068532043674434,
+          "sharpe": 0.20573102071589605,
+          "compliance": "PASS (attestations pending)"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2035": {
+      "years_to_target": 8.17,
+      "neutral": {
+        "us_large_cap": 0.3317,
+        "us_small_mid_cap": 0.0463,
+        "intl_developed_eq": 0.159,
+        "emerging_eq": 0.0363,
+        "global_reits": 0.02,
+        "commodities": 0.01,
+        "us_core_bond": 0.1873,
+        "us_long_treasury": 0.0263,
+        "us_tips_short": 0.0646,
+        "us_high_yield": 0.02,
+        "intl_bond_hedged": 0.0537,
+        "em_debt": 0.01,
+        "cash": 0.0346
+      },
+      "final": {
+        "us_large_cap": 0.3339,
+        "us_small_mid_cap": 0.0339,
+        "intl_developed_eq": 0.1664,
+        "emerging_eq": 0.0265,
+        "global_reits": 0.0094,
+        "commodities": 0.0095,
+        "us_core_bond": 0.1925,
+        "us_long_treasury": 0.0383,
+        "us_tips_short": 0.0654,
+        "us_high_yield": 0.0115,
+        "intl_bond_hedged": 0.0628,
+        "em_debt": 0.0159,
+        "cash": 0.0338
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.5734086242299782,
+      "equity_final": 0.5607834733399867,
+      "exp_ret": 0.05850343458336267,
+      "vol": 0.09364826195091183,
+      "te": 0.005705186385995871,
+      "eff_n": 5.276863583009479,
+      "backtest": {
+        "ann_return": 0.06334153122448893,
+        "ann_vol": 0.09381092530394322,
+        "max_drawdown": -0.27420261058945217,
+        "worst_12m": -0.20421486546215595
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06320165772381126,
+        "ann_vol": 0.09854428736002972,
+        "max_drawdown": -0.2896902248286184,
+        "worst_12m": -0.21504342195438186
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 0.009437,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.240203,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: us_small_mid_cap"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.262515,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 56.1% vs neutral 57.3%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.31882,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 57.0% vs neutral 59.3%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.027417,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.344046,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.033786,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.33391,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.005705,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.005705,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.072311,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.78,
+          "votes": 9
+        },
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.651,
+          "votes": 10
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.628,
+          "votes": 5
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.602,
+          "votes": 8
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.6,
+          "votes": 6
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.495,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.158,
+          "votes": -8
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.059243957210295094,
+          "vol": 0.09833904055465405,
+          "te": 0.0,
+          "sharpe": 0.21094325400466146,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.05841886013448678,
+          "vol": 0.08978122352318639,
+          "te": 0.012597509584689902,
+          "sharpe": 0.221859976427506,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.05802627199563513,
+          "vol": 0.08899196642043249,
+          "te": 0.013924926382621626,
+          "sharpe": 0.21941612014038955,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.05672632420279519,
+          "vol": 0.08615392357840157,
+          "te": 0.014399998425247435,
+          "sharpe": 0.21155535866232394,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.05715887064120523,
+          "vol": 0.08832274365001398,
+          "te": 0.012889641849552238,
+          "sharpe": 0.2112578240905028,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.0604660644768022,
+          "vol": 0.10423821364089457,
+          "te": 0.008358242484988392,
+          "sharpe": 0.2107294792337511,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.0599675347622976,
+          "vol": 0.10480201623922754,
+          "te": 0.008940083541557486,
+          "sharpe": 0.20483894807228217,
+          "compliance": "PASS (attestations pending)"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2040": {
+      "years_to_target": 13.17,
+      "neutral": {
+        "us_large_cap": 0.3817,
+        "us_small_mid_cap": 0.0563,
+        "intl_developed_eq": 0.189,
+        "emerging_eq": 0.0463,
+        "global_reits": 0.0263,
+        "commodities": 0.01,
+        "us_core_bond": 0.1546,
+        "us_long_treasury": 0.03,
+        "us_tips_short": 0.031,
+        "us_high_yield": 0.02,
+        "intl_bond_hedged": 0.0373,
+        "em_debt": 0.01,
+        "cash": 0.0073
+      },
+      "final": {
+        "us_large_cap": 0.3862,
+        "us_small_mid_cap": 0.0449,
+        "intl_developed_eq": 0.1971,
+        "emerging_eq": 0.0352,
+        "global_reits": 0.0118,
+        "commodities": 0.0101,
+        "us_core_bond": 0.1606,
+        "us_long_treasury": 0.0405,
+        "us_tips_short": 0.0318,
+        "us_high_yield": 0.0105,
+        "intl_bond_hedged": 0.0466,
+        "em_debt": 0.0131,
+        "cash": 0.0116
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.6734086242299782,
+      "equity_final": 0.6634117070456095,
+      "exp_ret": 0.061616881392106734,
+      "vol": 0.10962041739368235,
+      "te": 0.006095675506549957,
+      "eff_n": 4.493861287331761,
+      "backtest": {
+        "ann_return": 0.06607972436639065,
+        "ann_vol": 0.10984393945251715,
+        "max_drawdown": -0.3283950541261561,
+        "worst_12m": -0.24490058991578645
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06590859473387556,
+        "ann_vol": 0.11517695473465096,
+        "max_drawdown": -0.3439398141359551,
+        "worst_12m": -0.25591509711081095
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 0.010134,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.455222,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 0.999692,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 66.3% vs neutral 67.3%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.454914,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 67.5% vs neutral 70.0%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.023573,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.350078,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.011629,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.386216,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006096,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006096,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.056716,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.706,
+          "votes": 8
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.667,
+          "votes": 7
+        },
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.661,
+          "votes": 11
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.609,
+          "votes": 6
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.554,
+          "votes": 6
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.495,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.175,
+          "votes": -8
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06249237684638392,
+          "vol": 0.11490701044340987,
+          "te": 0.0,
+          "sharpe": 0.2087981991159698,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.06110339749711113,
+          "vol": 0.10431219824618027,
+          "te": 0.014399999828412701,
+          "sharpe": 0.21668987785844906,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.06107013249078551,
+          "vol": 0.10443010906251127,
+          "te": 0.014399995164183317,
+          "sharpe": 0.21612667738645333,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.059981800306566746,
+          "vol": 0.10245702862059435,
+          "te": 0.014399996810751424,
+          "sharpe": 0.20966643866001014,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06035864513311362,
+          "vol": 0.10435871312930826,
+          "te": 0.012869753160526876,
+          "sharpe": 0.20945682902422455,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06319603533465039,
+          "vol": 0.11857778142235618,
+          "te": 0.007203646595282976,
+          "sharpe": 0.2082686574029146,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.06394664270150341,
+          "vol": 0.12442965942323522,
+          "te": 0.012010639708962092,
+          "sharpe": 0.2045062473003254,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2045": {
+      "years_to_target": 18.17,
+      "neutral": {
+        "us_large_cap": 0.419,
+        "us_small_mid_cap": 0.0663,
+        "intl_developed_eq": 0.2095,
+        "emerging_eq": 0.0532,
+        "global_reits": 0.03,
+        "commodities": 0.01,
+        "us_core_bond": 0.121,
+        "us_long_treasury": 0.0268,
+        "us_tips_short": 0.0137,
+        "us_high_yield": 0.0168,
+        "intl_bond_hedged": 0.0268,
+        "em_debt": 0.0068,
+        "cash": 0.0
+      },
+      "final": {
+        "us_large_cap": 0.423,
+        "us_small_mid_cap": 0.0552,
+        "intl_developed_eq": 0.217,
+        "emerging_eq": 0.0427,
+        "global_reits": 0.0123,
+        "commodities": 0.0125,
+        "us_core_bond": 0.1271,
+        "us_long_treasury": 0.0395,
+        "us_tips_short": 0.015,
+        "us_high_yield": 0.0091,
+        "intl_bond_hedged": 0.0346,
+        "em_debt": 0.0077,
+        "cash": 0.0041
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.7480451745379868,
+      "equity_final": 0.7380306813519167,
+      "exp_ret": 0.06371509294482158,
+      "vol": 0.12114497847913032,
+      "te": 0.006446689705027389,
+      "eff_n": 3.9912941137830353,
+      "backtest": {
+        "ann_return": 0.06751147340792518,
+        "ann_vol": 0.12141571224651179,
+        "max_drawdown": -0.3656875570433409,
+        "worst_12m": -0.2733391250278717
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06730082381945501,
+        "ann_vol": 0.12722435344397096,
+        "max_drawdown": -0.3816281024952103,
+        "worst_12m": -0.2850923605911745
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 0.004106,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.767989,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.001449,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 73.8% vs neutral 74.8%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.769438,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 75.0% vs neutral 77.8%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.016887,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.351996,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.004106,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.423031,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006447,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006447,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.047042,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.748,
+          "votes": 10
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.746,
+          "votes": 8
+        },
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.693,
+          "votes": 11
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.623,
+          "votes": 5
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.569,
+          "votes": 5
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.531,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.15,
+          "votes": -9
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06466862089204842,
+          "vol": 0.1269029429886532,
+          "te": 0.0,
+          "sharpe": 0.20620972434333723,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.063101657691118,
+          "vol": 0.11563463996834385,
+          "te": 0.014400000953629305,
+          "sharpe": 0.21275335572327594,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.06298212342427821,
+          "vol": 0.11570843900988341,
+          "te": 0.014400001303512603,
+          "sharpe": 0.21158459688655062,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.0623099754078006,
+          "vol": 0.11448798685295614,
+          "te": 0.014399999812185042,
+          "sharpe": 0.20796920325257529,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06263493010364621,
+          "vol": 0.11642166282687823,
+          "te": 0.012532573401262655,
+          "sharpe": 0.20730617925922792,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06506662991321224,
+          "vol": 0.12802071621437944,
+          "te": 0.005353999454223164,
+          "sharpe": 0.20751821032405884,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.06606243224218476,
+          "vol": 0.13759708656150113,
+          "te": 0.01436250986096897,
+          "sharpe": 0.20031261512114437,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2050": {
+      "years_to_target": 23.17,
+      "neutral": {
+        "us_large_cap": 0.449,
+        "us_small_mid_cap": 0.0763,
+        "intl_developed_eq": 0.2245,
+        "emerging_eq": 0.0582,
+        "global_reits": 0.03,
+        "commodities": 0.01,
+        "us_core_bond": 0.091,
+        "us_long_treasury": 0.0218,
+        "us_tips_short": 0.0037,
+        "us_high_yield": 0.0118,
+        "intl_bond_hedged": 0.0218,
+        "em_debt": 0.0018,
+        "cash": 0.0
+      },
+      "final": {
+        "us_large_cap": 0.454,
+        "us_small_mid_cap": 0.0648,
+        "intl_developed_eq": 0.2317,
+        "emerging_eq": 0.0467,
+        "global_reits": 0.0126,
+        "commodities": 0.0126,
+        "us_core_bond": 0.0989,
+        "us_long_treasury": 0.036,
+        "us_tips_short": 0.0098,
+        "us_high_yield": 0.007,
+        "intl_bond_hedged": 0.0192,
+        "em_debt": 0.0025,
+        "cash": 0.0041
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.808045174537987,
+      "equity_final": 0.7971890509957762,
+      "exp_ret": 0.0652533420194228,
+      "vol": 0.13009943572086138,
+      "te": 0.006458112956780696,
+      "eff_n": 3.595350318830635,
+      "backtest": {
+        "ann_return": 0.06839911566285561,
+        "ann_vol": 0.13040868246705284,
+        "max_drawdown": -0.3935951348179657,
+        "worst_12m": -0.295104581313568
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06813669472780215,
+        "ann_vol": 0.13629094339841294,
+        "max_drawdown": -0.4089405581389539,
+        "worst_12m": -0.30675734238677044
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 0.002507,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.738721,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.085612,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 79.7% vs neutral 80.8%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.824333,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 81.0% vs neutral 83.8%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.009486,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.349182,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.004109,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.454038,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006458,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006458,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.031809,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.749,
+          "votes": 8
+        },
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.715,
+          "votes": 11
+        },
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.707,
+          "votes": 8
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.656,
+          "votes": 7
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.579,
+          "votes": 5
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.53,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.159,
+          "votes": -9
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06621958361865364,
+          "vol": 0.1359298005440341,
+          "te": 0.0,
+          "sharpe": 0.20392572863133093,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.0645549544187384,
+          "vol": 0.12438171155572728,
+          "te": 0.014400005744623356,
+          "sharpe": 0.20947576691823291,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.06435630118436794,
+          "vol": 0.12437224022561576,
+          "te": 0.014400000749243675,
+          "sharpe": 0.2078944717684885,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.06407430051108624,
+          "vol": 0.12376013660942646,
+          "te": 0.014211532131989937,
+          "sharpe": 0.20664408760145406,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06426714915476171,
+          "vol": 0.12577469082506568,
+          "te": 0.011911534343951424,
+          "sharpe": 0.2048675213250977,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06673644836781992,
+          "vol": 0.13742752691949897,
+          "te": 0.005322421154496741,
+          "sharpe": 0.20546428361735714,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.06734127049868396,
+          "vol": 0.14546446179130118,
+          "te": 0.013519903905133093,
+          "sharpe": 0.19827021764300565,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2055": {
+      "years_to_target": 28.17,
+      "neutral": {
+        "us_large_cap": 0.4621,
+        "us_small_mid_cap": 0.0821,
+        "intl_developed_eq": 0.2321,
+        "emerging_eq": 0.06,
+        "global_reits": 0.03,
+        "commodities": 0.01,
+        "us_core_bond": 0.0758,
+        "us_long_treasury": 0.02,
+        "us_tips_short": 0.0,
+        "us_high_yield": 0.01,
+        "intl_bond_hedged": 0.0179,
+        "em_debt": 0.0,
+        "cash": 0.0
+      },
+      "final": {
+        "us_large_cap": 0.4688,
+        "us_small_mid_cap": 0.0701,
+        "intl_developed_eq": 0.2395,
+        "emerging_eq": 0.0478,
+        "global_reits": 0.0116,
+        "commodities": 0.0129,
+        "us_core_bond": 0.0812,
+        "us_long_treasury": 0.0355,
+        "us_tips_short": 0.0042,
+        "us_high_yield": 0.0071,
+        "intl_bond_hedged": 0.0172,
+        "em_debt": 0.0,
+        "cash": 0.0042
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.8363408624229978,
+      "equity_final": 0.8261901140248946,
+      "exp_ret": 0.06599741204721297,
+      "vol": 0.13436836450817846,
+      "te": 0.0065510471358902434,
+      "eff_n": 3.414247930176001,
+      "backtest": {
+        "ann_return": 0.06886985970159021,
+        "ann_vol": 0.13469493489186402,
+        "max_drawdown": -0.406125578669302,
+        "worst_12m": -0.30514280148142614
+      },
+      "backtest_neutral": {
+        "ann_return": 0.0684987389526801,
+        "ann_vol": 0.14064470484826125,
+        "max_drawdown": -0.4214215518288973,
+        "worst_12m": -0.31683422785268855
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 1e-06,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.842563,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.015075,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 82.6% vs neutral 83.6%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.857638,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 83.8% vs neutral 86.6%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.00711,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.347683,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.004216,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.468845,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006551,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006551,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.03006,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.721,
+          "votes": 12
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.718,
+          "votes": 8
+        },
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.693,
+          "votes": 8
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.651,
+          "votes": 7
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.551,
+          "votes": 4
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.516,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.175,
+          "votes": -9
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06696595788784604,
+          "vol": 0.1402641922398776,
+          "te": 0.0,
+          "sharpe": 0.20294529511255452,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.0652667078374856,
+          "vol": 0.1286151570095518,
+          "te": 0.014400002753934478,
+          "sharpe": 0.20811472348859886,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.06515278669348512,
+          "vol": 0.1285618987393334,
+          "te": 0.014399998947845426,
+          "sharpe": 0.20731481842474314,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.06485918264011539,
+          "vol": 0.1282279244944821,
+          "te": 0.0139862374638015,
+          "sharpe": 0.20556507285002248,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06502980504230714,
+          "vol": 0.13014325793756887,
+          "te": 0.011726209306794931,
+          "sharpe": 0.20385078307347873,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06765720880329222,
+          "vol": 0.14261702782708743,
+          "te": 0.0050393865704969456,
+          "sharpe": 0.20444409231864777,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.06785507492162876,
+          "vol": 0.14831473773613027,
+          "te": 0.012009430686407283,
+          "sharpe": 0.19792419397898922,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2060": {
+      "years_to_target": 33.17,
+      "neutral": {
+        "us_large_cap": 0.4654,
+        "us_small_mid_cap": 0.0854,
+        "intl_developed_eq": 0.2354,
+        "emerging_eq": 0.06,
+        "global_reits": 0.03,
+        "commodities": 0.01,
+        "us_core_bond": 0.0691,
+        "us_long_treasury": 0.02,
+        "us_tips_short": 0.0,
+        "us_high_yield": 0.01,
+        "intl_bond_hedged": 0.0146,
+        "em_debt": 0.0,
+        "cash": 0.0
+      },
+      "final": {
+        "us_large_cap": 0.4725,
+        "us_small_mid_cap": 0.0732,
+        "intl_developed_eq": 0.2427,
+        "emerging_eq": 0.0475,
+        "global_reits": 0.0114,
+        "commodities": 0.0122,
+        "us_core_bond": 0.0743,
+        "us_long_treasury": 0.0356,
+        "us_tips_short": 0.0043,
+        "us_high_yield": 0.0069,
+        "intl_bond_hedged": 0.0151,
+        "em_debt": 0.0,
+        "cash": 0.0043
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.8463408624229978,
+      "equity_final": 0.835947460309992,
+      "exp_ret": 0.0662643009887809,
+      "vol": 0.13583735996432625,
+      "te": 0.006704324890961452,
+      "eff_n": 3.3652716033559527,
+      "backtest": {
+        "ann_return": 0.06903310459974898,
+        "ann_vol": 0.13617082570146694,
+        "max_drawdown": -0.41019013520333536,
+        "worst_12m": -0.3085745550771922
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06862355109760365,
+        "ann_vol": 0.14224861029886796,
+        "max_drawdown": -0.4257339652107768,
+        "worst_12m": -0.3204263483807429
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 1e-06,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.858284,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.03934,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 83.6% vs neutral 84.6%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.897624,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 84.7% vs neutral 87.6%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.006927,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.347191,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.004263,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.47249,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006704,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006704,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.027292,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.72,
+          "votes": 12
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.711,
+          "votes": 8
+        },
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.689,
+          "votes": 8
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.646,
+          "votes": 7
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.528,
+          "votes": 3
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.499,
+          "votes": -2
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.18,
+          "votes": -8
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06724802625318164,
+          "vol": 0.1418605708684433,
+          "te": 0.0,
+          "sharpe": 0.202649870060382,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.06554877792184195,
+          "vol": 0.13019011997938407,
+          "te": 0.014400004789385875,
+          "sharpe": 0.20776367612323574,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.06543485270113944,
+          "vol": 0.13013494990189095,
+          "te": 0.014399999973155405,
+          "sharpe": 0.2069763174415919,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.06513603870682719,
+          "vol": 0.12981214423861312,
+          "te": 0.013981684373514857,
+          "sharpe": 0.20518911279877153,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06532345477421343,
+          "vol": 0.13156794113760786,
+          "te": 0.011834712718493918,
+          "sharpe": 0.2038753099142791,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06792950325856933,
+          "vol": 0.14417636315954943,
+          "te": 0.0050000568437093855,
+          "sharpe": 0.20412155372515436,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.06806322106055135,
+          "vol": 0.14946806183912953,
+          "te": 0.011555378360540696,
+          "sharpe": 0.19778955247556396,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2065": {
+      "years_to_target": 38.17,
+      "neutral": {
+        "us_large_cap": 0.4688,
+        "us_small_mid_cap": 0.0888,
+        "intl_developed_eq": 0.2388,
+        "emerging_eq": 0.06,
+        "global_reits": 0.03,
+        "commodities": 0.01,
+        "us_core_bond": 0.0624,
+        "us_long_treasury": 0.02,
+        "us_tips_short": 0.0,
+        "us_high_yield": 0.01,
+        "intl_bond_hedged": 0.0112,
+        "em_debt": 0.0,
+        "cash": 0.0
+      },
+      "final": {
+        "us_large_cap": 0.4761,
+        "us_small_mid_cap": 0.0764,
+        "intl_developed_eq": 0.2458,
+        "emerging_eq": 0.0474,
+        "global_reits": 0.0112,
+        "commodities": 0.0114,
+        "us_core_bond": 0.0678,
+        "us_long_treasury": 0.0356,
+        "us_tips_short": 0.0043,
+        "us_high_yield": 0.0067,
+        "intl_bond_hedged": 0.0131,
+        "em_debt": 0.0,
+        "cash": 0.0043
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.8563408624229978,
+      "equity_final": 0.8456870704674933,
+      "exp_ret": 0.06652884057154825,
+      "vol": 0.13728553270261304,
+      "te": 0.006883005494611251,
+      "eff_n": 3.3162812866961136,
+      "backtest": {
+        "ann_return": 0.06919591599735875,
+        "ann_vol": 0.13762584038846137,
+        "max_drawdown": -0.41414687408539697,
+        "worst_12m": -0.3119369941347191
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06874534338388494,
+        "ann_vol": 0.14385459558085115,
+        "max_drawdown": -0.4300191078239355,
+        "worst_12m": -0.3240028963699694
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.884705,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.065379,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 84.6% vs neutral 85.6%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.950084,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 85.7% vs neutral 88.6%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.00669,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.34669,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.004318,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.47609,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006883,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006883,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.02451,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.718,
+          "votes": 12
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.673,
+          "votes": 6
+        },
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.649,
+          "votes": 6
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.646,
+          "votes": 7
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.572,
+          "votes": 5
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.536,
+          "votes": 0
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.184,
+          "votes": -8
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06753009461851724,
+          "vol": 0.14345904467641815,
+          "te": 0.0,
+          "sharpe": 0.20235806451936603,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.06583080583917797,
+          "vol": 0.13176779787413562,
+          "te": 0.014400001472256528,
+          "sharpe": 0.2074164270794319,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.06571692123763642,
+          "vol": 0.1317108428596464,
+          "te": 0.014399999975712596,
+          "sharpe": 0.20664146281896695,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.06541289476030167,
+          "vol": 0.13139921656400796,
+          "te": 0.013977524252120224,
+          "sharpe": 0.20481777185628577,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06561717655929403,
+          "vol": 0.1329955023242992,
+          "te": 0.011974939743013112,
+          "sharpe": 0.20389544071325738,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06817232838033269,
+          "vol": 0.14553610976519296,
+          "te": 0.004842848221311101,
+          "sharpe": 0.20388292931703228,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.068272323400407,
+          "vol": 0.15062517397297706,
+          "te": 0.011106137863926687,
+          "sharpe": 0.1976583502950729,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    },
+    "2070": {
+      "years_to_target": 43.17,
+      "neutral": {
+        "us_large_cap": 0.47,
+        "us_small_mid_cap": 0.09,
+        "intl_developed_eq": 0.24,
+        "emerging_eq": 0.06,
+        "global_reits": 0.03,
+        "commodities": 0.01,
+        "us_core_bond": 0.06,
+        "us_long_treasury": 0.02,
+        "us_tips_short": 0.0,
+        "us_high_yield": 0.01,
+        "intl_bond_hedged": 0.01,
+        "em_debt": 0.0,
+        "cash": 0.0
+      },
+      "final": {
+        "us_large_cap": 0.4774,
+        "us_small_mid_cap": 0.0776,
+        "intl_developed_eq": 0.247,
+        "emerging_eq": 0.0473,
+        "global_reits": 0.0111,
+        "commodities": 0.0111,
+        "us_core_bond": 0.0653,
+        "us_long_treasury": 0.0356,
+        "us_tips_short": 0.0043,
+        "us_high_yield": 0.0066,
+        "intl_bond_hedged": 0.0124,
+        "em_debt": 0.0,
+        "cash": 0.0043
+      },
+      "ensemble": "inverse_tracking_error",
+      "rationale": "Inverse-tracking-error ensemble (paper \u00a74.4): weights methods closer to the consensus more heavily, keeps every method's information, and stays well inside the TE budget; individual optimizers are sensitive to CMA error in a late-cycle regime.",
+      "invalidation_conditions": [
+        "Macro regime shifts away from late-cycle",
+        "Any CMA moves outside its method range on the next run",
+        "Equity drawdown > 15% from run date (off-cycle review trigger)",
+        "Tracking error vs. glide path rises above 1.0% (warning threshold)"
+      ],
+      "equity_neutral": 0.8600000000000001,
+      "equity_final": 0.8492537235903564,
+      "exp_ret": 0.06662589652595438,
+      "vol": 0.13781710007291126,
+      "te": 0.006947681574126729,
+      "eff_n": 3.2983139816661287,
+      "backtest": {
+        "ann_return": 0.06925490363735554,
+        "ann_vol": 0.13815992283335812,
+        "max_drawdown": -0.4155912896386805,
+        "worst_12m": -0.3131661456841587
+      },
+      "backtest_neutral": {
+        "ann_return": 0.06878915393231622,
+        "ann_vol": 0.14444275377735877,
+        "max_drawdown": -0.4315803124952067,
+        "worst_12m": -0.3253077230032081
+      },
+      "compliance": [
+        {
+          "rule_id": "POL-SUM",
+          "kind": "sum_to_one",
+          "status": "PASS",
+          "measured": 1.0,
+          "limit": 1.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-LONG-ONLY",
+          "kind": "long_only",
+          "status": "PASS",
+          "measured": 1e-06,
+          "limit": 0.0,
+          "severity": "hard",
+          "ips": "\u00a77.1",
+          "detail": ""
+        },
+        {
+          "rule_id": "POL-BAND-ASSET",
+          "kind": "band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.894067,
+          "limit": 3.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "largest deviation: global_reits"
+        },
+        {
+          "rule_id": "POL-BAND-EQUITY",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 1.074628,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "equity 84.9% vs neutral 86.0%"
+        },
+        {
+          "rule_id": "POL-BAND-GROWTH",
+          "kind": "group_band_vs_neutral",
+          "status": "PASS",
+          "measured": 2.968695,
+          "limit": 5.0,
+          "severity": "hard",
+          "ips": "\u00a76.3",
+          "detail": "growth_assets 86.0% vs neutral 89.0%"
+        },
+        {
+          "rule_id": "CONC-BELOW-IG",
+          "kind": "group_max",
+          "status": "PASS",
+          "measured": 0.006606,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-NONUS-EQ",
+          "kind": "group_share_of_group_max",
+          "status": "PASS",
+          "measured": 0.346508,
+          "limit": 0.45,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-CASH",
+          "kind": "asset_max",
+          "status": "PASS",
+          "measured": 0.004339,
+          "limit": 0.25,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": ""
+        },
+        {
+          "rule_id": "CONC-SINGLE-FUND",
+          "kind": "asset_max_all",
+          "status": "PASS",
+          "measured": 0.477405,
+          "limit": 0.5,
+          "severity": "hard",
+          "ips": "\u00a77.3",
+          "detail": "largest: us_large_cap"
+        },
+        {
+          "rule_id": "TE-NEUTRAL",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006948,
+          "limit": 0.015,
+          "severity": "hard",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "TE-WARN",
+          "kind": "tracking_error_max",
+          "status": "PASS",
+          "measured": 0.006948,
+          "limit": 0.01,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "RISK-VOL-BAND",
+          "kind": "volatility_vs_neutral",
+          "status": "OFF",
+          "measured": null,
+          "limit": null,
+          "severity": "warn",
+          "ips": "\u00a76.4",
+          "detail": "Not applicable to selected entity types"
+        },
+        {
+          "rule_id": "LIQ-DAILY",
+          "kind": "liquidity_all",
+          "status": "PASS",
+          "measured": "none",
+          "limit": "daily",
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "LIQ-ILLIQUID-15",
+          "kind": "illiquid_max",
+          "status": "PASS",
+          "measured": 0.0,
+          "limit": 0.15,
+          "severity": "hard",
+          "ips": "\u00a77.4",
+          "detail": ""
+        },
+        {
+          "rule_id": "DERIV-LDU",
+          "kind": "derivatives_exposure_max",
+          "status": "PASS",
+          "measured": 0.023492,
+          "limit": 0.1,
+          "severity": "hard",
+          "ips": "\u00a77.5",
+          "detail": "proxy: full weight of derivative-using funds"
+        },
+        {
+          "rule_id": "FOF-12D1",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.2",
+          "detail": "Underlying funds acquired in reliance on Rule 12d1-4 / affiliated-fund exemption; conditions documented \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "ERISA-AFFILIATE-PT",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.3",
+          "detail": "Use of affiliated underlying funds covered by applicable PTE or fee offset; reviewed by plan fiduciary \u2014 awaiting human attestation"
+        },
+        {
+          "rule_id": "CONF-AFFILIATE-DISCLOSE",
+          "kind": "attestation",
+          "status": "ATTEST",
+          "measured": null,
+          "limit": null,
+          "severity": "hard",
+          "ips": "\u00a79.1",
+          "detail": "Conflicts from affiliated underlying funds disclosed in Form ADV / offering documents \u2014 awaiting human attestation"
+        }
+      ],
+      "compliance_summary": {
+        "PASS": 14,
+        "WARN": 0,
+        "FAIL": 0,
+        "ATTEST": 3,
+        "OFF": 1,
+        "overall": "PASS (attestations pending)"
+      },
+      "ranking": [
+        {
+          "method": "min_variance_tilt",
+          "composite": 0.718,
+          "votes": 12
+        },
+        {
+          "method": "max_sharpe_tilt",
+          "composite": 0.689,
+          "votes": 8
+        },
+        {
+          "method": "risk_budget_tilt",
+          "composite": 0.674,
+          "votes": 6
+        },
+        {
+          "method": "black_litterman_tilt",
+          "composite": 0.606,
+          "votes": 5
+        },
+        {
+          "method": "max_diversification_tilt",
+          "composite": 0.574,
+          "votes": 5
+        },
+        {
+          "method": "glide_path_neutral",
+          "composite": 0.534,
+          "votes": 0
+        },
+        {
+          "method": "adversarial_diversifier",
+          "composite": 0.186,
+          "votes": -8
+        }
+      ],
+      "candidates": {
+        "glide_path_neutral": {
+          "exp_ret": 0.06763330731400555,
+          "vol": 0.14404445808243813,
+          "te": 0.0,
+          "sharpe": 0.2022521914541985,
+          "compliance": "PASS (attestations pending)"
+        },
+        "max_sharpe_tilt": {
+          "exp_ret": 0.06593404263644415,
+          "vol": 0.13234584646943595,
+          "te": 0.014400004920893087,
+          "sharpe": 0.20729054494943885,
+          "compliance": "WARN"
+        },
+        "black_litterman_tilt": {
+          "exp_ret": 0.0658201336864389,
+          "vol": 0.1322881747374466,
+          "te": 0.014399999910505964,
+          "sharpe": 0.20651984760286685,
+          "compliance": "WARN"
+        },
+        "min_variance_tilt": {
+          "exp_ret": 0.06551420019543211,
+          "vol": 0.1319806407518082,
+          "te": 0.013976100298615141,
+          "sharpe": 0.20468305079858465,
+          "compliance": "WARN"
+        },
+        "max_diversification_tilt": {
+          "exp_ret": 0.06572465328958983,
+          "vol": 0.13351869104290315,
+          "te": 0.012033887785672796,
+          "sharpe": 0.20390143939354394,
+          "compliance": "WARN"
+        },
+        "risk_budget_tilt": {
+          "exp_ret": 0.06826118111957635,
+          "vol": 0.14603407740984897,
+          "te": 0.004788534086490958,
+          "sharpe": 0.2037961388700441,
+          "compliance": "PASS (attestations pending)"
+        },
+        "adversarial_diversifier": {
+          "exp_ret": 0.0683490837306234,
+          "vol": 0.15104967445213877,
+          "te": 0.010943140966690062,
+          "sharpe": 0.1976110431147027,
+          "compliance": "WARN"
+        }
+      },
+      "approvers": [
+        "portfolio_manager",
+        "risk"
+      ]
+    }
+  },
+  "compliance_officer": {
+    "status": "CONDITIONAL",
+    "findings": [
+      "Run used SYNTHETIC data. Outputs are for system testing only; they are not investment advice and may not be used in marketing (hypothetical performance).",
+      "Production blocker: Required human role unfilled: chief_compliance_officer",
+      "Production blocker: Required human role unfilled: derivatives_risk_manager",
+      "Production blocker: Required human role unfilled: liquidity_program_administrator",
+      "Production blocker: Required human role unfilled: fund_board",
+      "Production blocker: Required human role unfilled: plan_fiduciary_committee",
+      "Production blocker: Regime pack needs counsel/CCO review: sec_ria",
+      "Production blocker: Regime pack needs counsel/CCO review: registered_fund",
+      "Production blocker: Regime pack needs counsel/CCO review: erisa_plan",
+      "Production blocker: Regime pack needs counsel/CCO review: cftc_derivatives",
+      "3 attestation(s) require a named human: CONF-AFFILIATE-DISCLOSE, ERISA-AFFILIATE-PT, FOF-12D1"
+    ],
+    "fails": [],
+    "warns": [],
+    "attestations_pending": [
+      "CONF-AFFILIATE-DISCLOSE",
+      "ERISA-AFFILIATE-PT",
+      "FOF-12D1"
+    ],
+    "ledger_ok": true
+  },
+  "snapshot": {
+    "snapshot_id": "snap_3f592900a4dda39a",
+    "datasets": {
+      "returns.monthly": {
+        "source": "synthetic",
+        "provider": "synthetic",
+        "transport": "generated",
+        "synthetic": true,
+        "rows": 4342,
+        "sha256": "9ecc70367125cf13d3f62929a6eec0d608c187916201ae87fc6d1493e36ebd60"
+      },
+      "macro.indicators": {
+        "source": "synthetic",
+        "provider": "synthetic",
+        "transport": "generated",
+        "synthetic": true,
+        "rows": 11,
+        "sha256": "129905c041542ed0fa5e11ee82a759822992a8caa61f59470f681557f8dbe65f"
+      },
+      "fundamentals.valuation": {
+        "source": "synthetic",
+        "provider": "synthetic",
+        "transport": "generated",
+        "synthetic": true,
+        "rows": 5,
+        "sha256": "603ab82c8b593962a455466e36bc312447c7a2995be7d386aa7ffdf860e59b45"
+      },
+      "yields.current": {
+        "source": "synthetic",
+        "provider": "synthetic",
+        "transport": "generated",
+        "synthetic": true,
+        "rows": 8,
+        "sha256": "28a8b80db589c7beaba1d39c758fd694358720e498678c565f1de526cf37c42b"
+      }
+    }
+  }
+}

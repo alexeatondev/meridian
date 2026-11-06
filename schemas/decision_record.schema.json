@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meridian/decision_record.v0.1",
+  "title": "Meridian Decision Record",
+  "type": "object",
+  "required": ["dr_id", "dr_type", "run_id", "step", "actor", "summary", "created_at", "prev_hash", "record_hash"],
+  "properties": {
+    "dr_id": {"type": "string", "pattern": "^dr_"},
+    "dr_type": {"enum": ["signal", "decision", "approval", "exception", "policy_change", "agent_change", "override"]},
+    "run_id": {"type": "string"},
+    "step": {"type": "string"},
+    "actor": {"type": "object", "required": ["id"], "properties": {
+      "kind": {"enum": ["agent", "human", "system"]}, "id": {"type": "string"}, "version": {"type": "string"},
+      "model": {"type": "string"}, "prompt_hash": {"type": "string"}, "skills": {"type": "array"}, "code_commit": {"type": "string"}}},
+    "portfolio_scope": {"type": "array", "items": {"type": "string"}},
+    "inputs": {"type": "array"},
+    "policy_version": {"type": "string"},
+    "output": {"type": "object"},
+    "summary": {"type": "string"},
+    "rationale": {"type": "string"},
+    "alternatives_considered": {"type": "array"},
+    "constraints_checked": {"type": "array"},
+    "dissent": {"type": "array"},
+    "approvals": {"type": "array"},
+    "data_flags": {"type": "object"},
+    "created_at": {"type": "string"},
+    "prev_hash": {"type": "string", "minLength": 64, "maxLength": 64},
+    "record_hash": {"type": "string", "minLength": 64, "maxLength": 64}
+  }
+}

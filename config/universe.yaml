@@ -1,0 +1,113 @@
+# Investable universe for the Meridian Target Retirement Series pilot.
+# Each asset class is implemented through an underlying building-block fund (fund-of-funds).
+# Identifiers map the asset class to every data provider; add/remove providers freely.
+# Proxy ETFs are used for pilot data only — not a statement of what the series would hold.
+
+asset_classes:
+  - id: us_large_cap
+    name: US Large Cap Equity
+    group: equity
+    region: US
+    benchmark: S&P 500 Total Return
+    identifiers: {proxy_etf: VOO, bloomberg: "VOO US Equity", factset: "VOO-US", sp_capiq: "VOO", snowflake_key: US_LARGE_CAP}
+    liquidity: daily
+  - id: us_small_mid_cap
+    name: US Small/Mid Cap Equity
+    group: equity
+    region: US
+    benchmark: S&P Completion Total Return
+    identifiers: {proxy_etf: VXF, bloomberg: "VXF US Equity", factset: "VXF-US", snowflake_key: US_SMID_CAP}
+    liquidity: daily
+  - id: intl_developed_eq
+    name: International Developed Equity
+    group: equity
+    region: DM ex-US
+    benchmark: MSCI EAFE Net
+    identifiers: {proxy_etf: VEA, bloomberg: "VEA US Equity", factset: "VEA-US", snowflake_key: INTL_DEV_EQ}
+    liquidity: daily
+  - id: emerging_eq
+    name: Emerging Markets Equity
+    group: equity
+    region: EM
+    benchmark: MSCI Emerging Markets Net
+    identifiers: {proxy_etf: VWO, bloomberg: "VWO US Equity", factset: "VWO-US", snowflake_key: EM_EQ}
+    liquidity: daily
+  - id: global_reits
+    name: Global Real Estate (REITs)
+    group: real_assets
+    region: Global
+    benchmark: FTSE EPRA Nareit Developed
+    identifiers: {proxy_etf: VNQ, bloomberg: "VNQ US Equity", factset: "VNQ-US", snowflake_key: GLOBAL_REITS}
+    liquidity: daily
+  - id: commodities
+    name: Diversified Commodities
+    group: real_assets
+    region: Global
+    benchmark: Bloomberg Commodity TR
+    identifiers: {proxy_etf: PDBC, bloomberg: "PDBC US Equity", factset: "PDBC-US", snowflake_key: COMMODITIES}
+    liquidity: daily
+    uses_derivatives: true
+  - id: us_core_bond
+    name: US Core Bond (Aggregate)
+    group: fixed_income
+    region: US
+    benchmark: Bloomberg US Aggregate
+    identifiers: {proxy_etf: AGG, bloomberg: "AGG US Equity", factset: "AGG-US", snowflake_key: US_CORE_BOND}
+    liquidity: daily
+    duration: 6.0
+    credit: investment_grade
+  - id: us_long_treasury
+    name: US Long Treasury
+    group: fixed_income
+    region: US
+    benchmark: Bloomberg US Long Treasury
+    identifiers: {proxy_etf: VGLT, bloomberg: "VGLT US Equity", factset: "VGLT-US", snowflake_key: US_LONG_TSY}
+    liquidity: daily
+    duration: 15.5
+    credit: treasury
+  - id: us_tips_short
+    name: Short-Term TIPS
+    group: fixed_income
+    region: US
+    benchmark: Bloomberg US 0-5Y TIPS
+    identifiers: {proxy_etf: VTIP, bloomberg: "VTIP US Equity", factset: "VTIP-US", snowflake_key: US_TIPS_SHORT}
+    liquidity: daily
+    duration: 2.5
+    credit: treasury
+  - id: us_high_yield
+    name: US High Yield
+    group: fixed_income
+    region: US
+    benchmark: Bloomberg US Corporate High Yield
+    identifiers: {proxy_etf: HYG, bloomberg: "HYG US Equity", factset: "HYG-US", snowflake_key: US_HIGH_YIELD}
+    liquidity: daily
+    duration: 3.3
+    credit: below_investment_grade
+  - id: intl_bond_hedged
+    name: International Bonds (USD-hedged)
+    group: fixed_income
+    region: Global ex-US
+    benchmark: Bloomberg Global Agg ex-USD (USD hedged)
+    identifiers: {proxy_etf: BNDX, bloomberg: "BNDX US Equity", factset: "BNDX-US", snowflake_key: INTL_BOND_HDG}
+    liquidity: daily
+    duration: 7.0
+    credit: investment_grade
+    uses_derivatives: true   # currency forwards for hedging
+  - id: em_debt
+    name: Emerging Markets Debt (USD)
+    group: fixed_income
+    region: EM
+    benchmark: JPM EMBI Global Diversified
+    identifiers: {proxy_etf: EMB, bloomberg: "EMB US Equity", factset: "EMB-US", snowflake_key: EM_DEBT}
+    liquidity: daily
+    duration: 7.0
+    credit: below_investment_grade
+  - id: cash
+    name: Cash / Treasury Bills
+    group: cash
+    region: US
+    benchmark: ICE BofA 3M T-Bill
+    identifiers: {proxy_etf: BIL, bloomberg: "BIL US Equity", factset: "BIL-US", snowflake_key: CASH}
+    liquidity: daily
+    duration: 0.25
+    credit: treasury
