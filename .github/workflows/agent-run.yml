@@ -26,13 +26,16 @@ jobs:
         with: {python-version: "3.12"}
       - run: pip install -e ".[llm,app]"
       - name: Connect to the Meridian app (if deployed)
+        id: aws
         if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        continue-on-error: true            # run still works (artifact only) if the app is not reachable yet
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-2
       - name: Pull approved positions, recorded risk history and policy overrides from the app
-        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        if: steps.aws.outcome == 'success'
+        continue-on-error: true
         run: |
           set -euo pipefail
           APP=$(aws cloudformation describe-stacks --stack-name Meridian --query "Stacks[0].Outputs[?OutputKey=='AppUrl'].OutputValue" --output text)
@@ -91,7 +94,7 @@ jobs:
           print(open(f"{d}/compliance_report.md").read())
           PY
       - name: Publish run to the Meridian app
-        if: vars.AWS_DEPLOY_ROLE_ARN != ''
+        if: env.APP_URL != '' && env.INGEST_TOKEN != ''
         run: |
           set -euo pipefail
           cd "$(dirname "$RUN_DIR")"

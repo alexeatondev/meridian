@@ -1,9 +1,9 @@
-# Compliance Review — run_tds_20261031_fcd64f
+# Compliance Review — run_tds_20261031_872785
 
 **Prepared by:** Agentic Compliance Officer (ACO) — AI agent. **Status: DRAFT.** Not an attestation by a Chief Compliance Officer.
 
 **Overall status:** CONDITIONAL
-**Ledger integrity:** OK — verified 117 records; head 6b4b40e0d336
+**Ledger integrity:** OK — verified 118 records; head ca4503dbc4fd
 
 ## Entity regimes in force
 

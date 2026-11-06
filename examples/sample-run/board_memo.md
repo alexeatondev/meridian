@@ -1,11 +1,11 @@
 # Board Memo — Meridian Target Retirement Series
 
-**Run:** `run_tds_20261031_fcd64f` · **As of:** 2026-10-31 · **Policy:** `ips-mtrs@1.0.0` · **Data snapshot:** `snap_5d8058d33b4a3258`  
+**Run:** `run_tds_20261031_872785` · **As of:** 2026-10-31 · **Policy:** `ips-mtrs@1.0.0` · **Data snapshot:** `snap_0d64d02fcbba7b20`  
 **Judgment engine:** offline-deterministic · **Compliance review:** CONDITIONAL · **Autonomy:** L3 (human approval required)
 
 > **CONTAINS SYNTHETIC DATA — SYSTEM TEST ONLY.** Generated data was used for — fundamentals.valuation: mode=merge; synthetic_rows=5/5; synthetic_assets=['emerging_eq', 'global_reits', 'intl_developed_eq', 'us_large_cap', 'us_small_mid_cap']. Figures are hypothetical, are not investment advice, and must not be used in any marketing material.
 
-**Data sources:** returns.monthly ← cache (5081); macro.indicators ← cache (11); fundamentals.valuation ← synthetic (4), cache+manual+synthetic (1); yields.current ← cache (8)
+**Data sources:** returns.monthly ← cache (5081); macro.indicators ← cache (11); fundamentals.valuation ← synthetic (4), cache+manual+synthetic (1); yields.current ← cache (8); fund.characteristics ← cache+manual (13); holdings.lookthrough ← cache (13115)
 
 ## 1. Recommendation
 
