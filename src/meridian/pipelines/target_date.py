@@ -83,6 +83,25 @@ def offline_cma_judge(asset: str, methods: dict, regime: str, valuation_row) -> 
     return {k: v / s for k, v in w.items()}, why
 
 
+def validate_weights(raw, methods: dict) -> dict | None:
+    """Accept an LLM's method weights only if they are numeric, non-negative, over known methods and sum > 0."""
+    if not isinstance(raw, dict):
+        return None
+    w = {}
+    for k, v in raw.items():
+        if k not in methods:
+            continue
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return None
+        if not np.isfinite(x) or x < 0:
+            return None
+        w[k] = x
+    tot = sum(w.values())
+    return {k: v / tot for k, v in w.items()} if tot > 0 else None
+
+
 # ------------------------------------------------------------------------------------------ voting
 def lens_score(lens: str, c: dict) -> float:
     if lens == "heuristic":
@@ -162,9 +181,14 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        "[expansion, late_cycle, recession, recovery] with rationale.", {"indicators": macro, "scored": mv},
                        '{"regime": str, "confidence": float, "rationale": str}')
     if llm_mv and llm_mv.get("regime") in ("expansion", "late_cycle", "recession", "recovery"):
-        mv.update(regime=llm_mv["regime"], confidence=float(llm_mv.get("confidence", mv["confidence"])),
-                  rationale=llm_mv.get("rationale", ""))
+        try:
+            conf = float(np.clip(float(llm_mv.get("confidence", mv["confidence"])), 0, 1))
+        except (TypeError, ValueError):
+            conf = mv["confidence"]
+        mv.update(regime=llm_mv["regime"], confidence=conf, rationale=str(llm_mv.get("rationale", ""))[:2000],
+                  rule_based_regime=mv["regime"], judge_path="llm")
     else:
+        mv["judge_path"] = "offline"
         mv["rationale"] = (f"Growth score {mv['scores']['growth']}, inflation {mv['scores']['inflation']}, "
                            f"policy {mv['scores']['monetary_policy']}, financial conditions {mv['scores']['financial_conditions']} "
                            f"→ {mv['regime']} (rule-based classifier).")
@@ -191,9 +215,9 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         llm_j = llm.judge(judge_spec, f"Select the final 10-year expected return for {universe[a]['name']}.",
                           {"methods": m, "regime": mv, "valuation": vrow.loc[a].to_dict() if a in vrow.index else None},
                           '{"weights": {method: float}, "rationale": str}')
-        if llm_j and isinstance(llm_j.get("weights"), dict):
-            w = {k: float(v) for k, v in llm_j["weights"].items() if k in m}
-            why, path = llm_j.get("rationale", ""), "llm"
+        w = validate_weights(llm_j.get("weights") if llm_j else None, m)
+        if w:
+            why, path = str(llm_j.get("rationale", ""))[:2000], "llm"
         else:
             w, why = offline_cma_judge(a, m, mv["regime"], vrow.loc[a] if a in vrow.index else None)
             path = "offline"
@@ -298,8 +322,10 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                           {"regime": mv, "ensembles": ens_eval, "ranking": ranking[:5]},
                           '{"ensemble": str, "rationale": str, "invalidation_conditions": [str]}')
         if llm_c and llm_c.get("ensemble") in ens and ens_eval[llm_c["ensemble"]]["compliance"]["FAIL"] == 0:
-            choice, why = llm_c["ensemble"], llm_c.get("rationale", "")
-            invalid = llm_c.get("invalidation_conditions", [])
+            choice, why = llm_c["ensemble"], str(llm_c.get("rationale", ""))[:3000]
+            invalid = [str(c)[:300] for c in (llm_c.get("invalidation_conditions") or []) if isinstance(c, (str, int, float))][:8]
+            if not invalid:
+                invalid = [f"Macro regime shifts away from {mv['regime'].replace('_', '-')}"]
         else:
             choice = "inverse_tracking_error"
             why = ("Inverse-tracking-error ensemble (paper §4.4): weights methods closer to the consensus more heavily, "
@@ -342,6 +368,11 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     from ..compliance.officer import review as co_review
     co = co_review(run_id, regime_cfg, vint_out, synthetic, L, policy)
     (out / "compliance_report.md").write_text(co["report_md"])
+
+    if llm.enabled:
+        L.record(dr_type="signal", run_id=run_id, step="llm.usage", actor=SYSTEM, policy_version=pv,
+                 summary=f"LLM {llm.model}: {llm.usage['calls']} calls, {llm.usage['failures']} fell back to deterministic policy",
+                 output=llm.usage)
 
     # 7. board memo ----------------------------------------------------------------------------
     from .memo import board_memo

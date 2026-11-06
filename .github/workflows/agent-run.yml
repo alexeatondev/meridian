@@ -1,0 +1,66 @@
+name: agent-run
+# Runs the target-date pipeline with live LLM judgment. The API key is read from the
+# encrypted repository secret ANTHROPIC_API_KEY and never printed. Outputs are uploaded
+# as a build artifact and summarized on the run page.
+on:
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: "As-of date (YYYY-MM-DD)"
+        default: "2026-10-31"
+        required: true
+      model:
+        description: "Model ID"
+        default: "claude-opus-5-5"
+        required: true
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -e ".[llm]"
+      - name: Check secret is configured
+        env: {ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}"}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::error::ANTHROPIC_API_KEY secret is not set"; exit 1; fi
+      - name: Run pipeline (live LLM judgment)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MERIDIAN_MODEL: ${{ inputs.model }}
+          MERIDIAN_LLM: "on"
+        run: |
+          meridian run target-date --as-of "${{ inputs.as_of }}" | tee run.txt
+          RUN=$(ls -td runs/run_* | head -1)
+          meridian ui "$RUN"
+          meridian verify "$RUN/ledger.jsonl"
+          echo "RUN_DIR=$RUN" >> "$GITHUB_ENV"
+      - name: Summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          d = os.environ["RUN_DIR"]
+          recs = [json.loads(l) for l in open(f"{d}/ledger.jsonl")]
+          usage = next((r["output"] for r in recs if r["step"] == "llm.usage"), {})
+          paths = {}
+          for r in recs:
+              p = (r.get("output") or {}).get("judge_path")
+              if p: paths[p] = paths.get(p, 0) + 1
+          print("## LLM usage\n")
+          print(f"- calls: {usage.get('calls')}, failures (fell back): {usage.get('failures')}, input tokens: {usage.get('input_tokens')}, output tokens: {usage.get('output_tokens')}")
+          print(f"- judgment paths: {paths}")
+          for e in usage.get("errors", [])[:10]: print(f"- error: `{e}`")
+          print("\n---\n")
+          print(open(f"{d}/board_memo.md").read())
+          print("\n---\n")
+          print(open(f"{d}/compliance_report.md").read())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meridian-${{ env.RUN_DIR != '' && 'run' || 'failed' }}-${{ github.run_number }}
+          path: runs/
+          retention-days: 90
