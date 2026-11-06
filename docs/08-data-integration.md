@@ -1,6 +1,29 @@
 # 08 — Data Integration (plug-and-play providers)
 
-**Version 0.1 · 2026-11-06**
+**Version 0.2 · 2026-11-06**
+
+## Current setup: free public data
+| Source | Provides | Notes |
+|---|---|---|
+| `yahoo` (Yahoo Finance) | Monthly total returns for the 12 proxy funds, spliced with older index funds back to 1990s | Unofficial, personal/non-commercial terms. Replace before production |
+| `fred` (St. Louis Fed) | Macro indicators, credit spreads, bond yields, T-bill returns for cash | Set `FRED_API_KEY` (free) — the keyless download times out from cloud runners. Some series (ICE BofA) are copyrighted |
+| `treasury` (US Treasury) | Par yield curve → cash, 5/10/30-year yields, 10y−2y slope | Public domain |
+| `manual` | Cited hand-maintained values (e.g. US CAPE 41.07, Oct 2026, Multpl/Shiller) | `config/manual_inputs.yaml` |
+| `cache` | Point-in-time copy written by `meridian data refresh` | Refreshed monthly by the `data-refresh` workflow; git history = point-in-time record |
+| `synthetic` | Fallback only, for assets or fields nobody else covered | Always flagged by dataset and asset on every memo, report and Console page |
+
+## Plug in / unplug / combine
+```bash
+meridian data list                       # sources, datasets, routing (unplugged shown in parentheses)
+meridian data enable bloomberg_snowflake # plug in
+meridian data disable yahoo              # unplug
+meridian data route returns.monthly bloomberg_snowflake yahoo cache --mode merge --fallback synthetic
+meridian data test treasury              # try one source live
+meridian data refresh                    # fetch live sources into data/cache
+```
+**Merge mode** combines several sources for the same dataset. The earlier source wins per key. Time series fill gaps in *time*, so one vendor can cover recent years and another older history. Snapshots fill gaps per *field*, so a valuation can take CAPE from one source and dividend yield from another. Every row records its source (`_source`). The **fallback** tier only covers assets or fields nobody else supplied, and never patches holes inside a real return history.
+
+New free sources need no code when they are a CSV URL (`provider: csv_url`).
 
 ## Design
 Agents and analytics only ever see **canonical datasets**. Behind them, any number of **sources** can serve each dataset. A source is a *provider* (who owns the data) plus a *transport* (how Meridian reaches it).

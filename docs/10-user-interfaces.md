@@ -13,12 +13,12 @@ Meridian has three interfaces over the same data and the same decision ledger. E
 ## Console — what each role sees
 | Role | Workspace tabs | Home page shows | Can act |
 |---|---|---|---|
-| Portfolio Manager | Home · Portfolios & proposals · Glide path · Approvals · Agent votes | Proposals awaiting you, largest tilt, expected returns | Approve / reject / request changes (reason required) |
-| Risk Analytics | Home · Risk · Portfolios · Approvals | Max TE vs limit, worst simulated drawdown, warnings | Co-approve tactical tilts |
-| Research | Home · CMAs · Agent votes · Glide path | Regime, biggest CMA-judge adjustment, competing methods | (change requests via git/notebooks) |
-| Manager Selection | Home · Underlying funds · Portfolios | Funds, derivatives use, liquidity | (DD workflow — roadmap Phase 5) |
-| Leadership / IC | Home · Board memo · Glide path · Approvals | Approvals outstanding, production blockers, compliance status | Approve glide-path changes |
-| Compliance | Home · Compliance · Compliance report · Decision ledger | FAILs, warnings, attestations, blockers | Attest; approve exceptions |
+| Portfolio Manager | Home · Funds & vintages · Positioning · Portfolios & proposals · Risk budget · Metrics · Glide path · Approvals · Agent votes | Proposals awaiting you, largest tilt, expected returns | Approve / reject / request changes; adjust weights; request risk-budget changes |
+| Risk Analytics | Home · Risk budget · Metrics · Risk · Positioning · Portfolios · Approvals | Max TE vs limit, worst simulated drawdown, warnings | Co-approve tilts and adjustments; request/approve risk-budget changes |
+| Research / Analyst | Home · Positioning · Metrics · CMAs · Agent votes · Glide path | Regime, biggest CMA-judge adjustment, competing methods | Adjust weights (absolute/relative) for approval |
+| Manager Selection | Home · Funds & vintages · Underlying funds · Positioning | Funds, derivatives use, liquidity | (DD workflow — roadmap Phase 5) |
+| Leadership / IC | Home · Funds & vintages · Board memo · Risk budget · Metrics · Glide path · Approvals | Approvals outstanding, production blockers, compliance status | Approve glide-path changes |
+| Compliance | Home · Compliance · Risk budget · Compliance report · Decision ledger | FAILs, warnings, attestations, blockers | Attest; approve exceptions |
 | Audit | Home · Decision ledger · Compliance · Report | Ledger integrity, actors, retention | Read-only |
 
 Design rules applied across every view:
@@ -28,6 +28,8 @@ Design rules applied across every view:
 - The ledger opens only in the Compliance and Audit workspaces; other roles see record IDs.
 
 **Prototype vs production.** Today the Console is generated per run as one self-contained page (`meridian ui`), with a role picker to preview each workspace. Approvals made there produce a `meridian approve` command that writes the decision to the ledger. In production the same front end is served by the API: the role comes from SSO and approvals write directly to the ledger.
+
+See doc 11 for positioning, risk budgets, metrics and adjustments.
 
 ## Notebooks (`notebooks/`)
 | Notebook | Audience | Contents |

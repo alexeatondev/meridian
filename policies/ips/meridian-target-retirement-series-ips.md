@@ -106,6 +106,7 @@ The Governing Body delegates day-to-day investment management to the Investment 
 | Deviation of total equity from glide path | ± 5 percentage points | POL-BAND-EQUITY |
 | Deviation of growth assets from glide path | ± 5 percentage points | POL-BAND-GROWTH |
 | Deviation of any asset class from glide path | ± 3 percentage points | POL-BAND-ASSET |
+| Operating risk budget (ex-ante TE vs glide path), per vintage, ≤ the TE limit above | default 1.20%; 2030: 0.80%; 2035: 1.00% | RISK-BUDGET |
 
 5.4 **Drawdown awareness.** The Funds are not designed to avoid losses. Near the Target Date, the Investment Manager reports simulated and realized drawdowns to the IC each quarter. If a Fund within five years of its Target Date has a peak-to-trough decline of more than 15%, that triggers an off-cycle IC review.
 
@@ -207,6 +208,8 @@ The Investment Manager reviews forward-looking 10-year capital market assumption
 |---|---|
 | Glide-path change | Governing Body (on IC recommendation) |
 | Tactical tilt within ranges | Portfolio Manager + Risk |
+| PM/analyst weight adjustment to a proposal | Portfolio Manager + Risk |
+| Operating risk-budget change (within the TE limit) | Portfolio Manager + Risk (requester cannot approve) |
 | Routine rebalance to targets | Portfolio Manager |
 | IPS / machine-readable policy change | Portfolio Manager + Chief Compliance Officer; adoption by Governing Body |
 | Exception to any limit | Chief Compliance Officer (time-limited, with remediation plan) |
