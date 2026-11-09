@@ -13,6 +13,7 @@ import aws_cdk as cdk
 from aws_cdk import (CfnOutput, Duration, Fn, RemovalPolicy, Stack, aws_cloudfront as cf,
                      aws_cloudfront_origins as origins, aws_cognito as cognito, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_ecs_patterns as ecsp, aws_logs as logs, aws_rds as rds, aws_secretsmanager as sm)
+from aws_cdk import aws_budgets as budgets, aws_iam as iam
 from constructs import Construct
 
 ROLES = ["portfolio_manager", "risk", "analyst", "manager_selection", "leadership", "compliance", "audit", "admin"]
@@ -111,9 +112,86 @@ class MeridianStack(Stack):
         CfnOutput(self, "SignInDomain", value=domain.base_url())
 
 
+# Actions denied while the monthly budget is exceeded: creating or scaling up billable resources.
+# Running resources keep running; AWS Budgets removes the policy at the start of the next month.
+SPEND_BLOCK_ACTIONS = [
+    "ec2:RunInstances", "ec2:StartInstances", "ec2:CreateNatGateway", "ec2:AllocateAddress",
+    "ec2:CreateVolume", "ec2:CreateVpcEndpoint", "ec2:RequestSpotInstances", "ec2:CreateFleet",
+    "rds:CreateDBInstance", "rds:CreateDBCluster", "rds:RestoreDBInstanceFromDBSnapshot",
+    "rds:RestoreDBClusterFromSnapshot", "rds:StartDBInstance", "rds:StartDBCluster", "rds:ModifyDBInstance",
+    "ecs:CreateService", "ecs:UpdateService", "ecs:RunTask", "ecs:StartTask",
+    "elasticloadbalancing:CreateLoadBalancer", "lambda:CreateFunction", "eks:CreateCluster",
+    "eks:CreateNodegroup", "sagemaker:Create*", "redshift:CreateCluster", "elasticache:Create*",
+    "es:CreateDomain", "opensearch:CreateDomain", "cloudfront:CreateDistribution", "lightsail:Create*",
+    "bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:CreateProvisionedModelThroughput",
+    "autoscaling:CreateAutoScalingGroup", "autoscaling:UpdateAutoScalingGroup", "autoscaling:SetDesiredCapacity",
+]
+
+
+class CostGuardStack(Stack):
+    """Monthly cost budget with email alerts and an automatic spend block at 100% of actual cost.
+
+    Lives in us-east-1, the home Region of AWS Budgets and Cost Explorer. The block attaches a deny
+    policy to the GitHub deploy role and to the CDK CloudFormation execution roles (CloudFormation,
+    not the GitHub role, creates the resources during a CDK deploy).
+    """
+
+    def __init__(self, scope: Construct, cid: str, *, limit_usd: float, email: str, app_region: str, **kw):
+        super().__init__(scope, cid, **kw)
+        acct = self.account
+        name = "meridian-monthly"
+        targets = ["meridian-github-deploy"] + [
+            f"cdk-hnb659fds-cfn-exec-role-{acct}-{r}" for r in sorted({app_region, self.region})]
+
+        block = iam.ManagedPolicy(self, "SpendBlock", managed_policy_name="meridian-spend-block",
+            description="Applied by AWS Budgets when Meridian monthly cost reaches 100 percent of budget",
+            statements=[iam.PolicyStatement(sid="DenyNewSpend", effect=iam.Effect.DENY,
+                                            actions=SPEND_BLOCK_ACTIONS, resources=["*"])])
+
+        exec_role = iam.Role(self, "BudgetsActionRole", role_name="meridian-budgets-action",
+            assumed_by=iam.ServicePrincipal("budgets.amazonaws.com"),
+            description="Lets AWS Budgets attach and detach the Meridian spend block policy")
+        exec_role.add_to_policy(iam.PolicyStatement(
+            actions=["iam:AttachRolePolicy", "iam:DetachRolePolicy"],
+            resources=[f"arn:aws:iam::{acct}:role/{t}" for t in targets],
+            conditions={"ArnEquals": {"iam:PolicyARN": block.managed_policy_arn}}))
+
+        sub = [budgets.CfnBudget.SubscriberProperty(subscription_type="EMAIL", address=email)]
+        def note(kind, pct):
+            return budgets.CfnBudget.NotificationWithSubscribersProperty(
+                notification=budgets.CfnBudget.NotificationProperty(
+                    notification_type=kind, comparison_operator="GREATER_THAN", threshold=pct,
+                    threshold_type="PERCENTAGE"), subscribers=sub)
+
+        budget = budgets.CfnBudget(self, "Budget", budget=budgets.CfnBudget.BudgetDataProperty(
+            budget_name=name, budget_type="COST", time_unit="MONTHLY",
+            budget_limit=budgets.CfnBudget.SpendProperty(amount=limit_usd, unit="USD")),
+            notifications_with_subscribers=[note("ACTUAL", 80), note("FORECASTED", 100)])
+
+        action = budgets.CfnBudgetsAction(self, "BlockAt100",
+            budget_name=name, action_type="APPLY_IAM_POLICY", approval_model="AUTOMATIC",
+            notification_type="ACTUAL", execution_role_arn=exec_role.role_arn,
+            action_threshold=budgets.CfnBudgetsAction.ActionThresholdProperty(type="PERCENTAGE", value=100),
+            definition=budgets.CfnBudgetsAction.DefinitionProperty(
+                iam_action_definition=budgets.CfnBudgetsAction.IamActionDefinitionProperty(
+                    policy_arn=block.managed_policy_arn, roles=targets)),
+            subscribers=[budgets.CfnBudgetsAction.SubscriberProperty(type="EMAIL", address=email)])
+        action.node.add_dependency(budget)
+        action.node.add_dependency(exec_role)
+
+        CfnOutput(self, "BudgetName", value=name)
+        CfnOutput(self, "SpendBlockPolicyArn", value=block.managed_policy_arn)
+
+
 app = cdk.App()
 MeridianStack(app, "Meridian", env=cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"),
                                                    region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2")),
               description="Meridian agentic portfolio management — hosted app")
+cg = app.node.try_get_context("costGuard") or {}
+if cg.get("email"):
+    CostGuardStack(app, "MeridianCostGuard", limit_usd=float(cg.get("monthlyLimitUsd", 75)), email=cg["email"],
+                   app_region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2"),
+                   env=cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"), region="us-east-1"),
+                   description="Meridian cost guard - monthly budget, alerts and spend block")
 cdk.Tags.of(app).add("project", "meridian")
 app.synth()

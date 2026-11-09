@@ -36,7 +36,7 @@ jobs:
         run: cdk bootstrap --require-approval never
       - name: Deploy
         working-directory: infra
-        run: cdk deploy Meridian --require-approval never --outputs-file outputs.json
+        run: cdk deploy --all --require-approval never --outputs-file outputs.json
       - name: Summary
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
