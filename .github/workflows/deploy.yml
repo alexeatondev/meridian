@@ -23,7 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: "20"}
       - name: Tests must pass before deploying
-        run: pip install -e ".[dev]" && MERIDIAN_LLM=off pytest -q
+        run: pip install -e ".[dev,app,llm]" && pytest -q
+        env: {MERIDIAN_LLM: "off", MERIDIAN_OFFLINE: "1"}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
