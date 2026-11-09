@@ -131,7 +131,7 @@ SPEND_BLOCK_ACTIONS = [
 class CostGuardStack(Stack):
     """Monthly cost budget with email alerts and an automatic spend block at 100% of actual cost.
 
-    Lives in us-east-1, the home Region of AWS Budgets and Cost Explorer. The block attaches a deny
+    Deployed in the app Region (the account's SCPs deny other Regions; Budgets is a global service). The block attaches a deny
     policy to the GitHub deploy role and to the CDK CloudFormation execution roles (CloudFormation,
     not the GitHub role, creates the resources during a CDK deploy).
     """
@@ -191,7 +191,8 @@ cg = app.node.try_get_context("costGuard") or {}
 if cg.get("email"):
     CostGuardStack(app, "MeridianCostGuard", limit_usd=float(cg.get("monthlyLimitUsd", 75)), email=cg["email"],
                    app_region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2"),
-                   env=cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"), region="us-east-1"),
+                   env=cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"),
+                                       region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2")),
                    description="Meridian cost guard - monthly budget, alerts and spend block")
 cdk.Tags.of(app).add("project", "meridian")
 app.synth()
