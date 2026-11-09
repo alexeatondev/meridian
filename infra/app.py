@@ -139,7 +139,7 @@ class CostGuardStack(Stack):
     def __init__(self, scope: Construct, cid: str, *, limit_usd: float, email: str, app_region: str, **kw):
         super().__init__(scope, cid, **kw)
         acct = self.account
-        name = "meridian-monthly"
+        name = "meridian-cost-guard"
         targets = ["meridian-github-deploy"] + [
             f"cdk-hnb659fds-cfn-exec-role-{acct}-{r}" for r in sorted({app_region, self.region})]
 
