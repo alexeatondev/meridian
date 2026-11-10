@@ -1,10 +1,34 @@
 # 14 — User Personas
 
-**Version 0.1 · 2026-11-09 · Living document: refine after every round of user testing (doc 15) and as new roles are added.**
+**Version 0.2 · 2026-11-09 · Living document: refine after every round of user testing (doc 15) and as new roles are added.**
 
 Personas describe the people Meridian must serve: what they do for the business, what their days look like, what they cannot do without, and what they need from an agentic portfolio platform. Each ends with what Meridian covers today, the gaps, and the top three tasks used for user testing (doc 15). Names are fictional.
 
 Sources are listed at the end. Role descriptions draw on current job descriptions at large multi-asset and target-date managers, SEC examination priorities, the DOL's target-date guidance for ERISA fiduciaries, the IIA Global Internal Audit Standards and model-risk guidance (SR 11-7).
+
+## Fictional roster (for testing and demos)
+
+Made-up people assigned to each persona, so test scripts, demo data and screenshots use consistent names. **None of them is a real person or a real appointment.** The automated browser tests sign in as these names.
+
+| Person | Title | Workspace roles | Permissions | Notes |
+|---|---|---|---|---|
+| Maya Chen | Senior Portfolio Manager, Target-Date | `portfolio_manager` | — | Primary PM approver |
+| Jordan Ellis | Portfolio Manager | `portfolio_manager` | — | Second PM: approves risk-budget changes Maya requests (requester can't self-approve) |
+| Daniel Okafor | Investment Risk Manager | `risk` | — | Risk co-approver |
+| Kenji Watanabe | Investment Risk Analyst | `risk` | — | Builds risk packs; backup risk approver |
+| Priya Raman | Multi-Asset Research Analyst (CMAs) | `analyst` | — | Proposes weight adjustments for approval |
+| Marcus Webb | Manager Research Analyst | `manager_selection` | — | |
+| Elena Rossi | Chief Investment Officer, IC Chair | `leadership` | `investment_committee` | |
+| Thomas Greene | Independent Investment Committee Member | `leadership` | `investment_committee` | |
+| Catherine Moore | Chief Executive Officer | `leadership` | — | Sees committee material; doesn't vote |
+| **Robert Hayes** | **Chief Compliance Officer (temporary fictional placeholder)** | `compliance` | `chief_compliance_officer` | Recorded in `config/entity_profile.yaml` as a placeholder: the CCO role stays a **production blocker** until a real, named CCO is appointed |
+| Nina Alvarez | Compliance Analyst | `compliance` | — | Reviews rule results; can't approve as CCO |
+| Grace Liu | Internal Audit Manager | `audit` | — | Read-only |
+| Sam Patel | Platform Admin & Model Risk Owner | `admin` | — | Read-only Console; manages users and deploys |
+
+**Segregation of duties in the roster.** No one holds both a proposing role (PM, analyst) and the committee or CCO permission; Risk is held by different people from the PMs.
+
+**Permissions vs workspaces.** Workspace roles decide which screens a person sees. Permissions (`investment_committee`, `chief_compliance_officer`) are switched on or off per person on top of that and allow recording decisions that need that authority (IPS §10.4). A permission alone gives no screens: an IC member also needs the `leadership` workspace.
 
 ## Cross-cutting themes
 

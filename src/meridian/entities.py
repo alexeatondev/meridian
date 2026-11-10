@@ -27,7 +27,7 @@ class EffectiveRegime:
     rule_patterns: list[str]
     reports: list[str]
     required_roles: list[str]
-    human_roles: dict[str, str | None]
+    human_roles: dict[str, str | dict | None]   # name, or {name, placeholder: true} for a fictional stand-in
     approval_overrides: dict[str, list[str]] = field(default_factory=dict)
     operating_mode: str = "shadow"
     autonomy_level: str = "L3"
@@ -39,13 +39,25 @@ class EffectiveRegime:
             return True  # explicitly scoped rules are on when their regime is selected
         return any(fnmatch.fnmatch(rule_id, p) for p in self.rule_patterns)
 
+    def role_holder(self, role: str) -> tuple[str | None, bool]:
+        """(name, is_placeholder). A placeholder is a fictional stand-in used for testing; it never fills the role."""
+        v = self.human_roles.get(role)
+        if isinstance(v, dict):
+            return v.get("name"), bool(v.get("placeholder"))
+        return v, False
+
+    def holder_label(self, role: str) -> str:
+        name, ph = self.role_holder(role)
+        return "— unfilled —" if not name else (f"{name} (fictional placeholder — role still unfilled)" if ph else name)
+
     @property
     def unfilled_roles(self) -> list[str]:
-        return [r for r in self.required_roles if not self.human_roles.get(r)]
+        return [r for r in self.required_roles if not self.role_holder(r)[0] or self.role_holder(r)[1]]
 
     @property
     def production_blockers(self) -> list[str]:
-        out = [f"Required human role unfilled: {r}" for r in self.unfilled_roles]
+        out = [f"Required human role unfilled: {r}" + (f" (placeholder: {self.role_holder(r)[0]})" if self.role_holder(r)[1] else "")
+               for r in self.unfilled_roles]
         out += ["Regime pack needs counsel/CCO review: " + s for s in self.selected]
         return out
 

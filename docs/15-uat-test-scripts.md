@@ -13,7 +13,7 @@ One script per role, built from the personas (doc 14). Each step has an expected
 | Alex Eaton (full access) | All eight | PM, Research, Manager Selection, Leadership scripts (switch workspace in the side bar) |
 | RCTest User | Risk, Compliance | Risk and Compliance scripts; second approver for segregation-of-duties steps |
 
-Approvals made in the hosted app are permanent ledger records (it is shadow mode, so no money moves). Use reasons that start with "UAT:" so they're easy to find later.
+Approvals made in the hosted app are permanent ledger records (it is shadow mode, so no money moves). Use reasons that start with "UAT:" so they're easy to find later. To test as the fictional people in the roster (doc 14), an admin can invite extra logins using plus-addresses of an inbox you own (e.g. `you+maya@…`), which most email providers deliver to the same inbox.
 
 **Automated (local or GitHub, no AWS cost).** The browser tests in `tests/e2e/` start the app on the test machine with development sign-in, a throw-away database and one offline pipeline run, then drive Chromium through every script below.
 - Locally: `pip install -e ".[dev,app,e2e]"`, `python -m playwright install chromium`, then `MERIDIAN_OFFLINE=1 pytest tests/e2e -v` (add `--headed --slowmo 300` to watch).
@@ -76,7 +76,8 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | LEAD-1 | Sign in with the Leadership role | Tabs: Home, Funds & vintages, Board memo, Fund risk, Stress tests, Risk budget, Metrics, Glide path, Approvals | `test_lead_01` |
 | LEAD-2 | Board memo: state the recommendation, top risk and any dissent | Memo shows run, policy, judgment engine, compliance review status and the synthetic-data warning | `test_lead_02` |
 | LEAD-3 | Stress tests: worst historical loss for 2030 and 2070 | Historical replays per vintage | `test_lead_03` |
-| LEAD-4 | Record a committee decision (when a glide-path change needs it) | **Known defect F-1**: refused in the hosted app | `test_finding_f1` (expected fail) |
+| LEAD-4 | Without the Investment Committee permission, try to record a committee decision; then with it | Refused without the permission; accepted by the permission check with it (the approval matrix still decides whether IC approval is needed) | `test_perm_01`, `test_perm_02` |
+| LEAD-5 | Home: production blockers | CCO listed as unfilled, naming the placeholder (Robert Hayes) | `test_perm_05` |
 
 **Usefulness questions:** Could you run a committee meeting from the memo? What is missing for a fiduciary review (fees, peer comparison)?
 
@@ -109,6 +110,9 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | ACC-2 | Sign in with no role | "Your account has no Meridian role yet" | `test_access_02` |
 | ACC-3 | As Audit, change the address to `…/runs/latest#pm` | Still only the Audit workspace | `test_access_03` |
 | ADM-2 | Add a user with the manage-users workflow; confirm their tabs; disable them; confirm sign-in is blocked | As described in doc 13 §5 | Manual only (needs AWS) |
+| ADM-3 | manage-users → `grant` `investment_committee` to a Leadership user, then `revoke` it | Run summary shows the user's groups after each change; takes effect at next sign-in | Manual only (needs AWS) |
+| ADM-4 | Sign in with only a permission (e.g. `investment_committee`) and no workspace role | "No Meridian role" page | `test_perm_04` |
+| COMP-5 | Compliance analyst without the CCO permission vs the CCO | Analyst refused (403); CCO passes the permission check | `test_perm_03` |
 
 ---
 
@@ -116,7 +120,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | ID | Found | Severity | Finding | Status |
 |---|---|---|---|---|
-| F-1 | 2026-11-09, writing UAT-LEAD | Medium (latent) | Leadership and Compliance approve as `investment_committee` and `chief_compliance_officer`, but sign-in groups are `leadership` and `compliance`, so the hosted app refuses those approvals. Routine proposals only need PM + Risk, so it shows up only when a glide-path change or exception needs IC or CCO approval. | **Open — needs a decision:** which sign-in group may act as Investment Committee and as Chief Compliance Officer (doc 09: the CCO must be a named human) |
+| F-1 | 2026-11-09, writing UAT-LEAD | Medium (latent) | Leadership and Compliance approve as `investment_committee` and `chief_compliance_officer`, but sign-in groups are `leadership` and `compliance`, so the hosted app refuses those approvals. Routine proposals only need PM + Risk, so it shows up only when a glide-path change or exception needs IC or CCO approval. | **Fixed** 2026-11-09: new per-user permissions `investment_committee` and `chief_compliance_officer` (switch on/off with manage-users `grant`/`revoke`); the approve form only appears for people who hold the authority |
 | F-2 | 2026-11-09, automated ACC-3 | Medium | Changing the address to another workspace (`#pm`) switched an Audit-only user into that workspace's screens. The server already refused actions for roles the user doesn't hold. | **Fixed** 2026-11-09 (workspace switch now limited to the user's roles); covered by `test_access_03` |
 | F-3 | 2026-11-09, design review | Low (informational) | Each run's page carries the full run data for every workspace; roles limit screens and actions, not data. Fine while every user may see the whole pilot; portfolio-level entitlements (doc 05 §7) would need server-side filtering. | Open — for the entitlements design |
 
@@ -125,3 +129,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | Round | Date | Tester | Scripts | Pass / fail | Key feedback |
 |---|---|---|---|---|---|
 | 0 (automated) | 2026-11-09 | Browser tests | All | 34 pass, F-1 expected fail | Found F-1, F-2 |
+| 0b (automated) | 2026-11-09 | Browser tests | All + permissions | 38 pass | F-1 fixed; placeholder CCO verified as still a blocker |

@@ -16,7 +16,9 @@ selected_entities:
 # Named humans filling required roles. Production runs are BLOCKED while any required
 # role is unfilled. The agentic compliance officer supports — but cannot be — the CCO.
 human_roles:
-  chief_compliance_officer: null
+  # Fictional stand-in for testing (docs: personas & roster). A placeholder never fills the role:
+  # it stays a production blocker until a real, named CCO is appointed.
+  chief_compliance_officer: {name: "Robert Hayes", placeholder: true}
   portfolio_manager: "Dev (Alex Eaton)"
   derivatives_risk_manager: null
   liquidity_program_administrator: null

@@ -161,14 +161,44 @@ def test_access_03_cannot_open_another_roles_workspace_by_url(sign_in, app_url):
     assert "Positioning" not in tabs(p)
 
 
-# ---------------------------------------------------------------- Known defect (UAT finding F-1)
-@pytest.mark.xfail(strict=True, reason="F-1: Leadership/Compliance approve as investment_committee / "
-                                       "chief_compliance_officer, which no sign-in group grants")
-def test_finding_f1_leadership_can_record_committee_decision(sign_in, app_url):
-    p = sign_in("Elena Rossi", "leadership")
+# ---------------------------------------------------------------- Committee and CCO permissions (F-1 fix)
+def _approve_api(p, app_url, role, vintage=2030):
     rid = p.input_value("#runSel")
-    csrf = p.evaluate("LIVE.csrf")
-    r = p.request.post(f"{app_url}/api/runs/{rid}/approvals", headers={"X-CSRF-Token": csrf},
-                       data={"vintage": 2030, "role": "investment_committee", "decision": "approve",
-                             "reason": "Committee decision on the glide path."})
-    assert r.status != 403
+    return p.request.post(f"{app_url}/api/runs/{rid}/approvals", headers={"X-CSRF-Token": p.evaluate("LIVE.csrf")},
+                          data={"vintage": vintage, "role": role, "decision": "approve",
+                                "reason": "UAT: committee decision on the glide path."})
+
+
+def test_perm_01_leadership_without_ic_permission_is_refused(sign_in, app_url):
+    p = sign_in("Thomas Greene", "leadership")
+    assert _approve_api(p, app_url, "investment_committee").status == 403
+
+
+def test_perm_02_ic_permission_lets_leadership_record_committee_decisions(sign_in, app_url):
+    """With the flag the request passes the permission check; this run needs no IC approval, so the
+    decision itself is refused by the approval matrix (400), not by permissions (403)."""
+    p = sign_in("Elena Rossi", "leadership", "investment_committee")
+    r = _approve_api(p, app_url, "investment_committee")
+    assert r.status == 400 and "not an approver" in r.text()
+
+
+def test_perm_03_cco_permission(sign_in, app_url):
+    p = sign_in("Nina Alvarez", "compliance")
+    assert _approve_api(p, app_url, "chief_compliance_officer").status == 403
+    p = sign_in("Robert Hayes", "compliance", "chief_compliance_officer")
+    assert _approve_api(p, app_url, "chief_compliance_officer").status == 400
+
+
+def test_perm_04_permission_alone_gives_no_workspace(page, app_url):
+    page.context.clear_cookies()
+    page.goto(app_url + "/login")
+    page.fill("input[name=name]", "Flag Only")
+    page.check("input[name=roles][value=investment_committee]")
+    page.click("button[type=submit]")
+    assert "no Meridian role" in page.inner_text("body")
+
+
+def test_perm_05_placeholder_cco_is_shown_but_still_a_blocker(sign_in):
+    p = sign_in("Elena Rossi", "leadership", "investment_committee")
+    blockers = p.inner_text("#view")
+    assert "Required human role unfilled: chief_compliance_officer (placeholder: Robert Hayes)" in blockers

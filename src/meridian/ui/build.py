@@ -28,7 +28,7 @@ def console_html(results: dict, ledger: list[dict], ledger_verification: dict, b
                    "anchors": policy.raw["glide_path"]["anchors"], "approvals": policy.raw["approvals"]},
         "universe": universe,
         "regime": {"selected": reg.selected, "obligations": reg.obligations, "retention_years": reg.retention_years,
-                   "required_roles": reg.required_roles, "human_roles": reg.human_roles,
+                   "required_roles": reg.required_roles, "human_roles": {r: reg.holder_label(r) for r in reg.required_roles}, "unfilled_roles": reg.unfilled_roles,
                    "production_blockers": reg.production_blockers, "autonomy": reg.autonomy_level,
                    "mode": reg.operating_mode, "recorded_in_run": pre["output"] if pre else None},
         "board_memo_md": board_memo_md, "compliance_report_md": compliance_report_md,

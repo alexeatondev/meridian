@@ -51,7 +51,7 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
                    "retention_years_applied": regime.retention_years,
                    "data_synthetic": synthetic,
                    "rule_results_by_vintage": {str(v): {r["rule_id"]: r["status"] for r in d["compliance"]} for v, d in vintages.items()},
-                   "required_human_roles": {r: regime.human_roles.get(r) for r in regime.required_roles}},
+                   "required_human_roles": {r: regime.holder_label(r) for r in regime.required_roles}},
                   '{"narrative": str, "recommended_actions": [str]}')
     if j:
         narrative = j.get("narrative")
@@ -76,7 +76,7 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
     lines += ["", "## Attestations awaiting a human", ""] + [f"- **{a}** — {t}" for a, t in sorted(attest)] + ["",
               "## Sign-off", "", "| Role | Name | Decision | Date |", "|---|---|---|---|"]
     for role in regime.required_roles:
-        lines.append(f"| {role} | {regime.human_roles.get(role) or '— unfilled —'} | pending | |")
+        lines.append(f"| {role} | {regime.holder_label(role)} | pending | |")
     report = "\n".join(lines) + "\n"
 
     ledger.record(dr_type="decision", run_id=run_id, step="compliance-officer.review", actor=actor(spec, llm),

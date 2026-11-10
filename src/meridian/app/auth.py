@@ -28,6 +28,13 @@ ROLES = {
     "audit": "Audit (read-only)",
     "admin": "Platform Admin",
 }
+# Permission flags: switched on or off per user on top of their workspace roles. They don't add a workspace;
+# they allow recording decisions that need that authority (IPS §10.4 approval matrix).
+PERMISSIONS = {
+    "investment_committee": "Investment Committee member (approves glide-path changes and autonomy changes)",
+    "chief_compliance_officer": "Chief Compliance Officer (approves exceptions; must be a named person)",
+}
+ROLES.update(PERMISSIONS)
 # Console workspace key for each role
 CONSOLE_ROLE = {"portfolio_manager": "pm", "risk": "risk", "analyst": "research", "manager_selection": "mgr",
                 "leadership": "lead", "compliance": "compliance", "audit": "audit", "admin": "audit"}

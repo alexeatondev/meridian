@@ -38,7 +38,7 @@ Secrets Manager: database credentials, session key, ingest token, Cognito client
 | ECS Fargate | 1 task; public IP; no NAT gateway | Lowest cost. The database is the only private tier |
 | RDS PostgreSQL | Single-AZ, encrypted, 7-day automated backups, deletion protection on, final snapshot if the stack is removed | Runs, ledger records, positions, change requests, policy overrides |
 | Cognito | No self sign-up; admin-created users only; password ≥ 12 characters with symbols; MFA optional (authenticator app); account recovery by email; user pool retained if the stack is removed | Identity for all human users |
-| Role groups | `portfolio_manager`, `risk`, `analyst`, `manager_selection`, `leadership`, `compliance`, `audit`, `admin` | The app's navigation and permissions follow these groups (doc 06, doc 10) |
+| Role groups | Workspaces: `portfolio_manager`, `risk`, `analyst`, `manager_selection`, `leadership`, `compliance`, `audit`, `admin`. Permissions: `investment_committee`, `chief_compliance_officer` | The app's navigation and permissions follow these groups (doc 06, doc 10) |
 
 ## 3. How GitHub talks to AWS (no stored keys)
 
@@ -81,8 +81,10 @@ Users are added only by an admin through the `manage-users` workflow (Actions �
 |---|---|
 | `email` | The person's email; it is also their username |
 | `name` | Full name shown in the app and recorded on decisions |
-| `roles` | Comma-separated, from the role list in §2 |
-| `action` | `add` (create and email a temporary password), `set-roles` (replace roles), `disable` (block sign-in; history is kept) |
+| `roles` | Comma-separated workspace roles from §2 and/or permissions: `investment_committee`, `chief_compliance_officer` |
+| `action` | `add` (create and email a temporary password), `set-roles` (replace all roles), `grant` / `revoke` (switch the listed roles or permissions on / off, leaving the rest), `disable` (block sign-in; history is kept) |
+
+**Permissions** are switched on or off per person: `investment_committee` lets a Leadership user record committee decisions (glide-path and autonomy changes); `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes and must only go to the named CCO. Example: `grant` with roles `investment_committee`. Changes apply at the user's next sign-in. Neither permission gives screens on its own.
 
 Cognito emails the temporary password; the person sets their own password at first sign-in (doc 06, "Signing in"). Nobody else ever sees it.
 

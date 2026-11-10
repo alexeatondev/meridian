@@ -193,7 +193,9 @@ V.portfolios = () => {
   const v=state.vintage, x=R.vintages[v], dr=cioRec(v), role=ROLES[state.role];
   const rows=P.assets.map(a=>({a,n:x.neutral[a],f:x.final[a],d:x.final[a]-x.neutral[a]}));
   const approversAll=[...new Set(x.approvers.concat(x.adjusted?x.adjusted.approvers:[]))];
-  const canApprove = role.approverRole && approversAll.includes(role.approverRole);
+  const needed = role.approverRole && approversAll.includes(role.approverRole);
+  const holds = !LIVE || (LIVE.user.roles||[]).includes(role.approverRole);
+  const canApprove = needed && holds;
   return `${vintageTabs()}
   <div class="grid g4">${[['Equity',pct(x.equity_final),'glide path '+pct(x.equity_neutral)],['Expected return',pct(x.exp_ret),'10-yr nominal'],['Volatility',pct(x.vol),'ex-ante'],['Tracking error',pct(x.te,2),'vs glide path, limit 1.50%']].map(([l,v1,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v1}</div><div class="s">${s}</div></div>`).join('')}</div>
   <div class="grid g2" style="margin-top:14px">
@@ -206,7 +208,7 @@ V.portfolios = () => {
       <h3>Dissent (bottom-flagged by peers)</h3><div class="pill-list">${[...new Set((dr?dr.dissent:[]).map(d=>d.candidate))].map(c=>`<span class="chip warn">${esc(c)}</span>`).join('')||'<span class="muted">None</span>'}</div>
       <h3>Compliance</h3>${chip(x.compliance_summary.overall)} <span class="small muted">${x.compliance_summary.PASS} pass · ${x.compliance_summary.WARN} warn · ${x.compliance_summary.FAIL} fail · ${x.compliance_summary.ATTEST} attest · ${x.compliance_summary.OFF} n/a</span>
       <h3>Evidence</h3><div class="small">Decision record <a href="#" data-dr="${dr&&dr.dr_id}" class="mono">${dr?dr.dr_id:'—'}</a> · inputs: ${(dr?dr.inputs:[]).map(i=>`<a href="#" class="mono" data-dr="${i}">${i}</a>`).join(', ')}</div>
-      ${canApprove?approvalForm(v,role.approverRole):`<h3>Approvals</h3><div class="small muted">Requires: ${x.approvers.map(esc).join(', ')}</div>`}
+      ${canApprove?approvalForm(v,role.approverRole):`<h3>Approvals</h3><div class="small muted">Requires: ${x.approvers.map(esc).join(', ')}${needed&&!holds?` · your account doesn't have the <b>${esc(role.approverRole.replace(/_/g,' '))}</b> permission; ask an admin to switch it on`:''}</div>`}
     </div>
   </div>`;
 };
@@ -282,7 +284,7 @@ V.compliance = () => {
   return `<div class="card"><h2>Rule results by vintage</h2><p class="small muted">Deterministic rule engine. Agents can explain results but cannot change them. "n/a" = rule not applicable to the selected entity types.</p>
   <div class="scroll"><table><tr><th>Rule</th><th>IPS</th><th>Severity</th>${VINT.map(v=>`<th>${v}</th>`).join('')}</tr>${P.rules.map(r=>`<tr><td class="mono">${esc(r.id)}</td><td class="small">${esc(r.ips)}</td><td class="small">${esc(r.severity)}</td>${VINT.map(v=>cell(v,r.id)).join('')}</tr>`).join('')}</table></div></div>
   <div class="grid g2" style="margin-top:14px"><div class="card"><h2>Attestations awaiting a human</h2>${(co.attestations_pending||[]).map(a=>{const r=P.rules.find(x=>x.id===a);return `<div style="margin-bottom:8px"><span class="mono">${esc(a)}</span><div class="small">${esc(r&&r.text)}</div></div>`}).join('')||'<span class="muted">None</span>'}</div>
-  <div class="card"><h2>Entity regimes in force</h2><div class="pill-list">${G.selected.map(s=>`<span class="chip info">${esc(s)}</span>`).join('')}</div><h3>Retention</h3>${G.retention_years} years<h3>Required human roles</h3><table>${G.required_roles.map(r=>`<tr><td>${esc(r)}</td><td>${G.human_roles[r]?esc(G.human_roles[r]):'<span class="chip crit">unfilled</span>'}</td></tr>`).join('')}</table></div></div>
+  <div class="card"><h2>Entity regimes in force</h2><div class="pill-list">${G.selected.map(s=>`<span class="chip info">${esc(s)}</span>`).join('')}</div><h3>Retention</h3>${G.retention_years} years<h3>Required human roles</h3><table>${G.required_roles.map(r=>`<tr><td>${esc(r)}</td><td>${(G.unfilled_roles||[]).includes(r)?`<span class="chip crit">unfilled</span> ${G.human_roles[r]&&G.human_roles[r]!=='— unfilled —'?`<span class="small muted">${esc(G.human_roles[r])}</span>`:''}`:esc(G.human_roles[r])}</td></tr>`).join('')}</table></div></div>
   <div class="card" style="margin-top:14px"><h2>Obligations mapped</h2><div class="scroll" style="max-height:340px"><table><tr><th>ID</th><th>Citation</th><th>Requirement</th><th>Regime</th></tr>${G.obligations.map(o=>`<tr><td class="mono">${esc(o.id)}</td><td class="small">${esc(o.cite)}</td><td class="small">${esc(o.summary)}</td><td class="small">${esc(o.regime)}</td></tr>`).join('')}</table></div><div class="small muted" style="margin-top:6px">Citations are a design aid pending counsel review.</div></div>`;
 };
 

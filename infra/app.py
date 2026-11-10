@@ -16,7 +16,8 @@ from aws_cdk import (CfnOutput, Duration, Fn, RemovalPolicy, Stack, aws_cloudfro
 from aws_cdk import aws_budgets as budgets, aws_iam as iam
 from constructs import Construct
 
-ROLES = ["portfolio_manager", "risk", "analyst", "manager_selection", "leadership", "compliance", "audit", "admin"]
+ROLES = ["portfolio_manager", "risk", "analyst", "manager_selection", "leadership", "compliance", "audit", "admin",
+         "investment_committee", "chief_compliance_officer"]   # last two: permission flags, not workspaces
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 

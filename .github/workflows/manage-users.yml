@@ -1,15 +1,16 @@
 name: manage-users
-# Add a person to Meridian (Cognito) and set their roles. Cognito emails them a temporary password.
+# Add a person to Meridian (Cognito), set their roles, or switch single permissions on/off.
+# Cognito emails new users a temporary password.
 on:
   workflow_dispatch:
     inputs:
       email: {description: "Email address", required: true}
       name: {description: "Full name", required: true}
       roles:
-        description: "Comma-separated roles: portfolio_manager, risk, analyst, manager_selection, leadership, compliance, audit, admin"
+        description: "Comma-separated. Workspaces: portfolio_manager, risk, analyst, manager_selection, leadership, compliance, audit, admin. Permissions: investment_committee, chief_compliance_officer"
         required: true
       action:
-        description: "add | set-roles | disable"
+        description: "add | set-roles (replace all) | grant (switch on) | revoke (switch off) | disable"
         default: add
         required: true
 permissions:
@@ -28,7 +29,18 @@ jobs:
         run: |
           set -euo pipefail
           POOL=$(aws cloudformation describe-stacks --stack-name Meridian --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
-          VALID="portfolio_manager risk analyst manager_selection leadership compliance audit admin"
+          VALID="portfolio_manager risk analyst manager_selection leadership compliance audit admin investment_committee chief_compliance_officer"
+          check() { case " $VALID " in *" $1 "*) return 0;; *) echo "::warning::unknown role $1 skipped"; return 1;; esac; }
+          if [ "$ACTION" = "grant" ] || [ "$ACTION" = "revoke" ]; then
+            for r in $(echo "$ROLES" | tr ',' ' '); do
+              check "$r" || continue
+              if [ "$ACTION" = "grant" ]; then aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$r"
+              else aws cognito-idp admin-remove-user-from-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$r"; fi
+            done
+            NOW=$(aws cognito-idp admin-list-groups-for-user --user-pool-id "$POOL" --username "$EMAIL" --query "Groups[].GroupName" --output text)
+            { echo "## $ACTION: $EMAIL"; echo "changed: $ROLES"; echo "now: $NOW"; echo ""; echo "Takes effect at the user's next sign-in."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ "$ACTION" = "disable" ]; then aws cognito-idp admin-disable-user --user-pool-id "$POOL" --username "$EMAIL"; echo "disabled $EMAIL"; exit 0; fi
           if [ "$ACTION" = "add" ]; then
             aws cognito-idp admin-create-user --user-pool-id "$POOL" --username "$EMAIL" \
@@ -38,7 +50,6 @@ jobs:
           for g in $(aws cognito-idp admin-list-groups-for-user --user-pool-id "$POOL" --username "$EMAIL" --query "Groups[].GroupName" --output text); do
             aws cognito-idp admin-remove-user-from-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$g"; done
           for r in $(echo "$ROLES" | tr ',' ' '); do
-            case " $VALID " in *" $r "*) aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$r";;
-              *) echo "::warning::unknown role $r skipped";; esac; done
+            if check "$r"; then aws cognito-idp admin-add-user-to-group --user-pool-id "$POOL" --username "$EMAIL" --group-name "$r"; fi; done
           echo "## $ACTION: $EMAIL" >> "$GITHUB_STEP_SUMMARY"
           echo "roles: $ROLES" >> "$GITHUB_STEP_SUMMARY"

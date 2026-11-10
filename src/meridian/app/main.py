@@ -133,7 +133,7 @@ def console(request: Request, run_id: str):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login")
-    if not user.get("roles"):
+    if not any(r in auth.CONSOLE_ROLE for r in user.get("roles", [])):
         return _page("No role", f"<h1>Welcome, {user['name']}</h1><p>Your account has no Meridian role yet. "
                                 "Ask an administrator to add you to a group (e.g. portfolio_manager, risk, compliance).</p>"
                                 '<a class="btn" href="/logout">Sign out</a>', 403)
@@ -150,8 +150,10 @@ def console(request: Request, run_id: str):
     from ..ui.build import console_html
     pol = _effective_policy()
     live = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": user["roles"]},
-            "console_roles": sorted({auth.CONSOLE_ROLE[r] for r in user["roles"]}, key=list(auth.CONSOLE_ROLE.values()).index),
-            "role_ids": {auth.CONSOLE_ROLE[r]: r for r in user["roles"]},
+            "console_roles": sorted({auth.CONSOLE_ROLE[r] for r in user["roles"] if r in auth.CONSOLE_ROLE},
+                                    key=list(auth.CONSOLE_ROLE.values()).index),
+            "role_ids": {auth.CONSOLE_ROLE[r]: r for r in user["roles"] if r in auth.CONSOLE_ROLE},
+            "permissions": [r for r in user["roles"] if r in auth.PERMISSIONS],
             "csrf": user["csrf"], "runs": st.list_runs()[:24], "run_id": rid}
     return HTMLResponse(console_html(run.results, ledger, {"ok": ok, "message": msg}, run.board_memo,
                                      run.compliance_report, st.change_requests(), pol, live))

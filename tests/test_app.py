@@ -147,3 +147,13 @@ def test_ledger_is_append_only_in_database(tmp_path):
                 c.execute(text(sql))
     with st.engine.begin() as c:
         assert c.execute(text("SELECT record_hash FROM ledger_records")).scalar() == "h"
+
+
+def test_placeholder_role_holder_never_fills_a_required_role():
+    from meridian.entities import resolve
+    reg = resolve(["sec_ria"], profile={"human_roles": {"chief_compliance_officer": {"name": "Robert Hayes", "placeholder": True},
+                                                         "portfolio_manager": "Real Person"}})
+    assert "chief_compliance_officer" in reg.unfilled_roles
+    assert "portfolio_manager" not in reg.unfilled_roles
+    assert "fictional placeholder" in reg.holder_label("chief_compliance_officer")
+    assert any("placeholder: Robert Hayes" in b for b in reg.production_blockers)

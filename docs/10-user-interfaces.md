@@ -24,6 +24,8 @@ Meridian has three interfaces over the same data and the same decision ledger. E
 
 A person with several roles picks the workspace from the role selector in the side bar; only their own roles are listed.
 
+**Permissions** (switched on or off per person, doc 13 §5) sit on top of workspaces: `investment_committee` lets a Leadership user record committee decisions, and `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes. Without the permission the approval form is replaced by a note saying which permission is needed; the server refuses the decision either way.
+
 Design rules applied across every view:
 - **"Why?" is always one click away.** Every proposal shows its rationale, ensemble, invalidation conditions, dissent and links to its decision records.
 - **Approvals cannot be rubber-stamped.** The approver must tick that they read the rationale, dissent and compliance results, and must give a reason. FAILs block approval in the UI and again in code.
