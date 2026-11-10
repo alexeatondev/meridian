@@ -262,7 +262,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Health and cost dashboard.
 
 **Covered today:** User management, deploys and runs through GitHub Actions; cost guard; runbooks (doc 13). Admins get the read-only Audit view in the Console.
-**Gaps:** No in-app user management, agent registry, model inventory or access review; no alarms (deferred for cost).
+**Built 2026-11-10:** User access screen: add, edit, permissions on/off, disable/enable, delete, access review with CSV, append-only access log, immediate sign-out on access changes.
+**Gaps:** No agent registry or model inventory; no alarms (deferred for cost).
 **UAT top tasks:** (1) add a user with specific roles and confirm what they see; (2) disable a user and confirm sign-in is blocked; (3) find the deploy that changed the app last and what it changed.
 
 ---
@@ -279,7 +280,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 | Performance and attribution | PM, Leadership, Manager Selection | Not yet planned |
 | CMA forecast-vs-realized; method change requests | Research | Phase 3/7 |
 | Due diligence workflow, scorecards, watch list, fees, overlap | Manager Selection | Phase 5 |
-| Agent registry, model inventory, access review | Admin / Model Risk | Phase 7/8 |
+| Agent registry, model inventory (access review and user management built 2026-11-10) | Admin / Model Risk | Phase 7/8 |
 
 ## Sources
 - [A day in the life of a multi-asset portfolio manager (Investment Week)](https://investmentweek.co.uk/investment-week/sponsored/3018582/industry-voice-day-life-multi-asset-portfolio-manager)

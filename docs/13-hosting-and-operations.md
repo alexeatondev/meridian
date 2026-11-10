@@ -57,7 +57,7 @@ Workflows that use the role:
 | Workflow | Trigger | What it does in AWS |
 |---|---|---|
 | `deploy` | Push to `main` touching app/infra/config paths, or manual | Runs tests offline, then `cdk bootstrap` and `cdk deploy --all` |
-| `manage-users` | Manual | Reads the `Meridian` stack outputs; creates, re-roles or disables Cognito users |
+| `manage-users` | Manual | Reads the `Meridian` stack outputs; creates, re-roles or disables Cognito users (fallback for the User access screen) |
 | `agent-run` | Manual | Reads stack outputs and the ingest token; pulls approved positions, risk history and policy overrides from the app; runs the pipeline with live LLM judgment; publishes the run to the app |
 
 `ci`, `data-refresh` (3rd of each month, 13:17 UTC) and `uat` (manual browser tests, doc 15) do not touch AWS.
@@ -75,7 +75,17 @@ A full deploy takes about 10–15 minutes; an image-only change is faster.
 
 ## 5. Managing users
 
-Users are added only by an admin through the `manage-users` workflow (Actions → manage-users → Run workflow):
+**In the app (recommended): User access screen** at `/admin` (admins land there; others with Admin, Audit or Compliance roles reach it from **User access** in the console side bar).
+
+| Tab | What it does | Who |
+|---|---|---|
+| Users | Add a user (sends the invitation email), edit name, tick workspaces, switch permissions on or off, resend an invitation, disable / enable, delete a disabled account (type the email to confirm) | Admin edits; Audit and Compliance read-only |
+| Access review | Matrix of who holds which workspace and permission; download as CSV for periodic access reviews | Admin, Audit, Compliance |
+| Access log | Every change: when, who, action, before, after, reason. The database refuses edits or deletions of these entries | Admin, Audit, Compliance |
+
+Rules the server enforces: every change needs a reason (≥ 10 characters); an admin can't remove their own admin role, disable or delete themselves; at least one enabled admin always remains; accounts are deleted only after being disabled; separation-of-duties conflicts (e.g. PM plus Investment Committee, more than one CCO) are shown as warnings before saving. **Any change to a person's roles, permissions or status signs them out of Meridian immediately**, so it takes effect at once. The app's own AWS role may manage users and groups in this user pool only.
+
+**Alternative: the `manage-users` workflow** (Actions → manage-users → Run workflow), useful if nobody can sign in as admin:
 
 | Input | Values |
 |---|---|

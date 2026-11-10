@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meridian · User access</title>
+<style>
+:root{--bg:#f4f3f0;--surface:#fcfcfb;--surface-2:#f0efec;--line:#e2e0da;--line-strong:#cfccc4;--text:#0b0b0b;--text-2:#52514e;
+--muted:#7a7873;--accent:#1f4e8c;--accent-ink:#fff;--ok:#1d7a46;--ok-bg:#e3f2e8;--warn:#8a5a00;--warn-bg:#fbf0d9;--crit:#a3261b;--crit-bg:#f8e1de;--info-bg:#e4ecf7;
+font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#121211;--surface:#1a1a19;--surface-2:#232321;--line:#2e2e2b;--line-strong:#3c3c38;--text:#f0efec;
+--text-2:#c3c2b7;--muted:#9a998f;--accent:#7aa7e6;--accent-ink:#0b0b0b;--ok:#6cc08c;--ok-bg:#1d2e23;--warn:#e0b25a;--warn-bg:#2f2717;--crit:#ef8a80;--crit-bg:#331d1b;--info-bg:#1d2633}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+header h1{font-size:17px;margin:0}header .sp{flex:1}a{color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+.tabs{display:flex;gap:6px;margin-bottom:16px}.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:14px 0 6px;color:var(--text-2)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}tr.sel td{background:var(--surface-2)}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;margin:1px 3px 1px 0;background:var(--surface-2);border:1px solid var(--line)}
+.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chip.crit{background:var(--crit-bg);color:var(--crit);border-color:transparent}.chip.perm{background:var(--info-bg);border-color:transparent}
+.btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input[type=text],input[type=email],textarea,input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.opt{display:flex;gap:8px;align-items:flex-start;padding:6px 0}.opt input{margin-top:3px}.opt .d{font-size:12px;color:var(--muted)}
+.switch{position:relative;width:36px;height:20px;flex:none}.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line-strong);border-radius:999px;transition:.15s}.switch span:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--accent)}.switch input:checked+span:before{transform:translateX(16px)}.switch input:focus-visible+span{outline:2px solid var(--accent)}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:13px}.warnbox ul{margin:4px 0 0 18px;padding:0}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;max-width:90vw;z-index:9}
+.matrix td,.matrix th{text-align:center}.matrix td:first-child,.matrix th:first-child{text-align:left}
+</style></head><body>
+<header><h1>Meridian · User access</h1><span class="muted small" id="who"></span><span class="sp"></span>
+<a href="/runs/latest">Back to console</a><a href="/logout">Sign out</a></header>
+<main>
+<div class="tabs" role="tablist">
+  <button data-tab="users" class="active">Users</button><button data-tab="review">Access review</button><button data-tab="log">Access log</button>
+</div>
+<section id="users"></section><section id="review" hidden></section><section id="log" hidden></section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+const BOOT = /*BOOT*/null;
+const S = {users: [], roles: {}, perms: {}, sel: null, adding: false, log: []};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',5000)}
+async function api(method, url, body){
+  const r = await fetch(url, {method, headers: {'Content-Type':'application/json','X-CSRF-Token':BOOT.csrf}, body: body?JSON.stringify(body):undefined});
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+}
+const enc = e => encodeURIComponent(e);
+function statusChip(u){
+  if(!u.enabled) return '<span class="chip crit">Disabled</span>';
+  if(u.status==='FORCE_CHANGE_PASSWORD') return '<span class="chip warn">Invited</span>';
+  return '<span class="chip ok">Active</span>';
+}
+const label = r => S.roles[r] || (S.perms[r]||r).split(' (')[0];
+
+async function load(){
+  const j = await api('GET','/api/admin/users');
+  S.users=j.users; S.roles=j.roles; S.perms=j.permissions;
+  renderUsers(); renderReview();
+}
+async function loadLog(){ S.log=(await api('GET','/api/admin/access-log')).events; renderLog(); }
+
+function renderUsers(){
+  const rows = S.users.map(u=>`<tr data-email="${esc(u.email)}" class="${S.sel===u.email?'sel':''}">
+    <td><b>${esc(u.name||'—')}</b><div class="small muted">${esc(u.email)}</div></td><td>${statusChip(u)}</td>
+    <td>${u.roles.filter(r=>S.roles[r]).map(r=>`<span class="chip">${esc(label(r))}</span>`).join('')||'<span class="muted small">none</span>'}</td>
+    <td>${u.roles.filter(r=>S.perms[r]).map(r=>`<span class="chip perm">${esc(label(r))}</span>`).join('')||'<span class="muted small">—</span>'}</td>
+    <td>${u.warnings.length?`<span class="chip warn" title="${esc(u.warnings.join('\n'))}">⚠ ${u.warnings.length}</span>`:''}</td>
+    <td>${BOOT.can_edit?`<button class="btn" data-edit="${esc(u.email)}">Edit</button>`:''}</td></tr>`).join('');
+  $('#users').innerHTML = `<div class="card"><div class="row"><h2 style="margin:0">Users (${S.users.length})</h2><span class="sp" style="flex:1"></span>
+    <input type="search" id="q" placeholder="Search name, email or role" style="max-width:280px">
+    ${BOOT.can_edit?'<button class="btn primary" id="add">Add user</button>':'<span class="chip">Read-only</span>'}</div>
+    <p class="small muted">Workspaces decide which screens a person sees. Permissions are switched on or off per person and allow
+    decisions that need that authority. Any change to someone's access signs them out of Meridian so it applies at once.</p>
+    <table><thead><tr><th>Person</th><th>Status</th><th>Workspaces</th><th>Permissions</th><th></th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div id="panel"></div>`;
+  $('#q').oninput = e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#users tbody tr').forEach(tr=>{
+    const u=S.users.find(x=>x.email===tr.dataset.email);tr.hidden=q&&!(`${u.name} ${u.email} ${u.roles.map(label).join(' ')}`.toLowerCase().includes(q))})};
+  if(BOOT.can_edit){
+    $('#add').onclick=()=>{S.adding=true;S.sel=null;renderUsers()};
+    document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{S.sel=b.dataset.edit;S.adding=false;renderUsers()});
+  }
+  if(S.adding) renderForm(null); else if(S.sel) renderForm(S.users.find(u=>u.email===S.sel));
+}
+
+function roleOptions(have){
+  const ws = Object.entries(S.roles).map(([k,v])=>`<label class="opt"><input type="checkbox" name="ws" value="${k}" ${have.includes(k)?'checked':''}>
+    <span>${esc(v)}<div class="d mono">${k}</div></span></label>`).join('');
+  const ps = Object.entries(S.perms).map(([k,v])=>`<label class="opt"><span class="switch"><input type="checkbox" name="perm" value="${k}" ${have.includes(k)?'checked':''}><span></span></span>
+    <span>${esc(v.split(' (')[0])}<div class="d">${esc((v.match(/\((.*)\)/)||[,''])[1])}</div></span></label>`).join('');
+  return `<div class="grid2"><div><h3>Workspaces</h3>${ws}</div><div><h3>Permissions</h3>${ps}<div id="warns"></div></div></div>`;
+}
+const chosen = () => [...document.querySelectorAll('#panel input[name=ws]:checked, #panel input[name=perm]:checked')].map(i=>i.value);
+
+async function refreshWarnings(email){
+  try{const j=await api('POST','/api/admin/check',{roles:chosen(),email});
+    $('#warns').innerHTML=j.warnings.length?`<div class="warnbox"><b>Check before saving</b><ul>${j.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:'';
+  }catch(e){$('#warns').innerHTML=''}
+}
+
+function renderForm(u){
+  const isNew=!u, me=(BOOT.user.email||'').toLowerCase();
+  const self = u && u.email===me;
+  $('#panel').innerHTML = `<div class="card" id="form"><h2>${isNew?'Add a user':'Edit '+esc(u.name||u.email)}</h2>
+    <div class="grid2"><div><label class="f" for="fEmail">Email (also their username)</label>
+      <input type="email" id="fEmail" value="${esc(u?.email||'')}" ${isNew?'':'disabled'} autocomplete="off"></div>
+    <div><label class="f" for="fName">Full name (shown on decisions)</label><input type="text" id="fName" value="${esc(u?.name||'')}"></div></div>
+    ${u?`<p class="small muted">Status: ${statusChip(u)} · created ${esc((u.created||'').slice(0,10))}${self?' · <b>this is you</b>':''}</p>`:''}
+    ${roleOptions(u?.roles||[])}
+    <label class="f" for="fReason">Reason for this change (kept in the access log)</label>
+    <textarea id="fReason" rows="2" placeholder="e.g. Joined the risk team; approved by Daniel Okafor"></textarea>
+    <div class="row" style="margin-top:12px"><button class="btn primary" id="save">${isNew?'Send invitation':'Save changes'}</button>
+      <button class="btn" id="cancel">Cancel</button><span style="flex:1"></span>
+      ${u&&u.enabled&&u.status==='FORCE_CHANGE_PASSWORD'?'<button class="btn" id="resend">Resend invitation</button>':''}
+      ${u&&u.enabled&&!self?'<button class="btn danger" id="disable">Disable account</button>':''}
+      ${u&&!u.enabled?'<button class="btn" id="enable">Enable account</button><button class="btn danger" id="delete">Delete account…</button>':''}
+    </div></div>`;
+  document.querySelectorAll('#panel input[name=ws], #panel input[name=perm]').forEach(i=>i.onchange=()=>refreshWarnings(u?.email||''));
+  refreshWarnings(u?.email||'');
+  const reason=()=>$('#fReason').value.trim();
+  const done=async m=>{S.adding=false;await load();if(!$('#log').hidden) await loadLog();toast(m)};
+  $('#cancel').onclick=()=>{S.adding=false;S.sel=null;renderUsers()};
+  $('#save').onclick=async()=>{try{
+      if(isNew) await done((await api('POST','/api/admin/users',{email:$('#fEmail').value,name:$('#fName').value,roles:chosen(),reason:reason()})).message);
+      else await done((await api('PUT','/api/admin/users/'+enc(u.email),{name:$('#fName').value,roles:chosen(),reason:reason()})).message);
+    }catch(e){toast(e.message)}};
+  const act=(id,path)=>{const b=$('#'+id);if(b) b.onclick=async()=>{try{await done((await api('POST','/api/admin/users/'+enc(u.email)+'/'+path,{reason:reason()})).message)}catch(e){toast(e.message)}}};
+  act('resend','resend-invite'); act('disable','disable'); act('enable','enable');
+  const del=$('#delete'); if(del) del.onclick=async()=>{
+    const c=prompt(`Deleting removes the account permanently (their past decisions stay in the ledger). Type ${u.email} to confirm:`);
+    if(c===null) return;
+    try{await done((await api('DELETE','/api/admin/users/'+enc(u.email),{reason:reason(),confirm:c})).message);S.sel=null;renderUsers()}catch(e){toast(e.message)}};
+}
+
+function renderReview(){
+  const cols=[...Object.keys(S.roles),...Object.keys(S.perms)];
+  const rows=S.users.map(u=>`<tr><td>${esc(u.name||u.email)}<div class="small muted">${esc(u.email)}</div></td><td>${statusChip(u)}</td>
+    ${cols.map(c=>`<td>${u.roles.includes(c)?'●':''}</td>`).join('')}</tr>`).join('');
+  $('#review').innerHTML=`<div class="card"><div class="row"><h2 style="margin:0">Access review</h2><span style="flex:1"></span><button class="btn" id="csv">Download CSV</button></div>
+    <p class="small muted">Who holds which workspace and permission, for periodic access reviews by compliance and audit. Generated ${new Date().toISOString().slice(0,16).replace('T',' ')} UTC.</p>
+    <div style="overflow-x:auto"><table class="matrix"><thead><tr><th>Person</th><th>Status</th>${cols.map(c=>`<th class="small">${esc(label(c))}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  $('#csv').onclick=()=>{
+    const q=v=>`"${String(v).replace(/"/g,'""')}"`;
+    const lines=[['name','email','enabled','status',...cols].map(q).join(','),...S.users.map(u=>[u.name,u.email,u.enabled,u.status,...cols.map(c=>u.roles.includes(c)?'Y':'')].map(q).join(','))];
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+    a.download=`meridian-access-review-${new Date().toISOString().slice(0,10)}.csv`;a.click();};
+}
+
+function renderLog(){
+  const fmt=v=>v==null?'—':esc(Object.entries(v).map(([k,x])=>`${k}: ${Array.isArray(x)?x.join(', ')||'none':x}`).join('; '));
+  $('#log').innerHTML=`<div class="card"><h2>Access log</h2><p class="small muted">Every access change made here, newest first. The database refuses edits or deletions of these entries.</p>
+    <table><thead><tr><th>When (UTC)</th><th>By</th><th>Action</th><th>User</th><th>Before</th><th>After</th><th>Reason</th></tr></thead><tbody>
+    ${S.log.map(e=>`<tr><td class="mono">${esc(e.at.slice(0,19).replace('T',' '))}</td><td>${esc(e.actor.name)}</td><td><span class="chip">${esc(e.action)}</span></td>
+      <td>${esc(e.target)}</td><td class="small">${fmt(e.before)}</td><td class="small">${fmt(e.after)}</td><td class="small">${esc(e.reason)}</td></tr>`).join('')
+      ||'<tr><td colspan="7" class="muted">No changes yet</td></tr>'}</tbody></table></div>`;
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===b));
+  ['users','review','log'].forEach(t=>$('#'+t).hidden=t!==b.dataset.tab);
+  if(b.dataset.tab==='log') loadLog();
+});
+$('#who').textContent = `Signed in as ${BOOT.user.name}${BOOT.can_edit?'':' · read-only'}`;
+load().catch(e=>toast(e.message));
+</script></body></html>

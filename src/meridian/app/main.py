@@ -16,7 +16,13 @@ import tempfile
 from pathlib import Path
 
 from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 
 from .. import __version__
 from ..ledger import verify
@@ -36,6 +42,21 @@ def store() -> Store:
 
 
 # ------------------------------------------------------------------ security middleware
+from .admin import router as _admin_router
+
+app.include_router(_admin_router)
+
+
+def _revoked_after(email: str):
+    try:
+        return store().revoked_after(email)
+    except Exception:            # never lock everyone out because the check itself failed
+        return None
+
+
+auth.REVOKED_AFTER = _revoked_after
+
+
 @app.middleware("http")
 async def guard(request: Request, call_next):
     expected = os.getenv("ORIGIN_VERIFY")           # shared secret set by CloudFront; blocks direct ALB access
@@ -79,7 +100,8 @@ def login(request: Request):
     if auth.mode() == "dev":
         boxes = "".join(f'<label><input type="checkbox" name="roles" value="{k}"> {v}</label>' for k, v in auth.ROLES.items())
         return _page("Sign in (dev)", f"""<h1>Meridian — development sign-in</h1><p class="muted">Local testing only. On AWS, sign-in uses Amazon Cognito.</p>
-<form method="post" action="/dev-login"><label>Name</label><input type="text" name="name" value="Dev" required>{boxes}
+<form method="post" action="/dev-login"><label>Name</label><input type="text" name="name" value="Dev" required>
+<label>Email (optional)</label><input type="text" name="email" value="">{boxes}
 <button class="btn" type="submit">Sign in</button></form>""")
     state = secrets.token_urlsafe(24)
     resp = RedirectResponse(auth.login_url(state))
@@ -92,7 +114,8 @@ async def dev_login(request: Request):
     if auth.mode() != "dev":
         raise HTTPException(404)
     form = await request.form()
-    user = {"sub": "dev-" + str(form.get("name")), "name": str(form.get("name") or "Dev"), "email": "",
+    user = {"sub": "dev-" + str(form.get("name")), "name": str(form.get("name") or "Dev"),
+            "email": str(form.get("email") or "").strip().lower(),
             "roles": [r for r in form.getlist("roles") if r in auth.ROLES]}
     resp = RedirectResponse("/", status_code=303)
     _set_session(resp, user)
@@ -125,6 +148,9 @@ def signed_out():
 # ------------------------------------------------------------------ console
 @app.get("/")
 def home(request: Request):
+    user = auth.current_user(request)
+    if user and user.get("roles") == ["admin"]:
+        return RedirectResponse("/admin")
     return RedirectResponse("/runs/latest")
 
 

@@ -82,7 +82,7 @@ Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Lo
 Read-only. Ledger explorer → search by run, portfolio, agent, approver, date → open any DR → lineage graph → **Verify integrity** (recomputes hashes against WORM-anchored roots) → **Replay** approver screen → export evidence pack.
 
 ## 8. Platform Admin / Model Risk Owner
-**Today (pilot, built):** add, re-role or disable users, deploy, and run the agent pipeline through GitHub Actions; watch cost alerts and app health. Runbooks: doc 13 (Hosting & Operations).
+**Today (pilot, built):** manage users in the **User access** screen (add, edit, switch Investment Committee / CCO permissions on or off, disable, delete, access review, access log); deploy and run the agent pipeline through GitHub Actions; watch cost alerts and app health. Runbooks: doc 13 (Hosting & Operations).
 **Target design:** agent registry (owners, tiers, versions, validation status) · change requests · model-version pinning · access management (SSO groups → roles → portfolio entitlements) · kill-switch tests · environment health.
 
 ---

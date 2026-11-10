@@ -15,7 +15,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import (JSON, Column, DateTime, Float, Integer, String, Text, UniqueConstraint, create_engine,
+from sqlalchemy import (JSON, Boolean, Column, DateTime, Float, Integer, String, Text, UniqueConstraint, create_engine,
                         select)
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
@@ -66,6 +66,37 @@ class ChangeRequest(Base):
     status = Column(String(16), index=True)
 
 
+class AccessEvent(Base):
+    """Every change to a user's access, made in the User access screen. Append-only (doc 05 §4)."""
+    __tablename__ = "access_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    at = Column(DateTime(timezone=True), default=now, nullable=False)
+    actor = Column(JSON, nullable=False)           # {name, email, sub}
+    action = Column(String(40), nullable=False)    # create | set_access | rename | disable | enable | resend_invite | delete
+    target = Column(String(320), nullable=False)   # the user's email
+    before = Column(JSON)
+    after = Column(JSON)
+    reason = Column(Text, nullable=False)
+
+
+class DevUser(Base):
+    """User directory for development sign-in and tests only (production uses Cognito)."""
+    __tablename__ = "dev_users"
+    email = Column(String(320), primary_key=True)
+    name = Column(String(200), nullable=False)
+    roles = Column(JSON, nullable=False, default=list)
+    enabled = Column(Boolean, nullable=False, default=True)
+    status = Column(String(40), nullable=False, default="FORCE_CHANGE_PASSWORD")
+    created = Column(DateTime(timezone=True), default=now, nullable=False)
+
+
+class SessionRevocation(Base):
+    """Sessions issued before `revoked_at` for this email are no longer accepted (access changed)."""
+    __tablename__ = "session_revocations"
+    email = Column(String(320), primary_key=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=False)
+
+
 class PolicyOverride(Base):
     __tablename__ = "policy_overrides"
     key = Column(String(128), primary_key=True)            # e.g. risk_budgets.vintages.2050
@@ -86,10 +117,14 @@ class Store:
         self._protect_ledger()
 
     def _protect_ledger(self) -> None:
-        """Make ledger_records append-only in the database itself (doc 05 §3, REC-2).
+        """Make ledger_records and access_events append-only in the database itself (doc 05 §3, REC-2).
 
-        Any UPDATE or DELETE on a decision record is rejected by a trigger, whoever issues it. Idempotent.
+        Any UPDATE or DELETE on these records is rejected by a trigger, whoever issues it. Idempotent.
         """
+        for table in ("ledger_records", "access_events"):
+            self._append_only(table)
+
+    def _append_only(self, table: str) -> None:
         from sqlalchemy import text
         dialect = self.engine.dialect.name
         with self.engine.begin() as c:
@@ -97,18 +132,21 @@ class Store:
                 c.execute(text("""
                     CREATE OR REPLACE FUNCTION meridian_ledger_append_only() RETURNS trigger AS $$
                     BEGIN
-                      RAISE EXCEPTION 'ledger_records is append-only: % is not allowed', TG_OP;
+                      RAISE EXCEPTION '% is append-only: % is not allowed', TG_TABLE_NAME, TG_OP;
                     END; $$ LANGUAGE plpgsql"""))
-                c.execute(text("DROP TRIGGER IF EXISTS ledger_append_only ON ledger_records"))
-                c.execute(text("""CREATE TRIGGER ledger_append_only BEFORE UPDATE OR DELETE ON ledger_records
+                if table == "ledger_records":   # names used before 2026-11-10
+                    c.execute(text("DROP TRIGGER IF EXISTS ledger_append_only ON ledger_records"))
+                    c.execute(text("DROP TRIGGER IF EXISTS ledger_no_truncate ON ledger_records"))
+                c.execute(text(f"DROP TRIGGER IF EXISTS {table}_append_only ON {table}"))
+                c.execute(text(f"""CREATE TRIGGER {table}_append_only BEFORE UPDATE OR DELETE ON {table}
                                   FOR EACH ROW EXECUTE FUNCTION meridian_ledger_append_only()"""))
-                c.execute(text("DROP TRIGGER IF EXISTS ledger_no_truncate ON ledger_records"))
-                c.execute(text("""CREATE TRIGGER ledger_no_truncate BEFORE TRUNCATE ON ledger_records
+                c.execute(text(f"DROP TRIGGER IF EXISTS {table}_no_truncate ON {table}"))
+                c.execute(text(f"""CREATE TRIGGER {table}_no_truncate BEFORE TRUNCATE ON {table}
                                   FOR EACH STATEMENT EXECUTE FUNCTION meridian_ledger_append_only()"""))
             elif dialect == "sqlite":
                 for op in ("UPDATE", "DELETE"):
-                    c.execute(text(f"""CREATE TRIGGER IF NOT EXISTS ledger_no_{op.lower()} BEFORE {op} ON ledger_records
-                                      BEGIN SELECT RAISE(ABORT, 'ledger_records is append-only: {op} is not allowed'); END"""))
+                    c.execute(text(f"""CREATE TRIGGER IF NOT EXISTS {table}_no_{op.lower()} BEFORE {op} ON {table}
+                                      BEGIN SELECT RAISE(ABORT, '{table} is append-only: {op} is not allowed'); END"""))
 
     # ------------------------------------------------------------------ runs
     def ingest_run(self, run_dir: Path, source: str = "ingest") -> str:
@@ -255,6 +293,35 @@ class Store:
                     s.add(LedgerRecord(run_id="governance", seq=n0 + i, dr_id=r["dr_id"], record=r, record_hash=r["record_hash"]))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    def log_access(self, actor: dict, action: str, target: str, before, after, reason: str) -> None:
+        with self.Session.begin() as s:
+            s.add(AccessEvent(actor={k: actor.get(k) for k in ("name", "email", "sub")}, action=action,
+                              target=target, before=before, after=after, reason=reason))
+
+    def revoke_sessions(self, email: str) -> None:
+        with self.Session.begin() as s:
+            row = s.get(SessionRevocation, email.lower())
+            if row:
+                row.revoked_at = now()
+            else:
+                s.add(SessionRevocation(email=email.lower(), revoked_at=now()))
+
+    def revoked_after(self, email: str) -> float | None:
+        if not email:
+            return None
+        with self.Session() as s:
+            row = s.get(SessionRevocation, email.lower())
+            if not row:
+                return None
+            t = row.revoked_at
+            return (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).timestamp()
+
+    def access_events(self, limit: int = 500) -> list[dict]:
+        with self.Session() as s:
+            q = select(AccessEvent).order_by(AccessEvent.id.desc()).limit(limit)
+            return [{"id": e.id, "at": e.at.isoformat(), "actor": e.actor, "action": e.action, "target": e.target,
+                     "before": e.before, "after": e.after, "reason": e.reason} for e in s.execute(q).scalars()]
 
     def overrides(self) -> dict:
         with self.Session() as s:

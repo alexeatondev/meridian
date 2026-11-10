@@ -56,7 +56,7 @@ def _serializer() -> URLSafeTimedSerializer:
 
 
 def make_session(user: dict) -> str:
-    return _serializer().dumps({**user, "csrf": secrets.token_urlsafe(16), "iat": int(time.time())})
+    return _serializer().dumps({**user, "csrf": secrets.token_urlsafe(16), "iat": time.time()})
 
 
 def current_user(request: Request) -> dict | None:
@@ -64,9 +64,18 @@ def current_user(request: Request) -> dict | None:
     if not raw:
         return None
     try:
-        return _serializer().loads(raw, max_age=SESSION_TTL)
+        u = _serializer().loads(raw, max_age=SESSION_TTL)
     except BadSignature:
         return None
+    if REVOKED_AFTER is not None:               # set by the app: sessions issued before an access change are void
+        t = REVOKED_AFTER(u.get("email", ""))
+        if t is not None and u.get("iat", 0) <= t:
+            return None
+    return u
+
+
+# Hook set by main.py: email -> timestamp after which earlier sessions are revoked (or None)
+REVOKED_AFTER = None
 
 
 def require_user(request: Request) -> dict:

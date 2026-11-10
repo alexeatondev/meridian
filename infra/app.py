@@ -102,6 +102,14 @@ class MeridianStack(Stack):
                      "COGNITO_CLIENT_ID": client.user_pool_client_id, "COGNITO_USER_POOL_ID": pool.user_pool_id,
                      "COGNITO_REGION": self.region, "ORIGIN_VERIFY": origin_verify, "MERIDIAN_LLM": "off"}.items():
             c.add_environment(k, v)
+        # User access screen: the app manages users and groups in its own user pool only
+        svc.task_definition.task_role.add_to_principal_policy(iam.PolicyStatement(
+            actions=["cognito-idp:ListUsers", "cognito-idp:ListUsersInGroup", "cognito-idp:AdminListGroupsForUser",
+                     "cognito-idp:AdminCreateUser", "cognito-idp:AdminAddUserToGroup",
+                     "cognito-idp:AdminRemoveUserFromGroup", "cognito-idp:AdminUpdateUserAttributes",
+                     "cognito-idp:AdminDisableUser", "cognito-idp:AdminEnableUser",
+                     "cognito-idp:AdminUserGlobalSignOut", "cognito-idp:AdminDeleteUser"],
+            resources=[pool.user_pool_arn]))
         c.add_secret("DB_SECRET", ecs.Secret.from_secrets_manager(db.secret))
         c.add_secret("SESSION_SECRET", ecs.Secret.from_secrets_manager(session_secret))
         c.add_secret("INGEST_TOKEN", ecs.Secret.from_secrets_manager(ingest_token))

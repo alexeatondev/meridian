@@ -20,7 +20,7 @@ Meridian has three interfaces over the same data and the same decision ledger. E
 | Leadership / IC (`leadership`) | Home · Funds & vintages · Board memo · Fund risk · Stress tests · Risk budget · Metrics · Glide path · Approvals | Approvals outstanding, production blockers, compliance status | Approve glide-path changes |
 | Compliance (`compliance`) | Home · Compliance · Risk budget · Look-through & search · Compliance report · Decision ledger | FAILs, warnings, attestations, blockers | Attest; approve exceptions |
 | Audit (`audit`) | Home · Decision ledger · Compliance · Compliance report | Ledger integrity, actors, retention | Read-only |
-| Admin (`admin`) | Same read-only view as Audit | — | User management and deploys happen in GitHub Actions (doc 13), not in the Console |
+| Admin (`admin`) | **User access** screen (`/admin`), plus the read-only Audit view of the console | — | Add, edit, disable and delete users; switch permissions on/off; access review and access log (doc 13 §5). Deploys happen in GitHub Actions |
 
 A person with several roles picks the workspace from the role selector in the side bar; only their own roles are listed.
 

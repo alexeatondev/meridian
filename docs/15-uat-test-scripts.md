@@ -111,6 +111,13 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | ACC-3 | As Audit, change the address to `…/runs/latest#pm` | Still only the Audit workspace | `test_access_03` |
 | ADM-2 | Add a user with the manage-users workflow; confirm their tabs; disable them; confirm sign-in is blocked | As described in doc 13 §5 | Manual only (needs AWS) |
 | ADM-3 | manage-users → `grant` `investment_committee` to a Leadership user, then `revoke` it | Run summary shows the user's groups after each change; takes effect at next sign-in | Manual only (needs AWS) |
+| ADM-10 | Sign in with only the Admin role | Lands on **User access** (`/admin`) | `test_adm_10` |
+| ADM-11 | Add user → tick Investment Committee without Leadership, then add Leadership; reason; send invitation. Edit → switch the permission off | Warning shown until Leadership is ticked; user listed as *Invited* with the permission; after switching off, the permission is gone; Access log shows create and set_access with reasons | `test_adm_11` |
+| ADM-12 | Edit yourself: untick Admin; then save with a 5-character reason | Refused: can't remove your own admin role; reason too short | `test_adm_12` |
+| ADM-13 | Access review → Download CSV | Matrix of users × workspaces/permissions; CSV downloads | `test_adm_13` |
+| ADM-14 | As Audit, open User access | Read-only: no Add or Edit buttons | `test_adm_14` |
+| ADM-15 | As a PM, look for User access | No link; the page is refused | `test_adm_15` |
+| ADM-16 | Change someone's access while they're signed in | They're signed out and must sign in again; new access applies | API test `test_access_change_signs_the_person_out` |
 | ADM-4 | Sign in with only a permission (e.g. `investment_committee`) and no workspace role | "No Meridian role" page | `test_perm_04` |
 | COMP-5 | Compliance analyst without the CCO permission vs the CCO | Analyst refused (403); CCO passes the permission check | `test_perm_03` |
 

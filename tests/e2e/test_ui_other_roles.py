@@ -134,9 +134,16 @@ def test_audit_04_pm_cannot_export_evidence(sign_in, app_url):
 
 
 # ---------------------------------------------------------------- Admin and access
-def test_admin_01_sees_audit_view_only(sign_in):
-    p = sign_in("Sam Patel", "admin")
-    assert [o.get_attribute("value") for o in p.query_selector_all("#role option")] == ["audit"]
+def test_admin_01_lands_on_user_access_and_console_is_read_only(page, app_url):
+    page.context.clear_cookies()
+    page.goto(app_url + "/login")
+    page.fill("input[name=name]", "Sam Patel")
+    page.check("input[name=roles][value=admin]")
+    page.click("button[type=submit]")
+    page.wait_for_url("**/admin")
+    page.goto(app_url + "/runs/latest")
+    page.wait_for_selector("#nav button")
+    assert [o.get_attribute("value") for o in page.query_selector_all("#role option")] == ["audit"]
 
 
 def test_access_01_signed_out_goes_to_sign_in(page, app_url):
