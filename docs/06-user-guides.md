@@ -2,6 +2,15 @@
 
 **Version 0.1 · 2026-11-06 · Applies to: Meridian v1.0 (planned). Screens named here are the target design and will be updated as built.**
 
+## Signing in to the hosted app
+1. Your admin adds you (doc 13 §5). You receive an email from Amazon Cognito with your username (your email) and a temporary password.
+2. Open https://d3maw6l4k5cc0v.cloudfront.net and choose **Sign in**. You are taken to the Meridian sign-in page.
+3. Enter your email and the temporary password, then set your own password (at least 12 characters, including a symbol).
+4. You land on the Meridian Console. The tabs and actions you see depend on your roles; if something you need is missing, ask your admin to change your roles.
+5. **Forgot your password?** Use "Forgot your password?" on the sign-in page; a code is sent to your email.
+6. **MFA:** an authenticator app is supported and will become mandatory for approvers and admins.
+7. Sign out with **Sign out** in the top bar. Never share your login: every approval is recorded against the signed-in person.
+
 ## Common concepts (all users)
 - **Run:** one pipeline execution (e.g., quarterly SAA). Find runs under *Runs*.
 - **Proposal:** an agent-generated recommendation awaiting human action. Find yours under *My Queue*.
@@ -69,7 +78,7 @@ Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Lo
 Read-only. Ledger explorer → search by run, portfolio, agent, approver, date → open any DR → lineage graph → **Verify integrity** (recomputes hashes against WORM-anchored roots) → **Replay** approver screen → export evidence pack.
 
 ## 8. Platform Admin / Model Risk Owner
-Agent registry (owners, tiers, versions, validation status) · change requests · model-version pinning · access management (SSO groups → roles → portfolio entitlements) · kill-switch tests · environment health.
+**Today (pilot):** add, re-role or disable users and deploy through GitHub Actions; watch cost and health. See doc 13 for the runbooks. **Target design:** agent registry (owners, tiers, versions, validation status) · change requests · model-version pinning · access management (SSO groups → roles → portfolio entitlements) · kill-switch tests · environment health.
 
 ---
 

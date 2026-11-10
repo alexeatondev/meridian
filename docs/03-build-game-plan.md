@@ -1,15 +1,24 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.2 · 2026-11-06**
+**Version 0.4 · 2026-11-09**
 
-## Status (2026-11-06)
+## Status (2026-11-09)
 - Repo live: github.com/alexeatondev/meridian
-- Done: entity-regime selection, policy-as-code + IPS for the target-date pilot, plug-and-play data layer (direct + Snowflake), CMA judge, 7 PC agents, peer review and Borda vote, CRO, CIO ensemble, board memo, deterministic compliance engine, Agentic Compliance Officer, hash-chained ledger, tests, CI.
-- Real public data end to end (Yahoo, FRED via API, US Treasury, cited manual inputs); synthetic only for non-US valuations (flagged). Live LLM judgment via the `agent-run` workflow. Key rotation reminder scheduled for 2026-12-02.
+- Done: entity-regime selection, policy-as-code + IPS for the target-date pilot, plug-and-play data layer (direct + Snowflake), CMA judge, 7 PC agents, peer review and Borda vote, CRO, CIO ensemble, board memo, deterministic compliance engine, Agentic Compliance Officer, hash-chained ledger, tests, CI (offline on the committed data cache).
+- Real public data end to end (Yahoo, FRED via API, US Treasury, cited manual inputs, iShares holdings); synthetic only for non-US valuations (flagged). Live LLM judgment via the `agent-run` workflow. Key rotation reminder scheduled for 2026-12-02.
 - Console and notebooks: role-adaptive Meridian Console; positioning with drill-down, risk budgets and governed changes, portfolio metrics, PM/analyst weight adjustments; Jupyter workbenches (PM, research, compliance/audit, risk analytics).
-- Risk analytics (docs/12): fund-level risk (total/benchmark/active, relative duration, credit spread duration, VaR 95, active VaR 95, diversification), risk breakdown by asset class and fund, weight-vs-risk, 10-factor model with 18-month history, historical and hypothetical stress tests (normal → crisis) with a scenario builder, risk time series, iShares holdings look-through and ticker search.
-- Hosted multi-user app (FastAPI + Postgres + Cognito + CloudFront on AWS via CDK) built and tested; first deploy waiting on AWS to finish lifting Free-plan restrictions after the upgrade to the Paid plan.
-- Next: first AWS deploy and sign-in; operating loop automation/notifications; vendor data (holdings, characteristics, factor model); second product type; human CCO.
+- Risk analytics (risk analytics doc): fund-level risk, risk breakdown, weight-vs-risk, 10-factor model with 18-month history, historical and hypothetical stress tests with a scenario builder, risk time series, iShares look-through and ticker search.
+- **Hosted app live (2026-11-09):** https://d3maw6l4k5cc0v.cloudfront.net on AWS (us-east-2, CDK). GitHub → AWS sign-in via OIDC works (no stored keys); first deploy succeeded; first live-LLM run (`run_tds_20261031_48d07c`) published to the app; two users (full-access product owner, risk/compliance test user) signed in. Cost guard: $75/month budget with email alerts and an automatic spend block at 100%. Runbooks in the hosting & operations doc.
+- Account history: Free → Paid plan (2026-11-06); organization advanced features activated (2026-11-09) to lift the free-plan SCP; AWS support case updated as resolved.
+
+## Next steps (agreed order, 2026-11-09)
+1. ~~Documentation catch-up (hosting & operations doc, architecture as deployed, sign-in guide, status).~~ Done 2026-11-09.
+2. Security before more users: split the GitHub deploy role per workflow and require a GitHub environment; require MFA for approvers and admins; record approvals against the Cognito user ID/email.
+3. Records integrity: WORM evidence store (S3 Object Lock), daily ledger anchor, insert-only ledger grants, longer backups. Needs the retention period (baseline ≥ 5 years per doc 04 REC-3 until the CCO confirms).
+4. UAT of the role screens with both test users (Phase 3 exit criterion); fix what testing finds.
+5. Operating loop: schedule `agent-run` after the monthly data refresh, with notifications.
+6. Smaller items: CloudWatch alarms; Node 20 action updates; remaining least-privilege steps (CDK execution role, Access Analyzer review).
+- Later: vendor data (holdings, characteristics, factor model); second product type; human CCO; suggested risk add-ons await direction.
 
 ## Strategy in one paragraph
 Rebuild the paper's SAA pipeline first on public data in **shadow mode** (no money moves), wrapped from day one in the decision ledger and the compliance engine — those two are what make this a product rather than a research demo. Then widen: portfolio hierarchy and look-through, fixed income and derivatives analytics, manager selection/FoF, and finally implementation proposals to your OMS. Learning agents come last, behind change control. Run in parallel against the human process for at least two quarters before any approval workflow is live.
@@ -74,7 +83,7 @@ meridian/
 2. **Bring your CCO/compliance counsel in now.** Share docs 04 and 05 with them. Ask them to confirm which regimes apply (doc 04 §2) and the retention schedule.
 3. **Provide a pilot IPS.** Upload your actual IPS (PDF/Word) to this project, or tell me to use the paper's example IPS.
 4. **Data access.** For the pilot I'll use free public data. For production, confirm which vendors you license (Bloomberg, FactSet, MSCI, eVestment, custodian feeds) and ask each vendor whether their license permits use in LLM/AI workflows — many contracts restrict this.
-5. **Cloud & keys (Phase 2+).** Provision a cloud account/tenant and an Anthropic API key (console.anthropic.com) for the agent runtime. Never paste keys into chat; I'll give you instructions for storing them as secrets.
+5. **Cloud & keys.** Done: AWS account on the Paid plan with organization advanced features; app deployed via GitHub OIDC (no AWS keys); Anthropic and FRED keys stored as GitHub secrets. Never paste keys into chat.
 6. **Name a model-risk owner and an IC sponsor.** They approve change requests and autonomy levels.
 7. **Schedule parallel-run reviews** (monthly) once Phase 1 is running.
 

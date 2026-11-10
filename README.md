@@ -42,7 +42,12 @@ A sample is committed in `examples/sample-run/`.
 | `schemas/` | Output contracts |
 | `src/meridian/ui/` | Role-adaptive Meridian Console |
 | `notebooks/` | Jupyter workbenches (PM, research, compliance/audit) |
-| `docs/` | Product, architecture, compliance, user guides, interfaces |
+| `infra/` | AWS CDK app: hosted Meridian stack and cost guard |
+| `.github/workflows/` | CI, deploy, manage-users, agent-run, data-refresh |
+| `docs/` | Product, architecture, compliance, user guides, interfaces, hosting & operations |
 
-## Status
-Phase 1 pilot running on **synthetic data** in **shadow mode**. Not investment advice. Production is blocked until the required human roles (incl. a human CCO) are filled and the regime packs are reviewed by counsel.
+## Hosted app
+Live at https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK in `infra/`). Users are invited by an admin; deploys, user changes and agent runs go through GitHub Actions with OIDC (no stored AWS keys). See `docs/13-hosting-and-operations.md`.
+
+## Status (2026-11-09)
+Pilot running on **real public data** (synthetic only for non-US valuations, flagged) in **shadow mode**: no money moves. Hosted multi-user app live with role-based sign-in; first live-LLM run published. Not investment advice. Production is blocked until the required human roles (incl. a human CCO) are filled, the regime packs are reviewed by counsel, and the hardening in doc 13 §12 (least-privilege roles, MFA, WORM records) is done.

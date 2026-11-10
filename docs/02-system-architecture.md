@@ -141,6 +141,31 @@ Every agent run emits: JSON outputs (validated against schema), markdown narrati
 | Secrets & access | Cloud KMS/Vault, SSO (Okta/Entra), RBAC/ABAC | |
 | Hosting | Your cloud tenant (AWS/Azure/GCP), private networking | Data residency |
 
+## 9a. As deployed (pilot, 2026-11-09)
+The pilot runs a deliberately smaller stack than the recommendation above. Details, runbooks and planned hardening are in doc 13.
+
+| Concern | Pilot implementation |
+|---|---|
+| Hosting | AWS account 950088505912, us-east-2, defined in AWS CDK (`infra/app.py`), stacks `Meridian` and `MeridianCostGuard` |
+| Edge | CloudFront (HTTPS) → Application Load Balancer that only accepts CloudFront's secret origin header |
+| App | FastAPI + server-rendered Meridian Console on ECS Fargate (1 task) |
+| Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger, positions, change requests, policy overrides |
+| Identity | Amazon Cognito (admin-created users, role groups mapped to app roles, optional TOTP MFA) |
+| Secrets | AWS Secrets Manager (app); GitHub secrets (Anthropic and FRED keys) |
+| Orchestration | GitHub Actions: `ci`, `deploy`, `manage-users`, `agent-run` (live LLM judgment), `data-refresh` (monthly). Temporal is not used yet |
+| CI/CD auth | GitHub OIDC → IAM role `meridian-github-deploy`; no long-lived keys |
+| Cost control | AWS Budgets: $75/month, email alerts, automatic deny policy on deploy roles at 100% |
+| Ledger & WORM | Hash-chained records in Postgres; WORM evidence store not yet built (doc 13 §12) |
+| Observability | CloudWatch Logs (30 days); no alarms yet |
+
+```
+GitHub (code, CI, agent-run) ──OIDC──▶ AWS (us-east-2)
+                                        CloudFront ─▶ ALB ─▶ ECS Fargate (Meridian app) ─▶ RDS PostgreSQL
+                                                                   │
+                                                          Cognito · Secrets Manager · CloudWatch
+agent-run: pulls approved positions from the app ─▶ runs agents (Claude) ─▶ publishes run bundle to the app
+```
+
 ## 10. Security model (agent-specific)
 - Agents run in sandboxes with no network except allow-listed data endpoints.
 - Web content is treated as untrusted data: retrieved text is tagged, never executed as instructions; web-derived claims are labeled in outputs.

@@ -1,7 +1,7 @@
 # Meridian — Agentic Portfolio Management Platform
 
 **Working product name:** Meridian (rename anytime)
-**Status:** Phase 0 — Foundations · **Doc set version:** 0.1 · **Date:** 2026-11-06
+**Status:** Phase 1–3 pilot in shadow mode; hosted app live on AWS · **Doc set version:** 0.2 · **Date:** 2026-11-09
 **Source research:** Ang, Azimbayev & Kim, *The Self-Driving Portfolio: Agentic Architecture for Institutional Asset Management* (SSRN 6504386, April 2026) — `ssrn-6504386.pdf` in this project.
 
 ## What Meridian is
@@ -28,6 +28,7 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 10 | User Interfaces (console, notebooks, hosted app) | Everyone |
 | 11 | Positioning, Risk Budgets & Adjustments | PMs, risk, research |
 | 12 | Risk Analytics (fund risk, factors, stress tests, history, look-through) | Risk, PMs, research, leadership |
+| 13 | Hosting & Operations (AWS deployment, users, deploys, cost guard, runbooks) | Platform admin, engineering, audit, compliance |
 | IPS | `policies/ips/meridian-target-retirement-series-ips.md` | Everyone |
 
 ## Guiding principles
