@@ -60,7 +60,7 @@ Workflows that use the role:
 | `manage-users` | Manual | Reads the `Meridian` stack outputs; creates, re-roles or disables Cognito users |
 | `agent-run` | Manual | Reads stack outputs and the ingest token; pulls approved positions, risk history and policy overrides from the app; runs the pipeline with live LLM judgment; publishes the run to the app |
 
-`ci` and `data-refresh` (3rd of each month, 13:17 UTC) do not touch AWS.
+`ci`, `data-refresh` (3rd of each month, 13:17 UTC) and `uat` (manual browser tests, doc 15) do not touch AWS.
 
 ## 4. Deploying
 
@@ -138,7 +138,9 @@ No CloudWatch alarms or uptime notifications exist yet (§12).
 
 - RDS automated backups: 7 days, point-in-time restore. Deletion protection on.
 - Decision ledger: hash-chained records in Postgres, plus each run bundle (including `ledger.jsonl`) as a GitHub workflow artifact.
-- **Gap against docs 04 (REC-2, REC-3) and 05 §3:** there is no WORM (S3 Object Lock) copy, no daily anchor of ledger hashes, and the database user is not restricted to insert-only on ledger tables. Fine for a shadow-mode pilot; must be closed before parallel-run output is treated as books and records (§12).
+- Decision records are append-only in the database itself: triggers refuse any UPDATE, DELETE or TRUNCATE on `ledger_records`, whoever issues them (added 2026-11-09, no cost).
+- Retention applied by the pipeline: 6 years (strictest selected regime).
+- **Gap against docs 04 (REC-2, REC-3) and 05 §3:** no WORM (S3 Object Lock) copy and no daily anchor of ledger hashes; backups kept 7 days. Deferred to production by the product owner because they add AWS cost (§12).
 
 ## 10. Secrets and keys
 
@@ -164,7 +166,7 @@ Keys are never pasted into chat or committed. Secret values are entered by the p
 | Narrow `cdk-hnb659fds-cfn-exec-role` with a custom execution policy and permissions boundary | CloudFormation acts as this role during deploys; it has admin by default |
 | Require MFA for approvers and admins | Approvals are regulated decisions |
 | Record approvals against the Cognito user ID/email, not the display name | Unambiguous identity for audit and segregation of duties |
-| WORM evidence store (S3 Object Lock), daily ledger anchor, insert-only ledger grants, longer backup retention | Docs 04 REC-2/REC-3 and 05 §3 |
+| WORM evidence store (S3 Object Lock), daily ledger anchor, longer backup retention (deferred to production: adds cost) | Docs 04 REC-2/REC-3 and 05 §3 |
 | CloudWatch alarms (5xx, unhealthy target, database storage/CPU) emailed to the admin | Today an outage would go unnoticed |
-| Schedule `agent-run` after the monthly data refresh, with a notification | Operating loop |
+| Schedule `agent-run` after the monthly data refresh, with a notification (held: runs stay ad hoc during development) | Operating loop |
 | Update GitHub Actions still on Node 20 | Deprecation warnings |

@@ -128,3 +128,22 @@ def test_origin_verify_blocks_direct_access(client, monkeypatch):
 def test_no_role_page(client):
     login(client, "Nobody")
     assert client.get("/runs/latest").status_code == 403
+
+
+def test_ledger_is_append_only_in_database(tmp_path):
+    """Decision records can be added but never changed or deleted, even with direct SQL (doc 05 §3)."""
+    import pytest as _pt
+    from sqlalchemy import text
+    from sqlalchemy.exc import DatabaseError
+    from meridian.app.store import Store
+    st = Store(f"sqlite:///{tmp_path}/ledger.db")
+    Store(f"sqlite:///{tmp_path}/ledger.db")          # second start-up: triggers are idempotent
+    with st.engine.begin() as c:
+        c.execute(text("INSERT INTO ledger_records (run_id, seq, dr_id, record, record_hash) "
+                       "VALUES ('r1', 0, 'dr_1', '{}', 'h')"))
+    for sql in ("UPDATE ledger_records SET record_hash='x'", "DELETE FROM ledger_records"):
+        with _pt.raises(DatabaseError, match="append-only"):
+            with st.engine.begin() as c:
+                c.execute(text(sql))
+    with st.engine.begin() as c:
+        assert c.execute(text("SELECT record_hash FROM ledger_records")).scalar() == "h"

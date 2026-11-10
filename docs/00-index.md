@@ -29,6 +29,8 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 11 | Positioning, Risk Budgets & Adjustments | PMs, risk, research |
 | 12 | Risk Analytics (fund risk, factors, stress tests, history, look-through) | Risk, PMs, research, leadership |
 | 13 | Hosting & Operations (AWS deployment, users, deploys, cost guard, runbooks) | Platform admin, engineering, audit, compliance |
+| 14 | User Personas (roles, day-to-day, critical needs, gaps) | Everyone, product |
+| 15 | UAT Test Scripts (per role, automated browser tests, findings) | Product owner, testers |
 | IPS | `policies/ips/meridian-target-retirement-series-ips.md` | Everyone |
 
 ## Guiding principles

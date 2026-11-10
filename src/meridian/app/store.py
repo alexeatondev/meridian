@@ -83,6 +83,32 @@ class Store:
         self.engine = create_engine(url, **kw)
         self.Session = sessionmaker(self.engine, expire_on_commit=False)
         Base.metadata.create_all(self.engine)
+        self._protect_ledger()
+
+    def _protect_ledger(self) -> None:
+        """Make ledger_records append-only in the database itself (doc 05 §3, REC-2).
+
+        Any UPDATE or DELETE on a decision record is rejected by a trigger, whoever issues it. Idempotent.
+        """
+        from sqlalchemy import text
+        dialect = self.engine.dialect.name
+        with self.engine.begin() as c:
+            if dialect == "postgresql":
+                c.execute(text("""
+                    CREATE OR REPLACE FUNCTION meridian_ledger_append_only() RETURNS trigger AS $$
+                    BEGIN
+                      RAISE EXCEPTION 'ledger_records is append-only: % is not allowed', TG_OP;
+                    END; $$ LANGUAGE plpgsql"""))
+                c.execute(text("DROP TRIGGER IF EXISTS ledger_append_only ON ledger_records"))
+                c.execute(text("""CREATE TRIGGER ledger_append_only BEFORE UPDATE OR DELETE ON ledger_records
+                                  FOR EACH ROW EXECUTE FUNCTION meridian_ledger_append_only()"""))
+                c.execute(text("DROP TRIGGER IF EXISTS ledger_no_truncate ON ledger_records"))
+                c.execute(text("""CREATE TRIGGER ledger_no_truncate BEFORE TRUNCATE ON ledger_records
+                                  FOR EACH STATEMENT EXECUTE FUNCTION meridian_ledger_append_only()"""))
+            elif dialect == "sqlite":
+                for op in ("UPDATE", "DELETE"):
+                    c.execute(text(f"""CREATE TRIGGER IF NOT EXISTS ledger_no_{op.lower()} BEFORE {op} ON ledger_records
+                                      BEGIN SELECT RAISE(ABORT, 'ledger_records is append-only: {op} is not allowed'); END"""))
 
     # ------------------------------------------------------------------ runs
     def ingest_run(self, run_dir: Path, source: str = "ingest") -> str:

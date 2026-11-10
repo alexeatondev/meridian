@@ -1,0 +1,43 @@
+name: uat
+# Browser tests of every role's top tasks (docs: UAT scripts). Manual only, to keep Actions minutes low.
+# Runs the app locally on the runner with development sign-in and SQLite; nothing touches AWS.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MERIDIAN_OFFLINE: "1"
+      MERIDIAN_LLM: "off"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - run: pip install -e ".[dev,app,e2e]"
+      - run: python -m playwright install --with-deps chromium
+      - name: Role tests (one per UAT script)
+        run: pytest tests/e2e -v --tracing retain-on-failure --screenshot only-on-failure --junitxml=uat-results.xml
+      - name: Summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET, os
+          r = ET.parse("uat-results.xml").getroot(); s = r if r.tag == "testsuite" else r.find("testsuite")
+          t, f, e, k = (int(s.get(x, 0)) for x in ("tests", "failures", "errors", "skipped"))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write(f"## UAT browser tests\n\n{t - f - e - k} passed · {f + e} failed · {k} skipped/expected-fail\n\n| Test | Result |\n|---|---|\n")
+              for c in s.iter("testcase"):
+                  res = "FAIL" if c.find("failure") is not None or c.find("error") is not None else ("expected fail / skipped" if c.find("skipped") is not None else "pass")
+                  out.write(f"| {c.get('name')} | {res} |\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uat-evidence
+          path: |
+            uat-results.xml
+            test-results/
+          retention-days: 30

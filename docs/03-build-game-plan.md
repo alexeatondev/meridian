@@ -14,9 +14,9 @@
 ## Next steps (agreed order, 2026-11-09)
 1. ~~Documentation catch-up (hosting & operations doc, architecture as deployed, sign-in guide, status).~~ Done 2026-11-09.
 2. *Deferred by the product owner (2026-11-09) until later in the build:* security before more users: split the GitHub deploy role per workflow and require a GitHub environment; require MFA for approvers and admins; record approvals against the Cognito user ID/email.
-3. Records integrity: WORM evidence store (S3 Object Lock), daily ledger anchor, insert-only ledger grants, longer backups. Needs the retention period (baseline ≥ 5 years per doc 04 REC-3 until the CCO confirms).
-4. UAT of the role screens with both test users (Phase 3 exit criterion); fix what testing finds.
-5. Operating loop: schedule `agent-run` after the monthly data refresh, with notifications.
+3. Records integrity. **Done (no cost), 2026-11-09:** the database refuses any UPDATE, DELETE or TRUNCATE of decision records (append-only triggers, tested on PostgreSQL 16). The pipeline already applies 6-year retention (strictest selected regime). **Deferred to production because they add AWS cost:** WORM evidence copy (S3 Object Lock), daily ledger anchor job, longer database backups (doc 13 §12).
+4. UAT of the role screens (Phase 3 exit criterion). **Started 2026-11-09:** personas (doc 14), UAT scripts per role (doc 15) and 34 automated browser tests that run the same scripts locally or on demand in GitHub (`uat` workflow; no AWS cost). Automated round 0 found F-1 (open, needs a decision) and F-2 (fixed). Next: you run the scripts by hand with both logins.
+5. *Held by the product owner (2026-11-09):* operating loop (scheduled `agent-run` with notifications). Runs stay ad hoc to limit cost during development.
 6. Smaller items: CloudWatch alarms; Node 20 action updates; remaining least-privilege steps (CDK execution role, Access Analyzer review).
 - Later: vendor data (holdings, characteristics, factor model); second product type; human CCO; suggested risk add-ons await direction.
 

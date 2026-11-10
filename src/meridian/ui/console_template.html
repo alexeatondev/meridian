@@ -801,7 +801,7 @@ function bind(){
   const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
 }
 window.addEventListener('resize',()=>{glideChart();activeChart();riskCharts()});
-window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(ROLES[h]&&h!==state.role){state.role=h;state.tab=null;render()}});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(ROLES[h]&&allowedRoles().includes(h)&&h!==state.role){state.role=h;state.tab=null;render()}});
 render();
 </script>
 </body>

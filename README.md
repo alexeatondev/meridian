@@ -16,7 +16,7 @@ pip install -e ".[dev]"
 meridian entities show            # which regulatory regimes are active
 meridian data                     # which data sources are plugged in
 meridian run target-date --as-of 2026-10-31
-pytest
+pytest                            # add the e2e extra + `python -m playwright install chromium` to include browser tests
 meridian ui                       # build the role-based Meridian Console for the latest run
 meridian approve runs/<run_id> --vintage 2050 --role portfolio_manager --name "Dev" --decision approve --reason "..."
 jupyter lab notebooks/            # PM, research and compliance workbenches
