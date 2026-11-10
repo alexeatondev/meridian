@@ -1,6 +1,6 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.4 · 2026-11-09**
+**Version 0.5 · 2026-11-10**
 
 ## Status (2026-11-09)
 - Repo live: github.com/alexeatondev/meridian
@@ -11,14 +11,26 @@
 - **Hosted app live (2026-11-09):** https://d3maw6l4k5cc0v.cloudfront.net on AWS (us-east-2, CDK). GitHub → AWS sign-in via OIDC works (no stored keys); first deploy succeeded; first live-LLM run (`run_tds_20261031_48d07c`) published to the app; two users (full-access product owner, risk/compliance test user) signed in. Cost guard: $75/month budget with email alerts and an automatic spend block at 100%. Runbooks in doc 13 (Hosting & Operations).
 - Account history: Free → Paid plan (2026-11-06); organization advanced features activated (2026-11-09) to lift the free-plan SCP; AWS support case updated as resolved.
 
-## Next steps (agreed order, 2026-11-09)
-1. ~~Documentation catch-up (hosting & operations doc, architecture as deployed, sign-in guide, status).~~ Done 2026-11-09.
-2. *Deferred by the product owner (2026-11-09) until later in the build:* security before more users: split the GitHub deploy role per workflow and require a GitHub environment; require MFA for approvers and admins; record approvals against the Cognito user ID/email.
-3. Records integrity. **Done (no cost), 2026-11-09:** the database refuses any UPDATE, DELETE or TRUNCATE of decision records (append-only triggers, tested on PostgreSQL 16). The pipeline already applies 6-year retention (strictest selected regime). **Deferred to production because they add AWS cost:** WORM evidence copy (S3 Object Lock), daily ledger anchor job, longer database backups (doc 13 §12).
-4. UAT of the role screens (Phase 3 exit criterion). **Started 2026-11-09:** personas (doc 14), UAT scripts per role (doc 15) and 34 automated browser tests that run the same scripts locally or on demand in GitHub (`uat` workflow; no AWS cost). Automated round 0 found F-1 (open, needs a decision) and F-2 (fixed). Next: you run the scripts by hand with both logins.
-5. *Held by the product owner (2026-11-09):* operating loop (scheduled `agent-run` with notifications). Runs stay ad hoc to limit cost during development.
-6. Smaller items: CloudWatch alarms; Node 20 action updates; remaining least-privilege steps (CDK execution role, Access Analyzer review).
-- Later: vendor data (holdings, characteristics, factor model); second product type; human CCO; suggested risk add-ons await direction.
+## Built since (2026-11-10)
+- Investment Committee and CCO as per-user permissions; fictional roster with a placeholder CCO that stays a production blocker.
+- **User access** screen: add, edit, permissions on/off, disable, delete, access review (CSV), append-only access log, immediate sign-out on access changes.
+- Shared persona gaps closed: **Why?** panels, **Changes since last run**, **Exceptions** workflow (governance-ledger backed), **ledger search across runs** with CSV, **evidence pack** download.
+- UAT round 1 run by hand in the hosted app (doc 15); findings F-4 to F-11 logged, F-5 to F-10 fixed. 99 automated tests.
+
+## Next steps (2026-11-10)
+1. You: review UAT round 1 (doc 15); optionally run RISK-6 with the RCTest login (a true second-person co-approval).
+2. Next functionality: the additional features you are about to describe.
+3. Open UAT findings: F-4 (issuer name normalization in look-through), F-11 (show pending adjustments on Risk budget).
+
+## Backlog (held by the product owner; keep visible)
+| Item | Status | Why it matters |
+|---|---|---|
+| Security hardening: split the GitHub deploy role, require a GitHub environment, require MFA for approvers and admins, record approvals against the Cognito user ID/email (doc 13 §12) | **Held** until later in the build; must be done before anyone beyond test users signs in | Least privilege; unambiguous identity for audit |
+| WORM evidence copy (S3 Object Lock), daily ledger anchor, longer database backups | **Deferred to production** (adds AWS cost) | Books and records (doc 04 REC-2/REC-3) |
+| Scheduled monthly agent run with notifications | **Held**: runs stay ad hoc during development | Operating loop |
+| Next ad hoc run (as of 2026-11-30) | **Held** | Gives "Changes since last run" real data |
+| CloudWatch alarms; Node 20 action updates; remaining least-privilege steps | Backlog | Operations |
+| Risk add-ons (doc 13 §8); vendor data; second product type; human CCO | Awaiting your direction | Product scope |
 
 ## Strategy in one paragraph
 Rebuild the paper's SAA pipeline first on public data in **shadow mode** (no money moves), wrapped from day one in the decision ledger and the compliance engine — those two are what make this a product rather than a research demo. Then widen: portfolio hierarchy and look-through, fixed income and derivatives analytics, manager selection/FoF, and finally implementation proposals to your OMS. Learning agents come last, behind change control. Run in parallel against the human process for at least two quarters before any approval workflow is live.

@@ -46,6 +46,7 @@ def app_url(tmp_path_factory):
                        "INGEST_TOKEN": INGEST_TOKEN, "SESSION_SECRET": "e2e-session-secret",
                        "MERIDIAN_LLM": "off"})
     from meridian.pipelines.target_date import run
+    prev_dir = run(as_of="2026-09-30", out_root=tmp / "runs-prev").out_dir     # for "Changes since last run"
     run_dir = run(out_root=tmp / "runs").out_dir
 
     import meridian.app.main as m
@@ -61,9 +62,10 @@ def app_url(tmp_path_factory):
                 break
         except httpx.HTTPError:
             time.sleep(0.1)
-    r = httpx.post(base + "/api/ingest", headers={"Authorization": f"Bearer {INGEST_TOKEN}"},
-                   files={"bundle": ("run.tgz", _bundle(run_dir))}, timeout=60)
-    assert r.status_code == 200, r.text
+    for d in (prev_dir, run_dir):
+        r = httpx.post(base + "/api/ingest", headers={"Authorization": f"Bearer {INGEST_TOKEN}"},
+                       files={"bundle": ("run.tgz", _bundle(d))}, timeout=60)
+        assert r.status_code == 200, r.text
     yield base
     server.should_exit = True
     t.join(timeout=5)

@@ -121,6 +121,19 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | ADM-4 | Sign in with only a permission (e.g. `investment_committee`) and no workspace role | "No Meridian role" page | `test_perm_04` |
 | COMP-5 | Compliance analyst without the CCO permission vs the CCO | Analyst refused (403); CCO passes the permission check | `test_perm_03` |
 
+## OVS — Shared oversight features (built 2026-11-10)
+
+| # | Step | Expected result | Auto test |
+|---|---|---|---|
+| OVS-1 | PM → Portfolios & proposals → 2050 → **Why?** | Panel lists the records behind the proposal (CIO ensemble, risk report, votes, approvals, adjustments) and the inputs shared by the run; Esc closes it | `test_ovs_01` |
+| OVS-2 | Compliance → Compliance → **why** under a vintage → open a record | Panel for that vintage; "open in ledger" jumps to the full record with hashes | `test_ovs_02` |
+| OVS-3 | Research → Capital market assumptions → US Large Cap → **All records** | The CMA judge record and its method records | `test_ovs_03` |
+| OVS-4 | Leadership → **Changes since last run** | Previous run named; regime change; per vintage equity, E[r], vol, TE, ensemble, largest weight moves, compliance; CMAs that moved most. With only one run: "No earlier run to compare with yet" | `test_ovs_04` |
+| OVS-5 | Compliance raises an exception with owner and due date → owner (PM) marks it remediated → Risk can't close → a different Compliance user closes | Each step recorded with a reason; the opener can't close their own case alone | `test_ovs_05` |
+| OVS-6 | Risk tries to accept an exception; CCO accepts for 400 days, then 90 days | Risk refused; 400 days refused (max 365); 90 days accepted; ledger search shows `exception.open` and `exception.accept` in the governance ledger | `test_ovs_06` |
+| OVS-7 | Audit → Decision ledger → **Download evidence pack**; **Search all runs** → Download CSV; PM tries search | Evidence downloads; search returns matches with CSV; PM refused | `test_ovs_07` |
+| OVS-8 | Round 1 fixes: workspace label, Underlying funds proxies, report note, ledger header | "Leadership"; Returns proxy and Holdings proxy columns; note explaining record counts; no "verified verified" | `test_ovs_08` |
+
 ---
 
 ## Findings log
@@ -129,6 +142,14 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 |---|---|---|---|---|
 | F-1 | 2026-11-09, writing UAT-LEAD | Medium (latent) | Leadership and Compliance approve as `investment_committee` and `chief_compliance_officer`, but sign-in groups are `leadership` and `compliance`, so the hosted app refuses those approvals. Routine proposals only need PM + Risk, so it shows up only when a glide-path change or exception needs IC or CCO approval. | **Fixed** 2026-11-09: new per-user permissions `investment_committee` and `chief_compliance_officer` (switch on/off with manage-users `grant`/`revoke`); the approve form only appears for people who hold the authority |
 | F-2 | 2026-11-09, automated ACC-3 | Medium | Changing the address to another workspace (`#pm`) switched an Audit-only user into that workspace's screens. The server already refused actions for roles the user doesn't hold. | **Fixed** 2026-11-09 (workspace switch now limited to the user's roles); covered by `test_access_03` |
+| F-4 | 2026-11-10, round 1 (RISK-5) | Low | Look-through lists the same issuer under several names ("TREASURY NOTE", "(OLD)", "(2OLD)", "TBILL TREASURY BILL"), so exposure to one issuer is split across rows | Open — data backlog (normalize issuer names in the holdings feed) |
+| F-5 | 2026-11-10, round 1 (MGR-3) | Medium | Underlying funds showed only the returns proxy (Vanguard ETFs) while look-through uses iShares holdings, with no explanation | **Fixed** 2026-11-10: both proxies shown and explained (`test_ovs_08`) |
+| F-6 | 2026-11-10, round 1 (ADM-11) | Low | Workspace label "Leadership / IC" misleading now that Investment Committee is a separate permission | **Fixed**: label is "Leadership" |
+| F-7 | 2026-11-10, round 1 (AUD-2) | Low | Ledger header read "verified verified" | **Fixed** |
+| F-8 | 2026-11-10, round 1 (COMP-3) | Low | Compliance report quotes the ledger size at run time (118) while the live ledger has more (123), unexplained | **Fixed**: note above the report |
+| F-9 | 2026-11-10, round 1 (COMP-4) | Medium | Human decisions are hard to find among system records; search limited to one run | **Fixed**: Search all runs with type, vintage, actor and date filters, CSV export |
+| F-10 | 2026-11-10, automated OVS-5 | Medium | With 13 PM tabs, the bottom tabs fell off short screens with no way to scroll | **Fixed**: side bar scrolls |
+| F-11 | 2026-11-10, round 1 (PM-4) | Low | Risk budget shows the proposal's tracking error, not the effect of a pending adjustment | Open — design question: show pending adjustments next to the proposal? |
 | F-3 | 2026-11-09, design review | Low (informational) | Each run's page carries the full run data for every workspace; roles limit screens and actions, not data. Fine while every user may see the whole pilot; portfolio-level entitlements (doc 05 §7) would need server-side filtering. | Open — for the entitlements design |
 
 ## Results log (fill in per UAT round)
@@ -137,3 +158,5 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 |---|---|---|---|---|---|
 | 0 (automated) | 2026-11-09 | Browser tests | All | 34 pass, F-1 expected fail | Found F-1, F-2 |
 | 0b (automated) | 2026-11-09 | Browser tests | All + permissions | 38 pass | F-1 fixed; placeholder CCO verified as still a blocker |
+| 1 (manual, hosted) | 2026-11-10 | Claude, in Alex Eaton's signed-in session | PM-1–5, RISK-1–5 and 7, RES-1–3, MGR-1–3, LEAD-1–3 and 5, COMP-1–4, AUD-1–3, ADM-2, ADM-10–13 | All run steps passed. Not run: RISK-6 (needs a second person), ACC-1–3 and ADM-14–15 (need other logins; covered by automated tests) | Found F-4 to F-9, F-11. Approvals, one adjustment and a disabled test login (aeaton3252+uat@gmail.com) are in the live ledger and access log, all marked "UAT (run by Claude for Alex)" |
+| 2 (automated) | 2026-11-10 | Browser + API tests | All + OVS | 99 pass | Found F-10; F-5 to F-10 fixed |

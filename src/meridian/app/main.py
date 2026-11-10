@@ -45,6 +45,9 @@ def store() -> Store:
 from .admin import router as _admin_router
 
 app.include_router(_admin_router)
+from .oversight import router as _oversight_router  # noqa: E402
+
+app.include_router(_oversight_router)
 
 
 def _revoked_after(email: str):
@@ -181,6 +184,10 @@ def console(request: Request, run_id: str):
             "role_ids": {auth.CONSOLE_ROLE[r]: r for r in user["roles"] if r in auth.CONSOLE_ROLE},
             "permissions": [r for r in user["roles"] if r in auth.PERMISSIONS],
             "csrf": user["csrf"], "runs": st.list_runs()[:24], "run_id": rid}
+    from .oversight import list_cases, previous_summary
+    live["prev"] = previous_summary(st, run)
+    live["exceptions"] = list_cases()
+    live["governance"] = [r for r in st.ledger("governance") if r.get("dr_type") == "exception"][-300:]
     return HTMLResponse(console_html(run.results, ledger, {"ok": ok, "message": msg}, run.board_memo,
                                      run.compliance_report, st.change_requests(), pol, live))
 
@@ -314,7 +321,9 @@ async def ingest(request: Request, bundle: UploadFile = File(...)):
             rid = store().ingest_run(Path(d))
         except ValueError as e:
             raise HTTPException(409, str(e))
-    return {"run_id": rid, "ledger": msg}
+    from .oversight import open_from_run
+    opened = open_from_run(rid, store().get_run(rid).results)
+    return {"run_id": rid, "ledger": msg, "exceptions_opened": opened}
 
 
 @app.get("/api/export/positions.csv")

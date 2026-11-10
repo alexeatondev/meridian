@@ -13,13 +13,13 @@ Meridian has three interfaces over the same data and the same decision ledger. E
 ## Console — what each role sees
 | Role (sign-in group) | Workspace tabs | Home page shows | Can act |
 |---|---|---|---|
-| Portfolio Manager (`portfolio_manager`) | Home · Funds & vintages · Positioning · Portfolios & proposals · Fund risk · Risk budget · Metrics · Look-through & search · Glide path · Approvals · Agent votes | Proposals awaiting you, largest tilt, expected returns | Approve / reject / request changes; adjust weights; request risk-budget changes |
-| Risk Analytics (`risk`) | Home · Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk · Positioning · Portfolios & proposals · Approvals | Max TE vs limit, worst simulated drawdown, warnings | Co-approve tilts and adjustments; request/approve risk-budget changes |
-| Research / Analyst (`analyst`) | Home · Positioning · Metrics · Factor risk · Look-through & search · Capital market assumptions · Agent votes · Glide path | Regime, biggest CMA-judge adjustment, competing methods | Adjust weights (absolute/relative) for approval |
+| Portfolio Manager (`portfolio_manager`) | Home · Funds & vintages · Positioning · Portfolios & proposals · Changes since last run · Fund risk · Risk budget · Metrics · Look-through & search · Glide path · Approvals · Exceptions · Agent votes | Proposals awaiting you, largest tilt, expected returns | Approve / reject / request changes; adjust weights; request risk-budget changes |
+| Risk Analytics (`risk`) | Home · Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk · Positioning · Portfolios & proposals · Approvals · Exceptions | Max TE vs limit, worst simulated drawdown, warnings | Co-approve tilts and adjustments; request/approve risk-budget changes |
+| Research / Analyst (`analyst`) | Home · Positioning · Changes since last run · Metrics · Factor risk · Look-through & search · Capital market assumptions · Agent votes · Glide path | Regime, biggest CMA-judge adjustment, competing methods | Adjust weights (absolute/relative) for approval |
 | Manager Selection (`manager_selection`) | Home · Funds & vintages · Underlying funds · Look-through & search · Positioning | Funds, derivatives use, liquidity | (DD workflow — roadmap Phase 5) |
-| Leadership / IC (`leadership`) | Home · Funds & vintages · Board memo · Fund risk · Stress tests · Risk budget · Metrics · Glide path · Approvals | Approvals outstanding, production blockers, compliance status | Approve glide-path changes |
-| Compliance (`compliance`) | Home · Compliance · Risk budget · Look-through & search · Compliance report · Decision ledger | FAILs, warnings, attestations, blockers | Attest; approve exceptions |
-| Audit (`audit`) | Home · Decision ledger · Compliance · Compliance report | Ledger integrity, actors, retention | Read-only |
+| Leadership (`leadership`) | Home · Funds & vintages · Board memo · Changes since last run · Fund risk · Stress tests · Risk budget · Metrics · Glide path · Approvals · Exceptions | Approvals outstanding, production blockers, compliance status | Approve glide-path changes |
+| Compliance (`compliance`) | Home · Compliance · Exceptions · Risk budget · Look-through & search · Compliance report · Decision ledger | FAILs, warnings, attestations, blockers | Attest; approve exceptions |
+| Audit (`audit`) | Home · Decision ledger · Exceptions · Compliance · Compliance report | Ledger integrity, actors, retention | Read-only |
 | Admin (`admin`) | **User access** screen (`/admin`), plus the read-only Audit view of the console | — | Add, edit, disable and delete users; switch permissions on/off; access review and access log (doc 13 §5). Deploys happen in GitHub Actions |
 
 A person with several roles picks the workspace from the role selector in the side bar; only their own roles are listed.
@@ -27,7 +27,9 @@ A person with several roles picks the workspace from the role selector in the si
 **Permissions** (switched on or off per person, doc 13 §5) sit on top of workspaces: `investment_committee` lets a Leadership user record committee decisions, and `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes. Without the permission the approval form is replaced by a note saying which permission is needed; the server refuses the decision either way.
 
 Design rules applied across every view:
-- **"Why?" is always one click away.** Every proposal shows its rationale, ensemble, invalidation conditions, dissent and links to its decision records.
+- **"Why?" is always one click away.** Every proposal shows its rationale, ensemble, invalidation conditions and dissent; **Why?** buttons on proposals, compliance results and CMAs list the decision records behind them (people's decisions highlighted), with a jump to the full record for Compliance and Audit.
+- **Exceptions are worked to closure.** Rule-engine WARN/FAIL results open an exception automatically; Compliance and Risk can raise one. Owner, due date, notes, remediation, CCO acceptance (always time-limited, at most 365 days) and closure (by Compliance, not by the opener alone) are each written to the hash-chained governance ledger.
+- **Evidence on demand.** Compliance and Audit can search every run's ledger and the governance ledger (words, type, vintage, actor, dates), export the results as CSV for sampling, and download a run's evidence pack.
 - **Approvals cannot be rubber-stamped.** The approver must tick that they read the rationale, dissent and compliance results, and must give a reason. FAILs block approval in the UI and again in code.
 - **Segregation of duties.** One person can't decide the same vintage in two roles, and a requester can't approve their own risk-budget change.
 - **Synthetic-data and compliance status banners** appear on every page.

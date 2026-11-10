@@ -18,6 +18,7 @@
 - **Status chips:** `PASS / WARN / FAIL` (compliance), `L2/L3/L4` (autonomy of the pipeline), `Dissent` (minority views exist — read them).
 - **Ask Meridian:** type a question; answers cite DR IDs. It only sees what you're entitled to see and cannot change anything.
 - **Golden rule:** your approval is a decision you own. Read the rationale and dissent; record your reason.
+- **Built (2026-11-10):** **Why?** buttons on proposals, compliance results and capital market assumptions open the decision records behind the number. **Changes since last run** (PM, Research, Leadership) compares with the previous run. **Exceptions** (PM, Risk, Leadership, Compliance, Audit) tracks breaches and warnings to closure. Compliance and Audit can **search all runs** in the Decision ledger, download results as CSV, and **download the evidence pack**.
 
 ---
 

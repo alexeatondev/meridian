@@ -8,7 +8,7 @@ from conftest import open_tab, tabs
 # ---------------------------------------------------------------- Research
 def test_res_01_workspace(sign_in):
     p = sign_in("Priya Raman", "analyst")
-    assert tabs(p) == ["Home", "Positioning", "Metrics", "Factor risk", "Look-through & search",
+    assert tabs(p) == ["Home", "Positioning", "Changes since last run", "Metrics", "Factor risk", "Look-through & search",
                        "Capital market assumptions", "Agent votes", "Glide path"]
 
 
@@ -53,8 +53,8 @@ def test_mgr_03_underlying_funds(sign_in):
 # ---------------------------------------------------------------- Leadership / IC
 def test_lead_01_workspace(sign_in):
     p = sign_in("Elena Rossi", "leadership")
-    assert tabs(p) == ["Home", "Funds & vintages", "Board memo", "Fund risk", "Stress tests", "Risk budget",
-                       "Metrics", "Glide path", "Approvals"]
+    assert tabs(p) == ["Home", "Funds & vintages", "Board memo", "Changes since last run", "Fund risk", "Stress tests",
+                       "Risk budget", "Metrics", "Glide path", "Approvals", "Exceptions"]
 
 
 def test_lead_02_board_memo(sign_in):
@@ -73,7 +73,7 @@ def test_lead_03_stress_losses(sign_in):
 # ---------------------------------------------------------------- Compliance
 def test_comp_01_workspace(sign_in):
     p = sign_in("Robert Hayes", "compliance")
-    assert tabs(p) == ["Home", "Compliance", "Risk budget", "Look-through & search", "Compliance report",
+    assert tabs(p) == ["Home", "Compliance", "Exceptions", "Risk budget", "Look-through & search", "Compliance report",
                        "Decision ledger"]
 
 
@@ -109,7 +109,7 @@ def test_comp_04_trace_an_approval_in_the_ledger(sign_in):
 # ---------------------------------------------------------------- Audit
 def test_audit_01_read_only_workspace(sign_in):
     p = sign_in("Grace Liu", "audit")
-    assert tabs(p) == ["Home", "Decision ledger", "Compliance", "Compliance report"]
+    assert tabs(p) == ["Home", "Decision ledger", "Exceptions", "Compliance", "Compliance report"]
     assert p.query_selector("[data-decide]") is None
 
 

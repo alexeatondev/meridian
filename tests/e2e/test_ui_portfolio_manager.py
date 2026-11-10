@@ -1,8 +1,8 @@
 """UAT-PM: Portfolio Manager (persona: Maya Chen). See docs UAT scripts, section PM."""
 from conftest import open_tab, tabs, toast_text
 
-PM_TABS = ["Home", "Funds & vintages", "Positioning", "Portfolios & proposals", "Fund risk", "Risk budget",
-           "Metrics", "Look-through & search", "Glide path", "Approvals", "Agent votes"]
+PM_TABS = ["Home", "Funds & vintages", "Positioning", "Portfolios & proposals", "Changes since last run", "Fund risk",
+           "Risk budget", "Metrics", "Look-through & search", "Glide path", "Approvals", "Exceptions", "Agent votes"]
 
 
 def test_pm_01_sees_only_pm_workspace(sign_in):

@@ -272,9 +272,9 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 
 | Gap | Roles that need it | Roadmap fit |
 |---|---|---|
-| "Why?" link from any number to its decision record; diff vs last run | PM, Leadership, Compliance, Audit | Phase 3 |
-| Evidence-pack export button; ledger search across runs | Compliance, Audit | Phase 2/3 |
-| Exception workflow (owner, deadline, resolution) | Compliance, Risk | Phase 2 |
+| ~~"Why?" link from any number to its decision record; diff vs last run~~ | PM, Leadership, Compliance, Audit | **Built 2026-11-10** |
+| ~~Evidence-pack export button; ledger search across runs~~ | Compliance, Audit | **Built 2026-11-10** |
+| ~~Exception workflow (owner, deadline, resolution)~~ | Compliance, Risk | **Built 2026-11-10** |
 | Kill switch and autonomy controls; governance KPIs | Leadership, Admin | Phase 2/3 |
 | Risk add-ons: liquidity, expected shortfall, VaR backtest, ex-post vs ex-ante | Risk, Compliance | Doc 13 §8 (awaiting direction) |
 | Performance and attribution | PM, Leadership, Manager Selection | Not yet planned |

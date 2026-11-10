@@ -2,7 +2,8 @@
 from conftest import open_tab, switch_workspace, tabs, toast_text
 
 RISK_TABS = ["Home", "Fund risk", "Factor risk", "Stress tests", "Risk history", "Look-through & search",
-             "Risk budget", "Metrics", "Candidate risk", "Positioning", "Portfolios & proposals", "Approvals"]
+             "Risk budget", "Metrics", "Candidate risk", "Positioning", "Portfolios & proposals", "Approvals",
+             "Exceptions"]
 
 
 def test_risk_01_workspace(sign_in):
