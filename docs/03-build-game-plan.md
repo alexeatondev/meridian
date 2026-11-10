@@ -13,7 +13,7 @@
 
 ## Next steps (agreed order, 2026-11-09)
 1. ~~Documentation catch-up (hosting & operations doc, architecture as deployed, sign-in guide, status).~~ Done 2026-11-09.
-2. Security before more users: split the GitHub deploy role per workflow and require a GitHub environment; require MFA for approvers and admins; record approvals against the Cognito user ID/email.
+2. *Deferred by the product owner (2026-11-09) until later in the build:* security before more users: split the GitHub deploy role per workflow and require a GitHub environment; require MFA for approvers and admins; record approvals against the Cognito user ID/email.
 3. Records integrity: WORM evidence store (S3 Object Lock), daily ledger anchor, insert-only ledger grants, longer backups. Needs the retention period (baseline ≥ 5 years per doc 04 REC-3 until the CCO confirms).
 4. UAT of the role screens with both test users (Phase 3 exit criterion); fix what testing finds.
 5. Operating loop: schedule `agent-run` after the monthly data refresh, with notifications.
