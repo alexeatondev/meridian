@@ -1,6 +1,6 @@
 # 02 — System Architecture
 
-**Version 0.1 · 2026-11-06**
+**Version 0.2 · 2026-11-09**
 
 ## 1. What we take from the paper, and what we change
 

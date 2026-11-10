@@ -10,7 +10,7 @@ How the hosted Meridian app is built, deployed and run, and what to do when some
 |---|---|
 | App URL | https://d3maw6l4k5cc0v.cloudfront.net (health check: `/healthz`) |
 | AWS account | 950088505912 (member account in organization `o-gz7gwi4fzq`, advanced features activated 2026-11-09) |
-| Region | us-east-2. Organization guardrails (SCPs) deny other Regions; global services (IAM, CloudFront, Budgets) still work |
+| Region | us-east-2. An organization SCP denied this account's deploy role in us-east-1 (seen 2026-11-09); keep all regional resources in us-east-2. Global services (IAM, CloudFront, Budgets) work |
 | Infrastructure as code | AWS CDK (Python), `infra/app.py`, two CloudFormation stacks: `Meridian` and `MeridianCostGuard` |
 | Sign-in | Amazon Cognito user pool `us-east-2_OX4vbNaqC`, hosted sign-in at https://meridian-950088505912.auth.us-east-2.amazoncognito.com |
 | Mode | Shadow mode: no money moves. Hosted app runs with `MERIDIAN_LLM=off`; live LLM judgment runs in the `agent-run` GitHub workflow |
@@ -129,7 +129,7 @@ The alert email address lives in `infra/cdk.json` (`costGuard.email`); the repos
 | App health | `GET /healthz`; ECS and the load balancer health-check the container and replace it if unhealthy |
 | App logs | CloudWatch Logs, stream prefix `meridian`, kept 30 days |
 | Deploy, user and run history | GitHub Actions run logs and summaries |
-| Who did what in AWS | CloudTrail (account default) |
+| Who did what in AWS | CloudTrail event history (90 days, on by default; no long-term trail configured) |
 | Spend | Budget alerts above; Cost Explorer |
 
 No CloudWatch alarms or uptime notifications exist yet (§12).

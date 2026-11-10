@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 0.1 · 2026-11-06 · Applies to: Meridian v1.0 (planned). Screens named here are the target design and will be updated as built.**
+**Version 0.3 · 2026-11-09 · Applies to: Meridian pilot. Screens named here are the target design unless marked as built; the sign-in steps and the Risk Analytics section describe what is built (hosted Meridian Console).**
 
 ## Signing in to the hosted app
 1. Your admin adds you (doc 13 §5). You receive an email from Amazon Cognito with your username (your email) and a temporary password.
@@ -28,11 +28,12 @@
 3. *Run a what-if* — Portfolio cockpit → **Scenario** → change CMAs, add a constraint, or shock a factor → compare against the proposal.
 4. *Understand a change* — **Diff vs. last run** shows the biggest weight changes with the agents' explanations.
 5. *Request an off-cycle run* — Runs → New → choose pipeline and scope; requires your entitlement for that portfolio.
+6. *Check risk and exposures* — **Fund risk** (risk vs benchmark, durations, VaR, weight vs risk) and **Look-through & search** (what each fund holds; who holds a ticker).
 
 **Good practice:** challenge at least one assumption per approval; if the CIO memo's "what would make this wrong" conditions are already near, escalate.
 
 ## 2. Risk Analytics
-Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk**. Methods and definitions: `docs/12-risk-analytics.md`.
+Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk**. Methods and definitions: doc 12 (Risk Analytics).
 1. *Fund-level check* — **Fund risk**: scan every vintage's total vs benchmark risk, active risk, relative duration, relative credit spread duration, VaR 95 / active VaR 95 and diversification. Click a vintage to drill down: risk breakdown by asset class (expand Equity → US/Non-US → size, Developed/Emerging; Fixed Income → long/short-dated → core/HY/TIPS/short-term income) or by underlying fund, and the weight-vs-risk chart (a holding whose risk bar is far longer than its weight bar is a concentrated risk).
 2. *Factor review* — **Factor risk**: switch Total / Active / Benchmark; read which factors drive variance and how exposures differ from the glide path. In **Factor history** pick *All except Equity* to see rates, credit, inflation and real-asset risk over the last 18 months, or drill into one family.
 3. *Stress testing* — **Stress tests**: choose Fund / Benchmark / Active, read historical replays, then step the hypothetical ladder from Normal (1σ) to Crisis (5σ). Use **Build a scenario** for ad-hoc moves (e.g. equities −20%, yields +100bp); switch Correlated/Isolated to see how much of the loss comes from correlation assumptions. Scenario definitions live in `config/risk.yaml` (change-controlled).
@@ -49,6 +50,7 @@ Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Lo
 3. *Review PC-researcher proposals* — Research lab → new methods with shadow results; recommend promotion or retirement.
 4. *Review meta-learner suggestions* — Change requests tagged `meta-learner` include evidence (hit rates, errors by regime); accept, amend or reject.
 5. *Signal library* — define new signals with owner, method, data and tests.
+6. *Factor risk and look-through* — **Factor risk** and **Look-through & search** tabs (built).
 
 ## 4. Manager Selection
 1. *Manager universe* — screen by strategy, style, AUM, track record, fees, liquidity terms.
@@ -56,7 +58,7 @@ Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Lo
 3. *Quant review* — returns-based style analysis, alpha/beta, drawdowns, capture ratios, holdings-based analysis where available, fee drag after layering.
 4. *Manager committee* — agent peer review and vote produce a ranked list with dissent; you finalize the recommendation for IC.
 5. *Monitoring* — manager-event watcher alerts (team departures, style drift, AUM swings, performance outside expected range).
-6. *Look-through* — see FoF exposures aggregated to security/factor level, with staleness flags for lagged or estimated holdings.
+6. *Look-through* — **Look-through & search** (built): each building block's holdings and security-level exposure per vintage, with the proxy fund and holdings date shown.
 
 ## 5. Leadership / CIO / Investment Committee
 1. *Read the board memo* — recommendation, expected performance vs. benchmark, macro rationale, largest positions, changes since last review, key risks, rebalancing plan, IPS compliance statement, dissenting views.
@@ -64,6 +66,7 @@ Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Lo
 3. *Set autonomy* — Governance → pipelines → current level, proposed change, risk assessment → approve (GOV-3).
 4. *KPIs* — cycle time, approvals vs. overrides, forecast accuracy, parallel-run comparison vs. human process, limit breaches.
 5. *Kill switch* — Governance → **Pause**: globally or per pipeline. Use if behavior is unexpected; investigation workflow opens automatically.
+6. *Risk at a glance* — **Fund risk** and **Stress tests** (built): how much each vintage could lose in historical crises and in normal-to-extreme scenarios.
 
 ## 6. Compliance
 1. *Rule library* — Compliance center → rules by policy and portfolio; each rule shows source clause, logic, tests, history. Edits require your approval (PC-2).
@@ -73,12 +76,14 @@ Workspace tabs: **Fund risk · Factor risk · Stress tests · Risk history · Lo
 5. *Challenge sampling* — quarterly random sample of decisions assigned for written review (SUP-5).
 6. *Exam response* — Evidence → **Export pack** by decision, portfolio, rule or date range (doc 05 §6).
 7. *Marketing review* — any external material citing Meridian or backtests routed here (MKT-1/2).
+8. *Issuer exposure* — **Look-through & search** to check exposure to a named issuer across all vintages.
 
 ## 7. Audit (internal & external)
 Read-only. Ledger explorer → search by run, portfolio, agent, approver, date → open any DR → lineage graph → **Verify integrity** (recomputes hashes against WORM-anchored roots) → **Replay** approver screen → export evidence pack.
 
 ## 8. Platform Admin / Model Risk Owner
-**Today (pilot):** add, re-role or disable users and deploy through GitHub Actions; watch cost and health. See doc 13 for the runbooks. **Target design:** agent registry (owners, tiers, versions, validation status) · change requests · model-version pinning · access management (SSO groups → roles → portfolio entitlements) · kill-switch tests · environment health.
+**Today (pilot, built):** add, re-role or disable users, deploy, and run the agent pipeline through GitHub Actions; watch cost alerts and app health. Runbooks: doc 13 (Hosting & Operations).
+**Target design:** agent registry (owners, tiers, versions, validation status) · change requests · model-version pinning · access management (SSO groups → roles → portfolio entitlements) · kill-switch tests · environment health.
 
 ---
 
@@ -90,4 +95,4 @@ Read-only. Ledger explorer → search by run, portfolio, agent, approver, date �
 - [ ] My reason is recorded.
 
 ## Appendix B — Glossary
-**SAA** strategic asset allocation · **TAA** tactical asset allocation · **CMA** capital market assumptions · **PC** portfolio construction · **CRO agent** neutral risk-assessor agent · **CIO agent** ensemble decision agent · **IPS** investment policy statement · **DR** decision record · **Look-through** aggregation of underlying fund holdings · **Borda count** ranked-vote scoring · **LLM-as-judge** an LLM choosing among computed candidates within fixed bounds.
+**SAA** strategic asset allocation · **TAA** tactical asset allocation · **CMA** capital market assumptions · **PC** portfolio construction · **CRO agent** neutral risk-assessor agent · **CIO agent** ensemble decision agent · **IPS** investment policy statement · **DR** decision record · **Look-through** aggregation of underlying fund holdings · **Borda count** ranked-vote scoring · **LLM-as-judge** an LLM choosing among computed candidates within fixed bounds · **VaR 95** loss not exceeded with 95% confidence over the horizon · **Active VaR** VaR of the positions relative to the benchmark · **Spread duration** sensitivity to a parallel change in credit spreads · **Diversification** share of standalone risk removed by imperfect correlation.

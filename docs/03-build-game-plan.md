@@ -7,8 +7,8 @@
 - Done: entity-regime selection, policy-as-code + IPS for the target-date pilot, plug-and-play data layer (direct + Snowflake), CMA judge, 7 PC agents, peer review and Borda vote, CRO, CIO ensemble, board memo, deterministic compliance engine, Agentic Compliance Officer, hash-chained ledger, tests, CI (offline on the committed data cache).
 - Real public data end to end (Yahoo, FRED via API, US Treasury, cited manual inputs, iShares holdings); synthetic only for non-US valuations (flagged). Live LLM judgment via the `agent-run` workflow. Key rotation reminder scheduled for 2026-12-02.
 - Console and notebooks: role-adaptive Meridian Console; positioning with drill-down, risk budgets and governed changes, portfolio metrics, PM/analyst weight adjustments; Jupyter workbenches (PM, research, compliance/audit, risk analytics).
-- Risk analytics (risk analytics doc): fund-level risk, risk breakdown, weight-vs-risk, 10-factor model with 18-month history, historical and hypothetical stress tests with a scenario builder, risk time series, iShares look-through and ticker search.
-- **Hosted app live (2026-11-09):** https://d3maw6l4k5cc0v.cloudfront.net on AWS (us-east-2, CDK). GitHub → AWS sign-in via OIDC works (no stored keys); first deploy succeeded; first live-LLM run (`run_tds_20261031_48d07c`) published to the app; two users (full-access product owner, risk/compliance test user) signed in. Cost guard: $75/month budget with email alerts and an automatic spend block at 100%. Runbooks in the hosting & operations doc.
+- Risk analytics (doc 12): fund-level risk, risk breakdown, weight-vs-risk, 10-factor model with 18-month history, historical and hypothetical stress tests with a scenario builder, risk time series, iShares look-through and ticker search.
+- **Hosted app live (2026-11-09):** https://d3maw6l4k5cc0v.cloudfront.net on AWS (us-east-2, CDK). GitHub → AWS sign-in via OIDC works (no stored keys); first deploy succeeded; first live-LLM run (`run_tds_20261031_48d07c`) published to the app; two users (full-access product owner, risk/compliance test user) signed in. Cost guard: $75/month budget with email alerts and an automatic spend block at 100%. Runbooks in doc 13 (Hosting & Operations).
 - Account history: Free → Paid plan (2026-11-06); organization advanced features activated (2026-11-09) to lift the free-plan SCP; AWS support case updated as resolved.
 
 ## Next steps (agreed order, 2026-11-09)
@@ -59,6 +59,7 @@ meridian/
   ledger/              # decision record writer, hash chain, evidence-pack exporter
   data/                # connectors, snapshotter, point-in-time store
   app/                 # API + UI
+  infra/               # AWS CDK: hosted app and cost guard
   docs/                # this documentation set
   validation/          # model validation suite, golden runs, backtests
 ```
@@ -76,23 +77,25 @@ meridian/
 **I can do directly in this workspace**
 - Write all code, schemas, agent/skill definitions, tests, and documentation.
 - Run Python, install open-source packages, execute pipelines on public data, generate backtests and reports.
+- Deploy through GitHub Actions, manage app users, and read AWS configuration (with your approval for account-level changes).
 - Save documentation to this project; publish dashboards/docs as artifacts.
 
 **You need to do (step by step)**
-1. **Pick where code lives.** Easiest: create a private GitHub repo named `meridian` (github.com → New repository → Private → no template). Then in this chat say "attach repo <your-user>/meridian" and I'll connect and push to it. Without a repo, code lives only in this session's workspace and I'll send you files to download.
+1. **Pick where code lives.** Done: github.com/alexeatondev/meridian.
 2. **Bring your CCO/compliance counsel in now.** Share docs 04 and 05 with them. Ask them to confirm which regimes apply (doc 04 §2) and the retention schedule.
-3. **Provide a pilot IPS.** Upload your actual IPS (PDF/Word) to this project, or tell me to use the paper's example IPS.
-4. **Data access.** For the pilot I'll use free public data. For production, confirm which vendors you license (Bloomberg, FactSet, MSCI, eVestment, custodian feeds) and ask each vendor whether their license permits use in LLM/AI workflows — many contracts restrict this.
+3. **Provide a pilot IPS.** Done (generated IPS, `policies/ips/`).
+4. **Data access.** For the pilot Meridian uses free public data. For production, confirm which vendors you license (Bloomberg, FactSet, MSCI, eVestment, custodian feeds) and ask each vendor whether their license permits use in LLM/AI workflows — many contracts restrict this.
 5. **Cloud & keys.** Done: AWS account on the Paid plan with organization advanced features; app deployed via GitHub OIDC (no AWS keys); Anthropic and FRED keys stored as GitHub secrets. Never paste keys into chat.
 6. **Name a model-risk owner and an IC sponsor.** They approve change requests and autonomy levels.
 7. **Schedule parallel-run reviews** (monthly) once Phase 1 is running.
+8. **Sign in and test.** Done for the first two accounts; next, run the role test scripts (UAT) with both logins.
 
 ## Open questions (answers change the build)
-1. What type of entity will operate this — SEC-registered adviser, broker-dealer, registered fund (1940 Act), private funds, pension/endowment/OCIO? Several apply?
-2. What is the pilot portfolio (structure and approximate asset mix)? Is there an existing FoF?
+1. Which entity types will operate this in production (currently selected: SEC RIA, registered fund, ERISA plan, CFTC derivatives)?
+2. Second product type after the target-date series?
 3. Which data vendors, OMS, and accounting/custody systems are in place?
-4. GitHub (or other) for code? Which cloud?
-5. Target autonomy at go-live: L2 (analysis only) or L3 (proposals with approval)?
+4. Target autonomy at go-live: L2 (analysis only) or L3 (proposals with approval)?
+5. Record retention period for the decision ledger (baseline ≥ 5 years per doc 04 REC-3 until the CCO confirms)?
 
 ## Key risks to the plan
 | Risk | Mitigation |
@@ -101,3 +104,6 @@ meridian/
 | Vendor data licensing blocks LLM use | Check early; keep computation in scripts so LLM sees summaries, not raw licensed data, where required |
 | Over-trust by users | Mandatory reasoned approvals; periodic "challenge" reviews; display dissent prominently |
 | Scope creep across asset classes | Strict phase gates; each asset class added via template + tests |
+| Proxy data differs from the real building-block funds | Proxies labeled everywhere; vendor/custodian holdings and characteristics plug into the same datasets |
+| Hosted app runs with broad cloud permissions and no WORM records yet | Hardening plan in doc 13 §12, done before parallel-run output is treated as books and records |
+| AWS spend exceeds budget | Cost guard: alerts at 80%/forecast, automatic spend block at 100% (doc 13 §7) |
