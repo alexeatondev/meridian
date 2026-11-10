@@ -1,0 +1,78 @@
+# Trading and implementation configuration (doc 17). Change-controlled like policies/.
+# EXAMPLE DATA: product lines, instruments, prices and NAVs below are illustrative so the workflow can be
+# exercised end to end. Real holdings, prices and cashflows come from custodian / transfer-agent files or APIs.
+
+as_of: "2026-11-09"            # previous night close used for example positions
+
+# Product lines. A vintage exists in every product line; each (product, vintage) is a fund.
+products:
+  - id: mf
+    name: Meridian Target Retirement Funds
+    vehicle: mutual_fund        # registered '40 Act target-date mutual funds
+    fund_prefix: MTRS           # fund ids: MTRS-2050 (same ids the console already uses)
+    account_prefix: MF
+    nav_musd: {2030: 4200, 2035: 5100, 2040: 4800, 2045: 4300, 2050: 3600, 2055: 2400, 2060: 1500, 2065: 700, 2070: 120}
+    roll_down: monthly          # glide-path roll-down frequency: monthly | quarterly | semiannual | annual
+    roll_down_overrides: {2065: annual, 2070: annual}
+  - id: cit
+    name: Meridian Target Retirement Trust
+    vehicle: cit                # collective investment trusts for ERISA plans
+    fund_prefix: MTRT
+    account_prefix: CIT
+    nav_musd: {2030: 2600, 2035: 3000, 2040: 2900, 2045: 2500, 2050: 2100, 2055: 1400, 2060: 800, 2065: 300, 2070: 60}
+    roll_down: semiannual
+    roll_down_overrides: {}
+
+# Uninvested cash held in each fund's custody account at last close (share of NAV)
+cash_account_pct: 0.006
+
+# Where orders go, by the type of instrument traded. Every order is also written to the Charles River import
+# file, which runs Charles River's compliance check and execution; the route is carried on each order.
+routes:
+  mutual_fund: "SS&C (formerly DST)"
+  cit: "State Street"
+  etf: "Internal trading desk"
+  stock: "Internal trading desk"
+  bond: "Internal trading desk"
+route_names: ["SS&C (formerly DST)", "State Street", "Internal trading desk"]
+
+# Series-level cash buffer for ETF trades (basis points of fund NAV). Fund overrides may only be stricter.
+cash_buffer_bps: 50
+
+# Security master. type: mutual_fund | cit | etf | stock | bond. price: per unit (bond: per 100 face).
+# products: which product lines may hold it. asset_class: the policy asset class it implements.
+# share: split of the asset class between instruments in the neutral table (shares per product sum to 1).
+# status: held (in example positions) | candidate (approved, not held) | no_target (held, but no target)
+instruments:
+  # --- Mutual fund product line: underlying mutual funds (fund of funds), ETFs and individual securities
+  - {id: MER-USLC-MF,  name: Meridian US Large Cap Index Fund,       type: mutual_fund, asset_class: us_large_cap,      products: [mf], share: 1.0, price: 41.27}
+  - {id: MER-SMID-MF,  name: Meridian US Small/Mid Cap Index Fund,   type: mutual_fund, asset_class: us_small_mid_cap,  products: [mf], share: 1.0, price: 28.64}
+  - {id: MER-INTL-MF,  name: Meridian International Equity Index Fund, type: mutual_fund, asset_class: intl_developed_eq, products: [mf], share: 1.0, price: 17.92}
+  - {id: MER-EM-MF,    name: Meridian Emerging Markets Equity Fund,   type: mutual_fund, asset_class: emerging_eq,       products: [mf], share: 1.0, price: 14.38}
+  - {id: VNQ,          name: Vanguard Real Estate ETF,                type: etf,         asset_class: global_reits,      products: [mf, cit], share: 1.0, price: 92.15}
+  - {id: PDBC,         name: Invesco Optimum Yield Diversified Commodity ETF, type: etf, asset_class: commodities,      products: [mf, cit], share: 1.0, price: 13.42}
+  - {id: MER-CORE-MF,  name: Meridian Core Bond Fund,                 type: mutual_fund, asset_class: us_core_bond,      products: [mf], share: 1.0, price: 9.81}
+  - {id: MER-LTSY-MF,  name: Meridian Long Treasury Fund,             type: mutual_fund, asset_class: us_long_treasury,  products: [mf], share: 1.0, price: 8.47}
+  - {id: MER-TIPS-MF,  name: Meridian Short-Term TIPS Fund,           type: mutual_fund, asset_class: us_tips_short,     products: [mf], share: 1.0, price: 10.06}
+  - {id: MER-HY-MF,    name: Meridian High Yield Bond Fund,           type: mutual_fund, asset_class: us_high_yield,     products: [mf], share: 1.0, price: 7.33}
+  - {id: MER-IBND-MF,  name: Meridian International Bond Fund (Hedged), type: mutual_fund, asset_class: intl_bond_hedged, products: [mf], share: 1.0, price: 9.58}
+  - {id: MER-EMD-MF,   name: Meridian Emerging Markets Debt Fund,     type: mutual_fund, asset_class: em_debt,           products: [mf], share: 1.0, price: 8.92}
+  - {id: MER-GMMF,     name: Meridian Government Money Market Fund,  type: mutual_fund, asset_class: cash,              products: [mf], share: 0.7, price: 1.00}
+  - {id: TBILL-270211, name: US Treasury Bill 02/11/2027,             type: bond,        asset_class: cash,              products: [mf, cit], share: 0.3, price: 98.91, cusip: 912797XX1}
+  - {id: MER-LISC-MF,  name: Meridian Legacy Intl Small Cap Fund,     type: mutual_fund, asset_class: intl_developed_eq, products: [mf], share: 0.0, price: 12.11, status: no_target, legacy_pct: 0.004}
+  - {id: IEFA,         name: iShares Core MSCI EAFE ETF,              type: etf,         asset_class: intl_developed_eq, products: [mf, cit], share: 0.0, price: 81.60, status: candidate, note: "Liquidity sleeve for large flows; under manager-selection review"}
+  # --- CIT product line: underlying CITs, ETFs and individual securities
+  - {id: MER-USLC-CIT, name: Meridian US Large Cap Index Trust,       type: cit, asset_class: us_large_cap,      products: [cit], share: 1.0, price: 24.18}
+  - {id: MER-SMID-CIT, name: Meridian US Small/Mid Cap Index Trust,   type: cit, asset_class: us_small_mid_cap,  products: [cit], share: 1.0, price: 19.77}
+  - {id: MER-INTL-CIT, name: Meridian International Equity Index Trust, type: cit, asset_class: intl_developed_eq, products: [cit], share: 1.0, price: 15.40}
+  - {id: MER-EM-CIT,   name: Meridian Emerging Markets Equity Trust,   type: cit, asset_class: emerging_eq,       products: [cit], share: 1.0, price: 12.95}
+  - {id: MER-CORE-CIT, name: Meridian Core Bond Trust,                 type: cit, asset_class: us_core_bond,      products: [cit], share: 1.0, price: 11.02}
+  - {id: MER-LTSY-CIT, name: Meridian Long Treasury Trust,             type: cit, asset_class: us_long_treasury,  products: [cit], share: 1.0, price: 9.66}
+  - {id: MER-TIPS-CIT, name: Meridian Short-Term TIPS Trust,           type: cit, asset_class: us_tips_short,     products: [cit], share: 1.0, price: 10.48}
+  - {id: MER-HY-CIT,   name: Meridian High Yield Bond Trust,           type: cit, asset_class: us_high_yield,     products: [cit], share: 1.0, price: 10.87}
+  - {id: MER-IBND-CIT, name: Meridian International Bond Trust (Hedged), type: cit, asset_class: intl_bond_hedged, products: [cit], share: 1.0, price: 10.13}
+  - {id: MER-EMD-CIT,  name: Meridian Emerging Markets Debt Trust,     type: cit, asset_class: em_debt,           products: [cit], share: 1.0, price: 9.74}
+  - {id: MER-STIF-CIT, name: Meridian Short-Term Investment Fund (STIF), type: cit, asset_class: cash,           products: [cit], share: 0.7, price: 1.00}
+
+# Cashflow sources accepted (files or API). Add more as connections are set up.
+cashflow_sources: ["SS&C (formerly DST)", "State Street", "Manual entry"]

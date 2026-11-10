@@ -60,12 +60,12 @@ def _reason(body: dict) -> str:
 
 
 def governance_record(s, *, step: str, actor: dict, summary: str, output: dict, rationale: str = "",
-                      scope: list | None = None) -> str:
+                      scope: list | None = None, dr_type: str = "exception") -> str:
     """Append one record to the hash-chained governance ledger inside session `s`."""
     from ..ledger import GENESIS, _hash
     last = s.execute(select(LedgerRecord).where(LedgerRecord.run_id == "governance")
                      .order_by(LedgerRecord.seq.desc()).limit(1)).scalar()
-    body = {"dr_id": "dr_" + uuid.uuid4().hex[:20], "dr_type": "exception", "run_id": "governance", "step": step,
+    body = {"dr_id": "dr_" + uuid.uuid4().hex[:20], "dr_type": dr_type, "run_id": "governance", "step": step,
             "actor": {"kind": "human", "id": actor.get("name"), "email": actor.get("email", "")},
             "portfolio_scope": scope or [], "inputs": [], "policy_version": "", "output": output,
             "summary": summary, "rationale": rationale, "alternatives_considered": [], "constraints_checked": [],

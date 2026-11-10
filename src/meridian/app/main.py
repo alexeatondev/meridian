@@ -48,6 +48,9 @@ app.include_router(_admin_router)
 from .oversight import router as _oversight_router  # noqa: E402
 
 app.include_router(_oversight_router)
+from .trading import router as _trading_router  # noqa: E402
+
+app.include_router(_trading_router)
 
 
 def _revoked_after(email: str):

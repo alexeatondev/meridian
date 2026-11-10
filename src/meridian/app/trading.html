@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meridian · Trading</title>
+<style>
+:root{--bg:#f4f3f0;--surface:#fcfcfb;--surface-2:#f0efec;--line:#e2e0da;--line-strong:#cfccc4;--text:#0b0b0b;--text-2:#52514e;
+--muted:#7a7873;--accent:#1f4e8c;--accent-ink:#fff;--ok:#1d7a46;--ok-bg:#e3f2e8;--warn:#8a5a00;--warn-bg:#fbf0d9;--crit:#a3261b;--crit-bg:#f8e1de;--info-bg:#e4ecf7;
+font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#121211;--surface:#1a1a19;--surface-2:#232321;--line:#2e2e2b;--line-strong:#3c3c38;--text:#f0efec;
+--text-2:#c3c2b7;--muted:#9a998f;--accent:#7aa7e6;--accent-ink:#0b0b0b;--ok:#6cc08c;--ok-bg:#1d2e23;--warn:#e0b25a;--warn-bg:#2f2717;--crit:#ef8a80;--crit-bg:#331d1b;--info-bg:#1d2633}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+header h1{font-size:17px;margin:0}header .sp{flex:1}a{color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+.tabs{display:flex;gap:6px;margin-bottom:16px}.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:14px 0 6px;color:var(--text-2)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}tr.sel td{background:var(--surface-2)}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;margin:1px 3px 1px 0;background:var(--surface-2);border:1px solid var(--line)}
+.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chip.crit{background:var(--crit-bg);color:var(--crit);border-color:transparent}.chip.perm{background:var(--info-bg);border-color:transparent}
+.btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input[type=text],input[type=email],textarea,input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.opt{display:flex;gap:8px;align-items:flex-start;padding:6px 0}.opt input{margin-top:3px}.opt .d{font-size:12px;color:var(--muted)}
+.switch{position:relative;width:36px;height:20px;flex:none}.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line-strong);border-radius:999px;transition:.15s}.switch span:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--accent)}.switch input:checked+span:before{transform:translateX(16px)}.switch input:focus-visible+span{outline:2px solid var(--accent)}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:13px}.warnbox ul{margin:4px 0 0 18px;padding:0}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;max-width:90vw;z-index:9}
+.matrix td,.matrix th{text-align:center}.matrix td:first-child,.matrix th:first-child{text-align:left}
+</style></head><body>
+<style>
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}.seg button{border:0;background:var(--surface);color:var(--text);padding:6px 12px;cursor:pointer;font:inherit}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-2)}
+.banner{background:var(--info-bg);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:13px}
+.kpis{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 10px}.kpis div{min-width:120px}.kpis b{display:block;font-size:16px}
+select,input[type=number],input[type=date]{padding:7px 9px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+.pos{color:var(--ok)}.neg{color:var(--crit)}details summary{cursor:pointer;font-weight:600;margin:6px 0}
+.sub{background:var(--surface-2)}
+</style>
+</head><body>
+<header><h1>Meridian · Trading</h1><span class="muted small" id="who"></span><span class="sp"></span>
+<span class="seg" id="veh" role="group" aria-label="Fund vehicle"><button data-v="all" class="on">All funds</button><button data-v="mutual_fund">Mutual funds</button><button data-v="cit">CITs</button></span>
+<a href="/runs/latest">Back to console</a><a href="/logout">Sign out</a></header>
+<main>
+<div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
+<div class="tabs" role="tablist">
+  <button data-tab="funds" class="active">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="trades">Trades</button><button data-tab="settings">Routing &amp; settings</button>
+</div>
+<section id="funds"></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="settings" hidden></section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+const BOOT = /*BOOT*/null;
+const S = {veh: sessionStorage.getItem('tr_veh')||'all', tab: sessionStorage.getItem('tr_tab')||'funds', st: null, fund: null, fd: null, tl: null, tlView: 'orders', editW: null};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+const usd = (v, d=0) => (v<0?'−':'')+'$'+Math.abs(v).toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d});
+const musd = v => usd(v/1e6, 1)+'m';
+const pct = (v, d=2) => (v*100).toFixed(d)+'%';
+const sgn = v => v>0?'pos':v<0?'neg':'';
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',6000)}
+async function api(method, url, body, raw){
+  const opt = {method, headers: {'X-CSRF-Token':BOOT.csrf}};
+  if (raw) opt.body = raw; else if (body) { opt.headers['Content-Type']='application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(url, opt); const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(typeof j.detail==='string' ? j.detail : r.statusText);
+  return j;
+}
+const funds = () => S.st.funds.filter(f => S.veh==='all' || f.vehicle===S.veh);
+const fundIds = () => new Set(funds().map(f=>f.id));
+const vname = v => ({mutual_fund:'Mutual fund', cit:'CIT'})[v]||v;
+const chip = (t, cls='') => `<span class="chip ${cls}">${esc(t)}</span>`;
+const statusChip = s => ({held:chip('Held','ok'), no_target:chip('Held · no target','warn'), candidate:chip('Not held · candidate','perm'), not_held:chip('Not held')})[s]||chip(s);
+const tlChip = s => ({draft:chip('Draft','warn'), approved:chip('Approved','ok'), exported:chip('Exported for Charles River','perm'), cancelled:chip('Cancelled','crit')})[s]||chip(s);
+const compChip = c => c.status.startsWith('PASS') ? chip(c.status,'ok') : c.status==='WARN' ? chip('WARN','warn') : c.status==='FAIL' ? chip('FAIL','crit') : chip(c.status);
+
+async function load(){ S.st = await api('GET','/api/trading/state'); render(); }
+function render(){
+  document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
+  for (const t of ['funds','cashflows','trades','settings']) $('#'+t).hidden = t!==S.tab;
+  ({funds:vFunds, cashflows:vCashflows, trades:vTrades, settings:vSettings})[S.tab]();
+}
+
+// ------------------------------------------------------------------ Funds & securities
+function vFunds(){
+  const fs = funds();
+  const nav = fs.reduce((a,f)=>a+f.nav,0);
+  let h = `<div class="card"><h2>Funds (${fs.length})</h2><div class="kpis"><div><span class="muted small">Total NAV</span><b>${musd(nav)}</b></div><div><span class="muted small">Positions as of</span><b>${esc(S.st.as_of)}</b></div><div><span class="muted small">Cash buffer (series)</span><b>${S.st.settings.buffer_bps} bp</b></div></div>
+  <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th></tr></thead><tbody>`;
+  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}</td></tr>`;
+  h += `</tbody></table></div><div id="fundDetail"></div>`;
+  $('#funds').innerHTML = h;
+  document.querySelectorAll('[data-fund]').forEach(tr=>tr.onclick=()=>openFund(tr.dataset.fund));
+  if (S.fund && fundIds().has(S.fund)) openFund(S.fund, true);
+}
+async function openFund(id, keep){
+  S.fund = id; if(!keep) S.editW = null;
+  document.querySelectorAll('[data-fund]').forEach(tr=>tr.classList.toggle('sel', tr.dataset.fund===id));
+  const d = S.fd = await api('GET', '/api/trading/funds/'+id);
+  const held = d.rows.filter(r=>r.status==='held'||r.status==='no_target'), other = d.rows.filter(r=>!(r.status==='held'||r.status==='no_target'));
+  const head = `<tr><th>Security</th><th>Type</th><th>Asset class</th><th>Status</th><th class="n">Value</th><th class="n">Weight</th><th class="n">Previous close</th><th class="n">Neutral</th><th class="n">Strategic</th></tr>`;
+  const row = r => `<tr><td><b>${esc(r.instrument)}</b><br><span class="small muted">${esc(r.name)}</span>${r.note?`<br><span class="small">${esc(r.note)}</span>`:''}</td><td>${esc(r.type)}</td><td>${esc(r.asset_class)}</td><td>${statusChip(r.status)}${r.excluded?chip('Excluded from trading','crit'):''}</td><td class="n">${r.value?musd(r.value):'—'}</td><td class="n">${r.value?pct(r.weight):'—'}</td><td class="n">${r.t_previous_close?pct(r.t_previous_close):'—'}</td><td class="n">${r.t_neutral?pct(r.t_neutral):'—'}</td><td class="n">${r.t_strategic?pct(r.t_strategic):'—'}</td></tr>`;
+  const f = d.fund;
+  let h = `<div class="card"><h2>${f.id} · ${esc(f.product_name)} ${f.vintage}</h2>
+  <div class="kpis"><div><span class="muted small">Vehicle</span><b>${vname(f.vehicle)}</b></div><div><span class="muted small">NAV</span><b>${musd(d.nav)}</b></div><div><span class="muted small">Uninvested cash</span><b>${musd(d.cash)}</b></div><div><span class="muted small">Glide-path roll-down</span><b>${f.roll_down}</b></div><div><span class="muted small">Account (Charles River)</span><b>${f.account}</b></div></div>
+  <p class="small muted">${esc(d.positions_source)} · as of ${esc(d.as_of)}. A security with no target is never part of cash allocation. Target columns are the three allocation tables.</p>
+  <h3>Held securities</h3><table>${head}${held.map(row).join('')}</table>
+  <h3>Not held: candidates and available securities</h3><table>${head}${other.map(row).join('')||'<tr><td colspan=9 class="muted">None</td></tr>'}</table></div>`;
+  h += strategicEditor(d);
+  $('#fundDetail').innerHTML = h;
+  bindStrategic(d);
+}
+function strategicEditor(d){
+  const st = d.strategic, can = BOOT.can_approve;
+  const rows = d.rows.filter(r=>r.status!=='no_target');
+  const w = S.editW || Object.fromEntries(rows.map(r=>[r.instrument, +(r.t_strategic*100).toFixed(3)]));
+  S.editW = w;
+  const tot = Object.values(w).reduce((a,b)=>a+(+b||0),0);
+  let h = `<div class="card"><h2>Strategic table · version ${st.version||0}</h2>
+  <p class="small muted">A separate table for a given trading day. It can follow the glide path (it then equals the neutral table on this fund's roll-down schedule) or hold its own weights. Changes need a reason and are recorded in the ledger.</p>
+  <label class="row"><span class="switch"><input type="checkbox" id="stFollow" ${st.follows_glide_path!==false?'checked':''} ${can?'':'disabled'}><span></span></span> Follow the glide path</label>`;
+  if (st.follows_glide_path===false || S.stEditing){
+    h += `<table id="stTable" style="margin-top:10px"><tr><th>Security</th><th class="n">Neutral</th><th class="n">Strategic weight (%)</th></tr>${rows.map(r=>`<tr><td>${esc(r.instrument)} <span class="small muted">${esc(r.asset_class)}</span></td><td class="n">${pct(r.t_neutral)}</td><td class="n"><input type="number" step="0.01" data-w="${r.instrument}" value="${w[r.instrument]??0}" ${can?'':'disabled'} style="width:110px"></td></tr>`).join('')}
+    <tr><td><b>Total</b></td><td></td><td class="n"><b id="stTot" class="${Math.abs(tot-100)>0.01?'neg':''}">${tot.toFixed(2)}%</b></td></tr></table>`;
+  }
+  if (can) h += `<label class="f" for="stReason">Reason for the change</label><input type="text" id="stReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="stSave">Save strategic table</button>${(st.follows_glide_path!==false && !S.stEditing)?'<button class="btn" id="stEdit">Set custom weights</button>':''}</div>`;
+  else h += `<p class="small muted">Only portfolio managers change target tables.</p>`;
+  if ((st.history||[]).length) h += `<h3>History</h3><table>${st.history.slice().reverse().map(x=>`<tr><td class="small">${esc(x.at.slice(0,16).replace('T',' '))}</td><td>v${x.version}</td><td>${esc(x.by.name)}</td><td>${x.follows_glide_path?'Follows glide path':'Custom weights'}</td><td>${esc(x.reason)}</td></tr>`).join('')}</table>`;
+  return h+'</div>';
+}
+function bindStrategic(d){
+  document.querySelectorAll('[data-w]').forEach(i=>i.oninput=()=>{S.editW[i.dataset.w]=+i.value||0;const t=Object.values(S.editW).reduce((a,b)=>a+(+b||0),0);const e=$('#stTot');e.textContent=t.toFixed(2)+'%';e.className=Math.abs(t-100)>0.01?'neg':''});
+  if ($('#stEdit')) $('#stEdit').onclick=()=>{S.stEditing=true;$('#stFollow').checked=false;openFund(S.fund,true)};
+  if ($('#stSave')) $('#stSave').onclick=async()=>{
+    const follows = $('#stFollow').checked;
+    const body = {follows_glide_path: follows, reason: $('#stReason').value};
+    if (!follows) body.weights = Object.fromEntries(Object.entries(S.editW).map(([k,v])=>[k,(+v||0)/100]));
+    try { const r = await api('PUT', `/api/trading/targets/${S.fund}/strategic`, body); S.stEditing=false; S.editW=null; await load(); toast(`Strategic table saved (version ${r.version}) and recorded in the ledger`); }
+    catch(e){ toast(e.message) }
+  };
+}
+
+// ------------------------------------------------------------------ Cashflows
+function vCashflows(){
+  const ids = fundIds(), cfs = S.st.cashflows.filter(c=>ids.has(c.fund_id));
+  const today = new Date().toISOString().slice(0,10);
+  let h = '';
+  if (BOOT.can_prepare) h += `<div class="card"><h2>Load cashflows</h2><div class="grid2"><div>
+    <h3>From a file (transfer agent or custodian)</h3><p class="small muted">Excel (.xlsx) or CSV with columns <span class="mono">trade_date, fund_id (or account), type, amount, source, reference</span>. Every row is checked; if any row is wrong nothing is loaded.</p>
+    <input type="file" id="cfFile" accept=".xlsx,.xlsm,.csv"> <button class="btn primary" id="cfUpload">Upload</button>
+    <p class="small"><a href="/api/trading/cashflows/template.xlsx">Excel template</a> · <a href="/api/trading/cashflows/template.csv">CSV template</a> · Connections can also post to <span class="mono">/api/trading/cashflows</span> with the ingest token.</p></div>
+    <div><h3>Enter one by hand</h3><div class="row"><input type="date" id="cfDate" value="${today}"><select id="cfFund">${funds().map(f=>`<option>${f.id}</option>`).join('')}</select><select id="cfType"><option value="subscription">Subscription (in)</option><option value="redemption">Redemption (out)</option></select></div>
+    <div class="row" style="margin-top:8px"><input type="number" id="cfAmt" placeholder="Amount (USD)" min="0" step="1000" style="width:170px"><select id="cfSrc">${S.st.sources.map(s=>`<option>${esc(s)}</option>`).join('')}</select><input type="text" id="cfRef" placeholder="Reference (optional)" style="width:180px"></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="cfAdd">Add cashflow</button></div></div></div></div>`;
+  const byDate = {};
+  for (const c of cfs) if (c.status==='new') byDate[c.trade_date] = (byDate[c.trade_date]||0) + c.amount;
+  h += `<div class="card"><h2>Cashflows (${cfs.length})</h2>${Object.keys(byDate).length?`<p class="small">Waiting for a trade list: ${Object.entries(byDate).map(([d,v])=>`${d}: <b class="${sgn(v)}">${usd(v)}</b> net`).join(' · ')}</p>`:''}
+  <table><thead><tr><th>Trade date</th><th>Fund</th><th>Type</th><th class="n">Amount</th><th>Source</th><th>Loaded</th><th>Status</th><th></th></tr></thead><tbody>
+  ${cfs.map(c=>`<tr><td>${c.trade_date}</td><td>${c.fund_id}</td><td>${c.type}</td><td class="n ${sgn(c.amount)}">${usd(c.amount)}</td><td>${esc(c.source)}${c.reference?`<br><span class="small muted">${esc(c.reference)}</span>`:''}</td><td class="small">${esc(c.loaded_by.name)}<br>${esc(c.how)}${c.file_name?' · '+esc(c.file_name):''}</td><td>${c.status==='new'?chip('New','warn'):c.status==='cancelled'?chip('Cancelled','crit'):chip('In '+c.trade_list,'ok')}</td><td>${c.status==='new'&&BOOT.can_prepare?`<button class="btn small" data-cfx="${c.id}">Cancel</button>`:''}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">No cashflows yet</td></tr>'}</tbody></table></div>`;
+  $('#cashflows').innerHTML = h;
+  if (!BOOT.can_prepare) return;
+  $('#cfUpload').onclick = async()=>{const f=$('#cfFile').files[0]; if(!f) return toast('Choose a file first'); const fd=new FormData(); fd.append('file', f);
+    try{const r=await api('POST','/api/trading/cashflows/upload',null,fd); await load(); toast(`Loaded ${r.loaded} cashflows (net ${usd(r.net)}), recorded in the ledger`)}catch(e){toast(e.message)}};
+  $('#cfAdd').onclick = async()=>{ try{const r=await api('POST','/api/trading/cashflows',{trade_date:$('#cfDate').value,fund_id:$('#cfFund').value,type:$('#cfType').value,amount:$('#cfAmt').value,source:$('#cfSrc').value,reference:$('#cfRef').value}); await load(); toast(`Cashflow added (${usd(r.net)})`)}catch(e){toast(e.message)} };
+  document.querySelectorAll('[data-cfx]').forEach(b=>b.onclick=async()=>{const reason=prompt('Reason for cancelling this cashflow (at least 10 characters)'); if(!reason) return; try{await api('POST',`/api/trading/cashflows/${b.dataset.cfx}/cancel`,{reason}); await load(); toast('Cashflow cancelled')}catch(e){toast(e.message)}});
+}
+
+// ------------------------------------------------------------------ Trades
+function vTrades(){
+  const tls = S.st.trade_lists.filter(t => S.veh==='all' || t.vehicle===S.veh || t.vehicle==='all');
+  const dates = [...new Set(S.st.cashflows.filter(c=>c.status==='new'&&fundIds().has(c.fund_id)).map(c=>c.trade_date))].sort();
+  let h = '';
+  if (BOOT.can_prepare) h += `<div class="card"><h2>Generate trades from cashflows</h2>
+   <p class="small muted">Net cashflows per fund are split pro rata across the chosen table. Gaps to target are not closed (that is a rebalance). Securities with no target and excluded securities are not traded; ETF buys keep the cash buffer. Uses the vehicle filter at the top (${S.veh==='all'?'all funds':S.veh==='cit'?'CITs only':'mutual funds only'}).</p>
+   <div class="row"><label>Trade date <select id="tgDate">${dates.map(d=>`<option>${d}</option>`).join('')||'<option value="">No new cashflows</option>'}</select></label>
+   <label>Allocation strategy <select id="tgStrat">${Object.entries(S.st.strategies).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
+   <button class="btn primary" id="tgGo" ${dates.length?'':'disabled'}>Generate trade list</button></div></div>`;
+  h += `<div class="card"><h2>Trade lists</h2><table><thead><tr><th>Trade list</th><th>Trade date</th><th>Strategy</th><th>Funds</th><th class="n">Orders</th><th class="n">Net flow</th><th class="n">Gross</th><th>Status</th><th>Prepared by</th></tr></thead><tbody>
+  ${tls.map(t=>`<tr class="click ${S.tl===t.id?'sel':''}" data-tl="${t.id}"><td><b>${t.id}</b></td><td>${t.trade_date}</td><td>${esc(t.strategy_name)}</td><td>${t.funds.length}${t.vehicle!=='all'?' · '+vname(t.vehicle):''}</td><td class="n">${t.order_count}</td><td class="n ${sgn(t.net_flow)}">${musd(t.net_flow)}</td><td class="n">${musd(t.gross)}</td><td>${tlChip(t.status)}${t.blocked_funds.length?chip('Blocked','crit'):''}</td><td>${esc(t.created_by.name)}</td></tr>`).join('')||'<tr><td colspan=9 class="muted">None yet</td></tr>'}</tbody></table></div><div id="tlDetail"></div>`;
+  $('#trades').innerHTML = h;
+  if ($('#tgGo')) $('#tgGo').onclick = async()=>{ try{ const r = await api('POST','/api/trading/trade-lists',{trade_date:$('#tgDate').value, strategy:$('#tgStrat').value, vehicle:S.veh}); S.tl=r.id; await load(); toast(`${r.id}: ${r.order_count} orders for ${r.funds.length} funds, recorded in the ledger`) }catch(e){toast(e.message)} };
+  document.querySelectorAll('[data-tl]').forEach(tr=>tr.onclick=()=>{S.tl=tr.dataset.tl;sessionStorage.setItem('tr_tl',S.tl);vTrades()});
+  const t = S.st.trade_lists.find(x=>x.id===S.tl); if (t) tlDetail(t);
+}
+function tlDetail(t){
+  const routes = {};
+  for (const f of t.funds) for (const o of f.orders) { const r = routes[o.route] ||= {n:0, buy:0, sell:0}; r.n++; r[o.side==='BUY'?'buy':'sell'] += o.est_amount; }
+  let h = `<div class="card"><h2>${t.id} · ${tlChip(t.status)} ${t.self_approved?chip('Approved by preparer','warn'):''}</h2>
+  <div class="kpis"><div><span class="muted small">Trade date</span><b>${t.trade_date}</b></div><div><span class="muted small">Strategy</span><b>${esc(t.strategy_name)}</b></div><div><span class="muted small">Net cashflow</span><b class="${sgn(t.net_flow)}">${usd(t.net_flow)}</b></div><div><span class="muted small">Orders</span><b>${t.order_count}</b></div><div><span class="muted small">Cash buffer used</span><b>${t.settings_used.buffer_bps} bp</b></div></div>
+  <h3>By destination</h3><table><tr><th>Route</th><th class="n">Orders</th><th class="n">Buys</th><th class="n">Sells</th></tr>${Object.entries(routes).map(([k,r])=>`<tr><td>${esc(k)}</td><td class="n">${r.n}</td><td class="n">${usd(r.buy)}</td><td class="n">${usd(r.sell)}</td></tr>`).join('')}</table>
+  <p class="small muted">All orders go to Charles River in one import file for its own compliance check and execution; each order carries its destination.</p>
+  <div class="row" style="margin:8px 0"><span class="seg" id="tlv"><button data-x="orders" class="${S.tlView==='orders'?'on':''}">Orders</button><button data-x="preview" class="${S.tlView==='preview'?'on':''}">Current vs post-trade</button></span></div>`;
+  for (const f of t.funds) {
+    h += `<details open class="card sub"><summary>${f.fund_id} · ${vname(f.vehicle)} · flow <span class="${sgn(f.flow)}">${usd(f.flow)}</span> · ${f.orders.length} orders · IPS ${compChip(f.compliance)} ${f.errors.length?chip('Error','crit'):''}</summary>
+    <div class="kpis small"><div>NAV ${musd(f.nav_before)} → <b>${musd(f.nav_after)}</b></div><div>Cash ${musd(f.cash_before)} → <b>${musd(f.cash_after)}</b></div><div>Buffer held <b>${usd(f.buffer_held)}</b> (${f.buffer_bps} bp)</div><div>Rounding left in cash <b>${usd(f.rounding_residual)}</b></div></div>
+    ${f.notes.length?`<ul class="small">${f.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}${f.errors.map(e=>`<div class="warnbox">${esc(e)}</div>`).join('')}
+    ${f.compliance.results&&f.compliance.results.length?`<div class="warnbox">${f.compliance.results.map(r=>`${esc(r.rule_id)} ${esc(r.status)}: ${esc(r.detail||'')} (measured ${esc(r.measured)}, limit ${esc(r.limit)})`).join('<br>')}</div>`:`<p class="small muted">${esc(f.compliance.detail||'')}${f.compliance.run_id?' · risk model from '+esc(f.compliance.run_id):''}</p>`}`;
+    if (S.tlView==='orders') h += `<table><tr><th>Side</th><th>Security</th><th>Type</th><th class="n">Quantity</th><th class="n">Est. price</th><th class="n">Est. amount</th><th>Destination</th></tr>${f.orders.map(o=>`<tr><td class="${o.side==='BUY'?'pos':'neg'}"><b>${o.side}</b></td><td>${esc(o.instrument)}<br><span class="small muted">${esc(o.name)}</span></td><td>${esc(o.type)}</td><td class="n">${o.quantity.toLocaleString('en-US')} <span class="small muted">${o.quantity_type.toLowerCase()}</span></td><td class="n">${usd(o.price,2)}</td><td class="n">${usd(o.est_amount)}</td><td>${esc(o.route)}</td></tr>`).join('')||'<tr><td colspan=7 class="muted">No orders</td></tr>'}</table>`;
+    else h += `<table><tr><th>Security</th><th class="n">Current</th><th class="n">Current wt</th><th class="n">Trade</th><th class="n">Post-trade</th><th class="n">Post wt</th><th class="n">Target wt</th><th class="n">Post vs target</th></tr>${f.preview.map(r=>`<tr><td>${esc(r.instrument)} ${!r.has_target&&r.type!=='cash'?chip('no target','warn'):''}${r.excluded?chip('excluded','crit'):''}<br><span class="small muted">${esc(r.asset_class)}</span></td><td class="n">${musd(r.current)}</td><td class="n">${pct(r.current_w)}</td><td class="n ${sgn(r.trade)}">${r.trade?usd(r.trade):'—'}</td><td class="n">${musd(r.post)}</td><td class="n">${pct(r.post_w)}</td><td class="n">${r.target_w?pct(r.target_w):'—'}</td><td class="n">${r.target_w?((r.post_w-r.target_w)*10000).toFixed(1)+' bp':'—'}</td></tr>`).join('')}</table>`;
+    h += `</details>`;
+  }
+  if (t.status==='draft' && BOOT.can_approve) h += `<div class="card"><h2>Approve</h2><label class="opt"><input type="checkbox" id="taChk"> <span>I reviewed the orders, the current vs post-trade preview, the IPS check and the notes.</span></label><label class="f" for="taReason">Reason</label><input type="text" id="taReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="taGo" ${t.blocked_funds.length?'disabled':''}>Approve trade list</button>${t.blocked_funds.length?'<span class="small neg">Blocked by errors or a compliance FAIL</span>':''}</div></div>`;
+  else if (t.status==='draft') h += `<p class="small muted">A portfolio manager approves trade lists.</p>`;
+  if (['approved','exported'].includes(t.status) && BOOT.can_prepare) h += `<div class="card"><h2>Charles River</h2><p class="small">Download the import file and load it into Charles River, which runs its own compliance check and executes. <b>Mock format</b>: column names are placeholders until mapped to your Charles River import specification. Each download is recorded with a fingerprint (SHA-256).</p><a class="btn primary" id="taCrd" href="/api/trading/trade-lists/${t.id}/crd.csv">Download Charles River import file</a>${(t.exports||[]).map(x=>`<div class="small muted" style="margin-top:6px">Exported ${esc(x.at.slice(0,16).replace('T',' '))} by ${esc(x.by.name)} · ${esc(x.sha256.slice(0,16))}…</div>`).join('')}</div>`;
+  if (['draft','approved'].includes(t.status) && BOOT.can_prepare) h += `<div class="row"><button class="btn danger" id="taCancel">Cancel trade list and release cashflows</button></div>`;
+  h += `<h3>History</h3><table>${t.history.map(x=>`<tr><td class="small">${esc(x.at.slice(0,16).replace('T',' '))}</td><td>${esc(x.action)}</td><td>${esc(x.by.name)}</td><td>${esc(x.note)}</td></tr>`).join('')}</table></div>`;
+  $('#tlDetail').innerHTML = h;
+  document.querySelectorAll('#tlv button').forEach(b=>b.onclick=()=>{S.tlView=b.dataset.x;tlDetail(t)});
+  if ($('#taGo')) $('#taGo').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/approve`,{checked:$('#taChk').checked, reason:$('#taReason').value}); await load(); toast('Trade list approved and recorded'+(r.self_approved?' (you also prepared it; this is flagged)':'')) }catch(e){toast(e.message)} };
+  if ($('#taCrd')) $('#taCrd').onclick = ()=>setTimeout(load, 1500);
+  if ($('#taCancel')) $('#taCancel').onclick = async()=>{ const reason=prompt('Reason for cancelling (at least 10 characters)'); if(!reason) return; try{await api('POST',`/api/trading/trade-lists/${t.id}/cancel`,{reason}); await load(); toast('Trade list cancelled; its cashflows are available again')}catch(e){toast(e.message)} };
+}
+
+// ------------------------------------------------------------------ Routing & settings
+function vSettings(){
+  const st = S.st.settings, can = BOOT.can_settings;
+  const types = Object.keys(st.routes);
+  const insts = S.st.instruments;
+  let h = `<div class="card"><h2>Order routing</h2><p class="small muted">Destination by the type of security traded. Charles River receives every order with its destination. Changes need a reason and are recorded in the ledger.</p>
+  <table><tr><th>Security type</th><th>Destination</th></tr>${types.map(k=>`<tr><td>${esc(k.replace('_',' '))}</td><td><select data-route="${k}" ${can?'':'disabled'}>${S.st.route_names.map(n=>`<option ${n===st.routes[k]?'selected':''}>${esc(n)}</option>`).join('')}</select></td></tr>`).join('')}</table></div>
+  <div class="card"><h2>Cash buffer for ETF trades</h2><p class="small muted">Set once for the whole series; it applies to every fund. ETF buys are reduced by this share so price moves can't overdraw the account. A fund can only be set stricter.</p>
+  <div class="row"><label>Series buffer <input type="number" id="bufBps" min="0" max="500" step="5" value="${st.buffer_bps}" ${can?'':'disabled'} style="width:90px"> bp</label></div>
+  <details><summary>Fund overrides (${Object.keys(st.buffer_overrides||{}).length})</summary><table>${S.st.funds.map(f=>`<tr><td>${f.id}</td><td><input type="number" min="0" step="5" data-ovr="${f.id}" value="${(st.buffer_overrides||{})[f.id]??''}" placeholder="series" ${can?'':'disabled'} style="width:90px"> bp</td></tr>`).join('')}</table></details></div>
+  <div class="card"><h2>Excluded from trading</h2><p class="small muted">Excluded securities keep their position and are not traded.</p>
+  <label>When excluded, its share of a cashflow <select id="exShare" ${can?'':'disabled'}><option value="redistribute" ${st.excluded_share!=='cash'?'selected':''}>is spread over the other holdings</option><option value="cash" ${st.excluded_share==='cash'?'selected':''}>stays in cash</option></select></label>
+  <table style="margin-top:8px"><tr><th>Security</th><th>Fund</th><th>Reason</th><th>Until</th><th>By</th><th></th></tr>${(st.excluded||[]).map((e,i)=>`<tr><td>${esc(e.instrument)}</td><td>${e.fund==='*'?'All funds':esc(e.fund)}</td><td>${esc(e.reason)}</td><td>${esc(e.until||'—')}</td><td>${esc(e.by?.name||'')}</td><td>${can?`<button class="btn small" data-exdel="${i}">Remove</button>`:''}</td></tr>`).join('')||'<tr><td colspan=6 class="muted">None</td></tr>'}</table>
+  ${can?`<div class="row" style="margin-top:8px"><select id="exInst">${insts.map(i=>`<option value="${i.id}">${esc(i.id)} · ${esc(i.name)}</option>`).join('')}</select><select id="exFund"><option value="*">All funds</option>${S.st.funds.map(f=>`<option>${f.id}</option>`).join('')}</select><input type="date" id="exUntil" title="Until (optional)"><button class="btn" id="exAdd">Add exclusion</button></div>`:''}</div>`;
+  if (can) h += `<div class="card"><label class="f" for="setReason">Reason for these changes</label><input type="text" id="setReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="setSave">Save settings</button><span class="small muted">Routes, buffer and exclusions are saved together.</span></div></div>`;
+  else h += `<p class="small muted">Portfolio managers and admins change these settings.</p>`;
+  const recs = S.st.trading_records.slice().reverse();
+  h += `<div class="card"><h2>Trading change log (${recs.length})</h2><p class="small muted">From the hash-chained governance ledger. Compliance and Audit can also search it in the console's Decision ledger.</p><table><tr><th>When</th><th>Step</th><th>Who</th><th>What</th><th>Reason</th></tr>${recs.slice(0,60).map(r=>`<tr><td class="small">${esc(r.created_at.slice(0,16).replace('T',' '))}</td><td class="mono">${esc(r.step)}</td><td>${esc(r.actor.id)}</td><td>${esc(r.summary)}</td><td class="small">${esc(r.rationale)}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">No trading records yet</td></tr>'}</table></div>`;
+  $('#settings').innerHTML = h;
+  if (!can) return;
+  const pending = {excluded: (st.excluded||[]).slice()};
+  $('#exAdd').onclick = ()=>{ pending.excluded.push({instrument:$('#exInst').value, fund:$('#exFund').value, until:$('#exUntil').value, reason:''}); toast('Exclusion added; give a reason and save'); renderEx(); };
+  function renderEx(){ /* show pending in table */ const tb=$('#settings').querySelectorAll('.card')[2].querySelector('table'); tb.innerHTML=`<tr><th>Security</th><th>Fund</th><th>Reason</th><th>Until</th><th>By</th><th></th></tr>`+pending.excluded.map((e,i)=>`<tr><td>${esc(e.instrument)}</td><td>${e.fund==='*'?'All funds':esc(e.fund)}</td><td>${esc(e.reason||'(this change)')}</td><td>${esc(e.until||'—')}</td><td>${esc(e.by?.name||'(you)')}</td><td><button class="btn small" data-exdel="${i}">Remove</button></td></tr>`).join(''); bindDel(); }
+  function bindDel(){ document.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{pending.excluded.splice(+b.dataset.exdel,1); renderEx();}); }
+  bindDel();
+  $('#setSave').onclick = async()=>{
+    const routes = Object.fromEntries([...document.querySelectorAll('[data-route]')].map(s=>[s.dataset.route, s.value]));
+    const ovr = Object.fromEntries([...document.querySelectorAll('[data-ovr]')].filter(i=>i.value!=='').map(i=>[i.dataset.ovr, +i.value]));
+    try{ const r = await api('PUT','/api/trading/settings',{routes, buffer_bps:+$('#bufBps').value, buffer_overrides:ovr, excluded:pending.excluded, excluded_share:$('#exShare').value, reason:$('#setReason').value}); await load(); toast('Saved and recorded: '+r.changed.join(', ')) }catch(e){toast(e.message)}
+  };
+}
+
+document.querySelectorAll('#veh button').forEach(b=>b.onclick=()=>{S.veh=b.dataset.v;sessionStorage.setItem('tr_veh',S.veh);render()});
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;sessionStorage.setItem('tr_tab',S.tab);render()});
+S.tl = sessionStorage.getItem('tr_tl');
+$('#who').textContent = BOOT.user.name + ' · ' + BOOT.user.roles.filter(r=>!['investment_committee','chief_compliance_officer'].includes(r)).join(', ');
+load().catch(e=>toast(e.message));
+</script></body></html>
