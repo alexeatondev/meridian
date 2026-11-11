@@ -27,7 +27,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | # | Step | Expected result | Auto test |
 |---|---|---|---|
-| PM-1 | Sign in with only the PM role | Workspace selector shows Portfolio Manager only; tabs: Home, Funds & vintages, Positioning, Portfolios & proposals, Fund risk, Risk budget, Metrics, Look-through & search, Glide path, Approvals, Agent votes; your name in the side bar | `test_pm_01` |
+| PM-1 | Sign in with only the PM role | Workspace selector shows Portfolio Manager only; tabs: Home, Funds & vintages, Positioning, Portfolios & proposals, Fund risk, Risk budget, Metrics, Look-through & search, Glide path, Approvals, Agent votes, grouped under Overview, Portfolio, Risk and Governance; your name in the app bar | `test_pm_01` |
 | PM-2 | Portfolios & proposals → 2040 → Approve without ticking the box, then with a 9-character reason | Blocked each time with a clear message (tick the box; reason ≥ 10 characters) | `test_pm_02` |
 | PM-3 | Portfolios & proposals → 2050: read *Why this proposal?*, *What would make this wrong*, *Dissent*, *Compliance*; tick, give a reason, Approve | "Decision recorded in the ledger"; Approvals tab shows 2050 / portfolio_manager / approve | `test_pm_03` |
 | PM-4 | Positioning → 2045 → Adjust: Fixed Income short-dated +1pp funded from long-dated; reason; submit | Toast shows new TE, % of budget and compliance status; adjustment recorded | `test_pm_04` |
@@ -138,7 +138,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | # | Step | Expected result | Auto test |
 |---|---|---|---|
-| TRD-1 | Console side bar → **Trading**; switch All funds / Mutual funds / CITs | 18 funds, then 9 `MTRS-…` mutual funds, then 9 `MTRT-…` CITs | `test_trd_01` |
+| TRD-1 | App bar → **Trading**; switch All funds / Mutual funds / CITs | 18 funds, then 9 `MTRS-…` mutual funds, then 9 `MTRT-…` CITs | `test_trd_01` |
 | TRD-2 | Open MTRS-2040 | Held securities; "Held · no target" (legacy fund); "Not held · candidate" (IEFA); three target columns | `test_trd_01` |
 | TRD-3 | Cashflows → download the Excel template, fill two rows, upload; then add one by hand | Rows loaded and listed as New; a bad fund id stops the whole file with the row number | `test_end_to_end_cashflows_to_charles_river_file` |
 | TRD-4 | CITs only → Trades → Generate (Previous night close) | Only CIT funds; CIT orders routed to State Street, ETFs and bonds to the internal desk; IPS PASS | `test_trd_02` |
@@ -213,4 +213,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 2 (automated) | 2026-11-10 | Browser + API tests | All + OVS | 99 pass | Found F-10; F-5 to F-10 fixed |
 | 4 (automated) | 2026-11-10 | Browser + API tests | All + REG + TRD-14 to 16 | 125 pass | Regulations, rebalance, positions, fills; F-4 and F-11 fixed |
 | 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |
-| 3 (automated) | 2026-11-11 | Browser + API tests | All + TRD + REG + UX | 135 pass (65 browser) | UX update: app bar, My work, Help, dialogs, messages, keyboard; tests updated for the grouped console tabs |
+| 5 (automated) | 2026-11-11 | Browser + API tests | All + TRD + REG + UX | 135 pass (65 browser) | UX update: app bar, My work, Help, dialogs, messages, keyboard; tests updated for the grouped console tabs |

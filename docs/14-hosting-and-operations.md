@@ -75,7 +75,7 @@ A full deploy takes about 10–15 minutes; an image-only change is faster.
 
 ## 5. Managing users
 
-**In the app (recommended): User access screen** at `/admin` (admins land there; others with Admin, Audit or Compliance roles reach it from **User access** in the console side bar).
+**In the app (recommended): User access screen** at `/admin` (admins land there; others with Admin, Audit or Compliance roles reach it from **User access** in the app bar).
 
 | Tab | What it does | Who |
 |---|---|---|
