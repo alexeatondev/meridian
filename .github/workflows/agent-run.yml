@@ -120,6 +120,25 @@ jobs:
             "$(basename "$RUN_DIR")/board_memo.md" "$(basename "$RUN_DIR")/compliance_report.md"
           curl -fsS -H "Authorization: Bearer $INGEST_TOKEN" -F bundle=@/tmp/run.tgz "$APP_URL/api/ingest"
           echo "" >> "$GITHUB_STEP_SUMMARY"; echo "**Published to the app:** $APP_URL/runs/$(basename "$RUN_DIR")" >> "$GITHUB_STEP_SUMMARY"
+      - name: Model usage (job log)
+        if: env.RUN_DIR != ''
+        run: |
+          python - <<'PY'
+          import json, os, collections
+          recs = [json.loads(l) for l in open(os.environ["RUN_DIR"] + "/ledger.jsonl")]
+          usage = next((r["output"] for r in recs if r["step"] == "llm.usage"), {})
+          print("usage:", json.dumps({k: v for k, v in usage.items() if k != "errors"}))
+          for e in usage.get("errors", [])[:10]: print("error:", e)
+          paths, tools = collections.Counter(), collections.Counter()
+          for r in recs:
+              o = r.get("output") or {}
+              if o.get("judge_path"):
+                  paths[(r["step"].split(".")[-1] if r["step"].startswith("ac-") else r["step"]) + ":" + o["judge_path"]] += 1
+              for c in (o.get("agent_trace") or {}).get("tool_calls", []):
+                  tools[c["tool"] + (":error" if c.get("error") else "")] += 1
+          print("judgment paths:", dict(paths))
+          print("tool calls:", dict(tools))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: meridian-${{ env.RUN_DIR != '' && 'run' || 'failed' }}-${{ github.run_number }}
