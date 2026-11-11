@@ -67,7 +67,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Confidence the agents stay inside the IPS: hard limits enforced in code, not by the model.
 
 **Covered today:** Positioning with drill-down, proposals per vintage with **Why?** evidence, adjustments with instant recompute, **changes since last run**, risk budget, fund risk, look-through, approvals with reason and checklist, exceptions, board memo. **Trading (2026-11-10):** cashflow intake, three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, current vs post-trade preview with IPS check, approval and the Charles River import file (shadow mode, example positions).
-**Gaps:** No rebalance trades that close gaps to target; no what-if on the proposal itself (the scenario builder covers factor shocks only); no performance or attribution; positions are example data until custodian/TA files are connected; Charles River results don't come back yet.
+**Gaps:** No what-if on the proposal itself (the scenario builder covers factor shocks only); no performance or attribution; positions are example data until custodian/TA files are connected; Charles River results don't come back yet.
 **UAT top tasks:** (1) review and approve a vintage's proposal; (2) adjust a weight and see risk and compliance update; (3) explain the largest change using the memo and dissent.
 
 ---
@@ -210,7 +210,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - The Agentic Compliance Officer's draft review, clearly marked as draft and never a sign-off.
 
 **Covered today:** Compliance tab with rule results and **Why?**; **exception workflow** (owner, due date, notes, remediation, CCO time-limited acceptance, close with separation of duties); ledger search across runs with CSV; evidence-pack download; compliance report (ACO draft); look-through for issuer exposure; trading records (type `trading`, route changes `routes.change`) in the ledger; read-only access review and access log.
-**Gaps:** No approval-quality audit view; no annual-review package; no marketing-review routing; the CCO is still a placeholder (production blocker).
+**Gaps:** Regulation tags and obligations built (doc 18). No approval-quality audit view; no annual-review package; no marketing-review routing; the CCO is still a placeholder (production blocker).
 **UAT top tasks:** (1) find any WARN or FAIL and read the rule, value and limit; (2) open the decision ledger and trace one approval to the proposal it approved; (3) read the ACO report and list the production blockers.
 
 ---
@@ -275,7 +275,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 | ~~Evidence-pack export button; ledger search across runs~~ | Compliance, Audit | **Built 2026-11-10** |
 | ~~Exception workflow (owner, deadline, resolution)~~ | Compliance, Risk | **Built 2026-11-10** |
 | ~~Cashflow trading, routing, tilts, exclusions, exits, tickets, tranches, Charles River file~~ | PM, Analyst, Compliance | **Built 2026-11-10** (doc 17) |
-| Rebalance trades; real positions from custodians/TAs; Charles River results back | PM, Analyst, Risk | Doc 17 |
+| ~~Rebalance trades; positions upload; fills and booking~~ | PM, Analyst, Risk | **Built 2026-11-10** (automatic custodian/TA feeds and Charles River API still to come) |
+| ~~Fund-level regulation tags with controls and tracked obligations~~ | Compliance, PM, Audit | **Built 2026-11-10** (doc 18) |
 | Derivatives, in-kind, mandates, margin and leverage, capital calls | PM, Risk, Compliance | Doc 17 Phase F (needs answers to §6 questions 6–8) |
 | Kill switch and autonomy controls; governance KPIs | Leadership, Admin | Phase 2/3 |
 | Risk add-ons: liquidity, expected shortfall, VaR backtest, ex-post vs ex-ante | Risk, Compliance | Doc 13 §8 (awaiting direction) |

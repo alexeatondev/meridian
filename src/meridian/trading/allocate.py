@@ -22,7 +22,8 @@ def _qty(inst: dict, amount: float, side: str) -> float:
     if inst["type"] in ("etf", "stock"):       # whole shares; round buys down so cash can't go negative
         sh = abs(amount) / price
         return float(math.floor(sh) if side == "BUY" else round(sh))
-    return round(abs(amount) / price, 3)       # fund units (mutual funds, CITs) to 3 decimals
+    u = abs(amount) / price                    # fund units (mutual funds, CITs) to 3 decimals
+    return math.floor(u * 1000 + 1e-9) / 1000     # floored, so sells never exceed and buys never overdraw
 
 
 def _amount(inst: dict, qty: float) -> float:
@@ -196,7 +197,7 @@ def ticket_fund(model: TradingModel, fund_id: str, tickets: list[dict], position
             if side != "SELL":
                 errors.append(f"{k}: only a sell can be for the whole position")
                 continue
-            q = math.floor(held / unit) if i["type"] in EXCHANGE_TRADED else round(held / unit, 3)
+            q = math.floor(held / unit) if i["type"] in EXCHANGE_TRADED else math.floor(held / unit * 1000 + 1e-9) / 1000
             if i["type"] == "bond":
                 q = math.floor(q / 1000) * 1000
         elif t.get("quantity"):
@@ -223,8 +224,64 @@ def ticket_fund(model: TradingModel, fund_id: str, tickets: list[dict], position
     return r
 
 
+def rebalance_fund(model: TradingModel, fund_id: str, positions: dict, table: dict[str, float], *, routes: dict,
+                   excluded: set[str] | None = None, buffer_bps: float = 0.0, min_drift_bps: float = 0.0) -> dict:
+    """Trade every security with a target back to its target weight (doc 17: gaps are closed only by a
+    rebalance or an explicit decision). Uninvested cash is invested, holdings with no target and excluded
+    securities are left alone, ETF buys keep the cash buffer, and drifts below `min_drift_bps` are skipped."""
+    inst, values, cash = model.instruments, dict(positions["values"]), float(positions["cash"])
+    excluded = set(excluded or ())
+    nav = cash + sum(values.values())
+    keep = {k: v for k, v in values.items() if k in excluded or k not in table or not model.has_target(inst[k], fund_id)}
+    w = {k: v for k, v in table.items() if v > 0 and k not in excluded and model.has_target(inst[k], fund_id)}
+    tw = sum(w.values())
+    investable = nav - sum(keep.values())
+    notes = [f"{k} has no target or is excluded: left as is" for k in sorted(keep) if keep[k]]
+    gaps = {k: investable * v / tw - values.get(k, 0.0) for k, v in w.items()} if tw else {}
+    for k in [k for k, g in gaps.items() if abs(g) < nav * min_drift_bps / 10000]:
+        del gaps[k]
+    if min_drift_bps:
+        notes.append(f"Drifts under {min_drift_bps:g} bp of NAV are not traded")
+    buys, sells = sum(g for g in gaps.values() if g > 0), -sum(g for g in gaps.values() if g < 0)
+    if buys > cash + sells:                       # skipped small sells: scale buys to the cash available
+        f = (cash + sells) / buys
+        gaps = {k: (g * f if g > 0 else g) for k, g in gaps.items()}
+        notes.append(f"Buys scaled to {f:.1%} so cash does not go negative")
+    buffer_held = 0.0
+    for k, g in list(gaps.items()):
+        if g > 0 and inst[k]["type"] == "etf" and buffer_bps:
+            cut = g * buffer_bps / 10000
+            gaps[k] = g - cut
+            buffer_held += cut
+    if buffer_held:
+        notes.append(f"Cash buffer {buffer_bps:g} bp held back ${buffer_held:,.0f} from ETF buys")
+    orders, traded = [], {}
+
+    def place(k: str, a: float) -> None:
+        side = "BUY" if a > 0 else "SELL"
+        q = _qty(inst[k], a, side)
+        if side == "SELL" and inst[k]["type"] in EXCHANGE_TRADED:
+            q = min(q, math.floor(values.get(k, 0.0) / (float(inst[k]["price"]) / (100 if inst[k]["type"] == "bond" else 1))))
+        if q > 0:
+            o = _order(model, k, side, q, routes)
+            traded[k] = o["est_amount"] if side == "BUY" else -o["est_amount"]
+            orders.append(o)
+
+    for k, a in sorted(((k, a) for k, a in gaps.items() if a < 0), key=lambda kv: kv[1]):   # sells fund the buys
+        place(k, a)
+    planned, avail = sum(a for a in gaps.values() if a > 0), cash - sum(traded.values())
+    f = min(1.0, avail / planned) if planned > 0 else 1.0       # rounding on sells can leave a little less cash
+    for k, a in sorted(((k, a) for k, a in gaps.items() if a > 0), key=lambda kv: -kv[1]):
+        place(k, a * f)
+    nav_targets = {k: v / tw * investable / nav for k, v in w.items()} if tw and nav else {}
+    r = _result(model, fund_id, 0.0, values, cash, traded, orders, nav_targets, excluded, notes, buffer_held)
+    r["rounding_residual"] = 0.0
+    return r
+
+
 # ------------------------------------------------------------------------------------------------ tranches
-def validate_schedule(schedule: list[dict], trade_date: str, max_n: int = 24) -> list[str]:
+def validate_schedule(schedule: list[dict], trade_date: str, max_n: int = 24,
+                      holidays: set[str] | None = None) -> list[str]:
     """Data checks for one tranche schedule [{date, pct}] (doc 17 item 9)."""
     from datetime import date as _d
     errs = []
@@ -241,6 +298,8 @@ def validate_schedule(schedule: list[dict], trade_date: str, max_n: int = 24) ->
             continue
         if d.weekday() >= 5:
             errs.append(f"Tranche {n}: {d.isoformat()} is a weekend")
+        elif d.isoformat() in (holidays or ()):
+            errs.append(f"Tranche {n}: {d.isoformat()} is a market holiday")
         if d.isoformat() < trade_date:
             errs.append(f"Tranche {n}: {d.isoformat()} is before the trade date {trade_date}")
         dates.append(d.isoformat())

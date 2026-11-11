@@ -347,6 +347,26 @@ def append_risk_history(rows: list[dict], path: Path = RISK_HISTORY_PATH) -> Non
 
 
 # ------------------------------------------------------------------------------------ look-through
+UST_PATTERN = r"^(?:UNITED STATES TREAS|U\.?S\.? TREAS|US TREAS|TREASURY|TBILL|T-BILL|TREAS )"
+UST_NAME = "UNITED STATES TREASURY"
+
+
+def normalize_issuers(h: pd.DataFrame) -> pd.DataFrame:
+    """One issuer for US Treasury debt (finding F-4): the public holdings files name it many ways
+    ("TREASURY NOTE", "TREASURY (CPI) NOTE", "TREASURY BILL", "TBILL TREASURY BILL", "(OLD)"…)."""
+    h = h.copy()
+    us = h["country"].str.upper().isin(["UNITED STATES", "US", "USA", ""])
+    ust = us & h["name"].fillna("").str.upper().str.strip().str.contains(UST_PATTERN, regex=True)
+    if ust.any():
+        h.loc[ust, "name"] = UST_NAME
+        h.loc[ust, "ticker"] = "UST"
+        h.loc[ust, "sector"] = "Treasuries"
+        h.loc[ust, "country"] = "United States"
+        h.loc[ust, "security_id"] = "UST|United States|Treasury"
+        h.loc[ust, "asset_class"] = "Fixed Income"
+    return h
+
+
 def lookthrough(holdings: pd.DataFrame | None, assets: list[str], universe: dict, return_proxy: dict) -> dict:
     """Compact look-through structure for the console: a security index plus, per building block, the
     list of [security index, weight in fund, duration]. Portfolio exposure to a security =
@@ -362,6 +382,7 @@ def lookthrough(holdings: pd.DataFrame | None, assets: list[str], universe: dict
         h[c] = h[c].fillna("").astype(str)
     if "duration" not in h:
         h["duration"] = np.nan
+    h = normalize_issuers(h)
     sec = h.drop_duplicates("security_id")[["security_id", "ticker", "name", "sector", "asset_class", "country"]]
     sec = sec.reset_index(drop=True)
     idx = {s: i for i, s in enumerate(sec["security_id"])}

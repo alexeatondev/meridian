@@ -47,7 +47,7 @@ select,input[type=number],input[type=date]{padding:7px 9px;border:1px solid var(
 </head><body>
 <header><h1>Meridian · Trading</h1><span class="muted small" id="who"></span><span class="sp"></span>
 <span class="seg" id="veh" role="group" aria-label="Fund vehicle"><button data-v="all" class="on">All funds</button><button data-v="mutual_fund">Mutual funds</button><button data-v="cit">CITs</button></span>
-<a href="/runs/latest">Back to console</a><a href="/logout">Sign out</a></header>
+<a href="/runs/latest">Back to console</a><a href="/regulations">Regulations</a><a href="/logout">Sign out</a></header>
 <main>
 <div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
 <div class="tabs" role="tablist">
@@ -79,7 +79,7 @@ const fundIds = () => new Set(funds().map(f=>f.id));
 const vname = v => ({mutual_fund:'Mutual fund', cit:'CIT'})[v]||v;
 const chip = (t, cls='') => `<span class="chip ${cls}">${esc(t)}</span>`;
 const statusChip = s => ({held:chip('Held','ok'), no_target:chip('Held · no target','warn'), candidate:chip('Not held · candidate','perm'), not_held:chip('Not held')})[s]||chip(s);
-const tlChip = s => ({draft:chip('Draft','warn'), approved:chip('Approved','ok'), exported:chip('Exported for Charles River','perm'), cancelled:chip('Cancelled','crit')})[s]||chip(s);
+const tlChip = s => ({draft:chip('Draft','warn'), approved:chip('Approved','ok'), exported:chip('Exported for Charles River','perm'), cancelled:chip('Cancelled','crit'), filled:chip('Filled and booked','ok')})[s]||chip(s);
 const compChip = c => c.status.startsWith('PASS') ? chip(c.status,'ok') : c.status==='WARN' ? chip('WARN','warn') : c.status==='FAIL' ? chip('FAIL','crit') : chip(c.status);
 
 async function load(){ S.st = await api('GET','/api/trading/state'); render(); }
@@ -95,10 +95,15 @@ function vFunds(){
   const fs = funds();
   const nav = fs.reduce((a,f)=>a+f.nav,0);
   let h = `<div class="card"><h2>Funds (${fs.length})</h2><div class="kpis"><div><span class="muted small">Total NAV</span><b>${musd(nav)}</b></div><div><span class="muted small">Positions as of</span><b>${esc(S.st.as_of)}</b></div><div><span class="muted small">Cash buffer (series)</span><b>${S.st.settings.buffer_bps} bp</b></div></div>
-  <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th></tr></thead><tbody>`;
-  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}</td></tr>`;
-  h += `</tbody></table></div><div id="fundDetail"></div>`;
+  <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th><th>Regulations</th><th>Positions</th></tr></thead><tbody>`;
+  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}</td><td>${(f.regulations||[]).map(r=>chip(r,'ok')).join(' ')||'<span class="small muted">—</span>'}</td><td class="small">${f.positions_source.startsWith('Example')?'<span class="muted">Example</span>':esc(f.positions_source.split(' (')[0])+'<br><span class="muted">'+esc(f.positions_as_of)+'</span>'}</td></tr>`;
+  h += `</tbody></table></div>`;
+  if (BOOT.can_approve) h += `<div class="card"><h2>Load positions (holdings at last close)</h2><p class="small muted">Excel or CSV from the custodian or transfer agent with <span class="mono">as_of, fund_id (or account), security_id (or CUSIP; CASH for cash), quantity and price, or market_value</span>. It replaces the example holdings of every fund in the file; any bad row stops the load. Fills you record on exported trade lists also update positions.</p>
+   <input type="file" id="posFile" accept=".xlsx,.xlsm,.csv"> <button class="btn primary" id="posUpload">Upload positions</button> <a href="/api/trading/positions/template.csv">CSV template</a></div>`;
+  h += `<div id="fundDetail"></div>`;
   $('#funds').innerHTML = h;
+  if ($('#posUpload')) $('#posUpload').onclick = async()=>{const f=$('#posFile').files[0]; if(!f) return toast('Choose a file first'); const fd=new FormData(); fd.append('file', f);
+    try{const r=await api('POST','/api/trading/positions/upload',null,fd); await load(); toast(`Positions loaded for ${r.funds.length} funds and recorded`)}catch(e){toast(e.message)}};
   document.querySelectorAll('[data-fund]').forEach(tr=>tr.onclick=()=>openFund(tr.dataset.fund));
   if (S.fund && fundIds().has(S.fund)) openFund(S.fund, true);
 }
@@ -107,8 +112,8 @@ async function openFund(id, keep){
   document.querySelectorAll('[data-fund]').forEach(tr=>tr.classList.toggle('sel', tr.dataset.fund===id));
   const d = S.fd = await api('GET', '/api/trading/funds/'+id);
   const held = d.rows.filter(r=>r.status==='held'||r.status==='no_target'), other = d.rows.filter(r=>!(r.status==='held'||r.status==='no_target'));
-  const head = `<tr><th>Security</th><th>Type</th><th>Asset class</th><th>Status</th><th class="n">Value</th><th class="n">Weight</th><th class="n">Previous close</th><th class="n">Neutral</th><th class="n">Strategic</th></tr>`;
-  const row = r => `<tr><td><b>${esc(r.instrument)}</b><br><span class="small muted">${esc(r.name)}</span>${r.note?`<br><span class="small">${esc(r.note)}</span>`:''}</td><td>${esc(r.type)}</td><td>${esc(r.asset_class)}</td><td>${statusChip(r.status)}${r.excluded?chip('Excluded from trading','crit'):''}${r.exiting?chip('Exiting','crit'):''}${r.tilt_bps?chip('Tilt '+(r.tilt_bps>0?'+':'')+r.tilt_bps+' bp','perm'):''}</td><td class="n">${r.value?musd(r.value):'—'}</td><td class="n">${r.value?pct(r.weight):'—'}</td><td class="n">${r.t_previous_close?pct(r.t_previous_close):'—'}</td><td class="n">${r.t_neutral?pct(r.t_neutral):'—'}</td><td class="n">${r.t_strategic?pct(r.t_strategic):'—'}</td></tr>`;
+  const head = `<tr><th>Security</th><th>Type</th><th>Asset class</th><th>Status</th><th class="n">Value</th><th class="n">Weight</th><th class="n">Previous close</th><th class="n">Neutral</th><th class="n">Strategic</th><th class="n">Approved proposal</th></tr>`;
+  const row = r => `<tr><td><b>${esc(r.instrument)}</b><br><span class="small muted">${esc(r.name)}</span>${r.note?`<br><span class="small">${esc(r.note)}</span>`:''}</td><td>${esc(r.type)}</td><td>${esc(r.asset_class)}</td><td>${statusChip(r.status)}${r.excluded?chip('Excluded from trading','crit'):''}${r.exiting?chip('Exiting','crit'):''}${r.tilt_bps?chip('Tilt '+(r.tilt_bps>0?'+':'')+r.tilt_bps+' bp','perm'):''}</td><td class="n">${r.value?musd(r.value):'—'}</td><td class="n">${r.value?pct(r.weight):'—'}</td><td class="n">${r.t_previous_close?pct(r.t_previous_close):'—'}</td><td class="n">${r.t_neutral?pct(r.t_neutral):'—'}</td><td class="n">${r.t_strategic?pct(r.t_strategic):'—'}</td><td class="n">${r.t_approved?pct(r.t_approved):'—'}</td></tr>`;
   const f = d.fund;
   let h = `<div class="card"><h2>${f.id} · ${esc(f.product_name)} ${f.vintage}</h2>
   <div class="kpis"><div><span class="muted small">Vehicle</span><b>${vname(f.vehicle)}</b></div><div><span class="muted small">NAV</span><b>${musd(d.nav)}</b></div><div><span class="muted small">Uninvested cash</span><b>${musd(d.cash)}</b></div><div><span class="muted small">Glide-path roll-down</span><b>${f.roll_down}</b></div><div><span class="muted small">Account (Charles River)</span><b>${f.account}</b></div></div>
@@ -184,9 +189,16 @@ function vTrades(){
    <div class="row"><label>Trade date <select id="tgDate">${dates.map(d=>`<option>${d}</option>`).join('')||'<option value="">No new cashflows</option>'}</select></label>
    <label>Allocation strategy <select id="tgStrat">${Object.entries(S.st.strategies).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
    <button class="btn primary" id="tgGo" ${dates.length?'':'disabled'}>Generate trade list</button></div></div>`;
+  if (BOOT.can_approve) h += `<div class="card"><h2>Rebalance to target</h2><p class="small muted">An explicit decision to close the gaps between current holdings and a target table. Uninvested cash is invested; holdings with no target, excluded and exiting securities are left alone; ETF buys keep the cash buffer. <b>Approved proposal</b> uses the latest proposal both PM and Risk approved in the console.</p>
+   <div class="row"><label>Target <select id="rbStrat"><option value="approved">Approved proposal</option><option value="neutral">Neutral (glide path)</option><option value="strategic">Strategic</option></select></label>
+   <label>Funds <select id="rbFunds"><option value="">All funds in the filter (${funds().length})</option>${funds().map(f=>`<option>${f.id}</option>`).join('')}</select></label>
+   <label>Skip drifts under <input type="number" id="rbDrift" value="5" min="0" max="500" step="1" style="width:70px"> bp</label>
+   <label>Trade date <input type="date" id="rbDate" value="${localDate()}"></label></div>
+   <label class="f" for="rbReason">Reason (kept in the ledger)</label><input type="text" id="rbReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="rbGo">Create rebalance trade list</button></div></div>`;
   h += `<div class="card"><h2>Trade lists</h2><table><thead><tr><th>Trade list</th><th>Trade date</th><th>Strategy</th><th>Funds</th><th class="n">Orders</th><th class="n">Net flow</th><th class="n">Gross</th><th>Status</th><th>Prepared by</th></tr></thead><tbody>
   ${tls.map(t=>`<tr class="click ${S.tl===t.id?'sel':''}" data-tl="${t.id}"><td><b>${t.id}</b>${t.tranche_summary?' '+chip('Tranched','perm'):''}</td><td>${t.trade_date}</td><td>${esc(t.strategy_name)}</td><td>${t.funds.length}${t.vehicle!=='all'?' · '+vname(t.vehicle):''}</td><td class="n">${t.order_count}</td><td class="n ${sgn(t.net_flow)}">${musd(t.net_flow)}</td><td class="n">${musd(t.gross)}</td><td>${tlChip(t.status)}${t.blocked_funds.length?chip('Blocked','crit'):''}</td><td>${esc(t.created_by.name)}</td></tr>`).join('')||'<tr><td colspan=9 class="muted">None yet</td></tr>'}</tbody></table></div><div id="tlDetail"></div>`;
   $('#trades').innerHTML = h;
+  if ($('#rbGo')) $('#rbGo').onclick = async()=>{ try{ const fid=$('#rbFunds').value; const r = await api('POST','/api/trading/rebalance',{strategy:$('#rbStrat').value, trade_date:$('#rbDate').value, min_drift_bps:+$('#rbDrift').value, vehicle:S.veh, fund_ids: fid?[fid]:null, reason:$('#rbReason').value}); S.tl=r.id; await load(); toast(`${r.id}: ${r.order_count} orders for ${r.funds.length} funds, recorded in the ledger`) }catch(e){toast(e.message)} };
   if ($('#tgGo')) $('#tgGo').onclick = async()=>{ try{ const r = await api('POST','/api/trading/trade-lists',{trade_date:$('#tgDate').value, strategy:$('#tgStrat').value, vehicle:S.veh}); S.tl=r.id; await load(); toast(`${r.id}: ${r.order_count} orders for ${r.funds.length} funds, recorded in the ledger`) }catch(e){toast(e.message)} };
   document.querySelectorAll('[data-tl]').forEach(tr=>tr.onclick=()=>{S.tl=tr.dataset.tl;sessionStorage.setItem('tr_tl',S.tl);vTrades()});
   const t = S.st.trade_lists.find(x=>x.id===S.tl); if (t) tlDetail(t);
@@ -202,7 +214,7 @@ function tlDetail(t){
   if (S.tlView==='tranches') h += trancheView(t) + (t.status==='draft'&&BOOT.can_prepare ? trancheEditor(t) : '');
   else
   for (const f of t.funds) {
-    h += `<details open class="card sub"><summary>${f.fund_id} · ${vname(f.vehicle)} · flow <span class="${sgn(f.flow)}">${usd(f.flow)}</span> · ${f.orders.length} orders · IPS ${compChip(f.compliance)} ${f.errors.length?chip('Error','crit'):''}</summary>
+    h += `<details open class="card sub"><summary>${f.fund_id} · ${vname(f.vehicle)} · flow <span class="${sgn(f.flow)}">${usd(f.flow)}</span> · ${f.orders.length} orders · IPS ${compChip({status:f.compliance.ips_status||f.compliance.status})}${f.compliance.regulations?' · regulations '+compChip({status:f.compliance.regulations.some(r=>r.status==='FAIL')?'FAIL':f.compliance.regulations.some(r=>r.status==='WARN')?'WARN':'PASS'}):''} ${f.errors.length?chip('Error','crit'):''}</summary>
     <div class="kpis small"><div>NAV ${musd(f.nav_before)} → <b>${musd(f.nav_after)}</b></div><div>Cash ${musd(f.cash_before)} → <b>${musd(f.cash_after)}</b></div><div>Buffer held <b>${usd(f.buffer_held)}</b> (${f.buffer_bps} bp)</div><div>Rounding left in cash <b>${usd(f.rounding_residual)}</b></div></div>
     ${f.notes.length?`<ul class="small">${f.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}${f.errors.map(e=>`<div class="warnbox">${esc(e)}</div>`).join('')}
     ${f.compliance.results&&f.compliance.results.length?`<div class="warnbox">${f.compliance.results.map(r=>`${esc(r.rule_id)} ${esc(r.status)}: ${esc(r.detail||'')} (measured ${esc(r.measured)}, limit ${esc(r.limit)})`).join('<br>')}</div>`:`<p class="small muted">${esc(f.compliance.detail||'')}${f.compliance.run_id?' · risk model from '+esc(f.compliance.run_id):''}</p>`}`;
@@ -213,6 +225,13 @@ function tlDetail(t){
   if (t.status==='draft' && BOOT.can_approve) h += `<div class="card"><h2>Approve</h2><label class="opt"><input type="checkbox" id="taChk"> <span>I reviewed the orders, the current vs post-trade preview, the IPS check and the notes.</span></label><label class="f" for="taReason">Reason</label><input type="text" id="taReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="taGo" ${t.blocked_funds.length?'disabled':''}>Approve trade list</button>${t.blocked_funds.length?'<span class="small neg">Blocked by errors or a compliance FAIL</span>':''}</div></div>`;
   else if (t.status==='draft') h += `<p class="small muted">A portfolio manager approves trade lists.</p>`;
   if (['approved','exported'].includes(t.status) && BOOT.can_prepare) h += `<div class="card"><h2>Charles River</h2><p class="small">Download the import file and load it into Charles River, which runs its own compliance check and executes. <b>Mock format</b>: column names are placeholders until mapped to your Charles River import specification. Each download is recorded with a fingerprint (SHA-256).</p><a class="btn primary" id="taCrd" href="/api/trading/trade-lists/${t.id}/crd.csv">Download Charles River import file</a>${(t.exports||[]).map(x=>`<div class="small muted" style="margin-top:6px">Exported ${esc(x.at.slice(0,16).replace('T',' '))} by ${esc(x.by.name)} · ${esc(x.sha256.slice(0,16))}…</div>`).join('')}</div>`;
+  if (['exported','filled'].includes(t.status)) {
+    const fl = t.fills||{}, n = Object.keys(fl).length;
+    h += `<div class="card"><h2>Fills and booking</h2><p class="small">Record what executed so positions and cash update. Upload the fills file (<span class="mono">External Order ID, Filled Quantity, Fill Price, Status</span> = FILLED, PARTIAL or CANCELLED; IDs as in the Charles River file), or in shadow mode mark every open order filled at its estimated price.</p>
+     <div class="kpis small"><div>Fill status <b>${esc(t.fill_status||'none')}</b></div><div>Orders with fills <b>${n}</b></div></div>
+     ${t.status==='exported'&&BOOT.can_prepare?`<input type="file" id="flFile" accept=".xlsx,.xlsm,.csv"> <button class="btn" id="flUpload">Upload fills</button> <button class="btn primary" id="flAll">Mark all open orders filled at estimated prices</button>`:''}
+     ${n?`<details><summary>Fills (${n})</summary><table><tr><th>Order ID</th><th class="n">Ordered</th><th class="n">Filled</th><th class="n">Price</th><th>Status</th></tr>${Object.entries(fl).map(([k,v])=>`<tr><td class="mono small">${esc(k)}</td><td class="n">${v.ordered.toLocaleString('en-US')}</td><td class="n">${v.filled.toLocaleString('en-US')}</td><td class="n">${usd(v.price,2)}</td><td>${esc(v.status)}</td></tr>`).join('')}</table></details>`:''}</div>`;
+  }
   if (['draft','approved'].includes(t.status) && BOOT.can_prepare) h += `<div class="row"><button class="btn danger" id="taCancel">Cancel trade list and release cashflows</button></div>`;
   h += `<h3>History</h3><table>${t.history.map(x=>`<tr><td class="small">${esc(x.at.slice(0,16).replace('T',' '))}</td><td>${esc(x.action)}</td><td>${esc(x.by.name)}</td><td>${esc(x.note)}</td></tr>`).join('')}</table></div>`;
   $('#tlDetail').innerHTML = h;
@@ -220,6 +239,8 @@ function tlDetail(t){
   bindTranches(t);
   if ($('#taGo')) $('#taGo').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/approve`,{checked:$('#taChk').checked, reason:$('#taReason').value}); await load(); toast('Trade list approved and recorded'+(r.self_approved?' (you also prepared it; this is flagged)':'')) }catch(e){toast(e.message)} };
   if ($('#taCrd')) $('#taCrd').onclick = ()=>setTimeout(load, 1500);
+  if ($('#flAll')) $('#flAll').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/fills`,{all:true}); await load(); toast(`Fills booked for ${r.booked_funds.length} funds; status ${r.fill_status}`) }catch(e){toast(e.message)} };
+  if ($('#flUpload')) $('#flUpload').onclick = async()=>{ const f=$('#flFile').files[0]; if(!f) return toast('Choose a file first'); const fd=new FormData(); fd.append('file', f); try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/fills`,null,fd); await load(); toast(`Fills booked for ${r.booked_funds.length} funds; status ${r.fill_status}`) }catch(e){toast(e.message)} };
   if ($('#taCancel')) $('#taCancel').onclick = async()=>{ const reason=prompt('Reason for cancelling (at least 10 characters)'); if(!reason) return; try{await api('POST',`/api/trading/trade-lists/${t.id}/cancel`,{reason}); await load(); toast('Trade list cancelled; its cashflows are available again')}catch(e){toast(e.message)} };
 }
 

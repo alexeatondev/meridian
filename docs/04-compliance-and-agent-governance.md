@@ -138,7 +138,8 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 | PC-2 Dual sign-off on policy changes | **Partial:** risk-budget changes need requester + second approver; CCO permission exists for policy approvals |
 | PC-3 Deterministic rule engine | **Built** |
 | PC-4 Pre-trade checks | **Built (shadow):** IPS rules on post-trade weights of every trade list; FAIL blocks approval (doc 17). Charles River runs its own check |
-| PC-5 Post-trade monitoring | Not built (needs real positions) |
+| PC-5 Post-trade monitoring | **Partial:** regulation controls run on current holdings (uploaded or booked positions) on the Regulations screen; no daily job yet |
+| Fund-level regulations | **Built:** US and international regulation tags per fund with controls, obligations, required roles and retention (doc 18) |
 | PC-6 Exceptions | **Built:** auto-opened from WARN/FAIL, owner, due date, remediation, CCO-only time-limited acceptance (≤ 365 days), close with separation of duties |
 | PC-7 Rule testing | **Built** (unit tests on every change) |
 | SUP-1/2 Approval matrix, reasoned approvals | **Built:** checkbox + reason; segregation of duties across roles; Investment Committee and CCO permissions |

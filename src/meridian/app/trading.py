@@ -28,7 +28,8 @@ from ..trading import (
     crd_rows,
     load_model,
 )
-from ..trading.allocate import apply_tilts, asset_class_weights, split_order, ticket_fund, validate_schedule
+from ..trading.allocate import (apply_tilts, asset_class_weights, rebalance_fund, split_order, ticket_fund,
+                                validate_schedule)
 from . import auth
 from .oversight import governance_record
 from .store import Base, now
@@ -153,13 +154,39 @@ def exits_for(settings: dict, fund_id: str) -> set[str]:
 
 
 def positions(fund_id: str) -> dict:
+    """Holdings at last close: an uploaded or booked positions file if there is one, else example data."""
+    with _store().Session() as s:
+        row = s.get(TradingSetting, f"positions:{fund_id}")
+        if row:
+            return row.body
     return model().example_positions(fund_id)
+
+
+def approved_asset_weights(s, vintage: int) -> tuple[dict, str | None]:
+    """Latest approved proposal for a vintage (both PM and Risk approved), as asset-class weights."""
+    from .store import Position
+    rows = list(s.execute(select(Position).where(Position.vintage == vintage, Position.status == "approved")).scalars())
+    if not rows:
+        return {}, None
+    last = max(rows, key=lambda r: (r.as_of, r.id))
+    pick = [r for r in rows if r.as_of == last.as_of and r.run_id == last.run_id]
+    return {r.asset: float(r.weight) for r in pick}, f"{last.run_id} (as of {last.as_of})"
 
 
 def tables(s, fund_id: str) -> dict[str, dict]:
     m = model()
+    aw, _src = approved_asset_weights(s, m.funds[fund_id].vintage)
     return {"previous_close": m.previous_close_table(fund_id, positions(fund_id)["values"]),
-            "neutral": m.neutral_table(fund_id), "strategic": strategic_table(s, fund_id)["effective"]}
+            "neutral": m.neutral_table(fund_id), "strategic": strategic_table(s, fund_id)["effective"],
+            "approved": m.table_from_asset_weights(fund_id, aw) if aw else {}}
+
+
+def _table_or_error(s, fund_id: str, strategy: str) -> dict:
+    t = tables(s, fund_id)[strategy]
+    if not t:
+        raise HTTPException(409, f"{fund_id}: no approved proposal for vintage {model().funds[fund_id].vintage} yet "
+                                 "(it needs PM and Risk approval in the console)")
+    return t
 
 
 # ---------------------------------------------------------------------------------------------- page and state
@@ -194,10 +221,16 @@ def state(request: Request):
     m = model()
     with _store().Session() as s:
         settings = get_settings(s)
+        from .regulations import active_tags
+        regs_by_fund: dict[str, list] = {}
+        for t in active_tags(s):
+            regs_by_fund.setdefault(t["fund_id"], []).append(t)
         funds = []
         for fid, f in m.funds.items():
             p = positions(fid)
             funds.append(dict(f.as_dict(), cash=p["cash"], invested=sum(p["values"].values()),
+                              positions_source=p.get("source", ""), positions_as_of=p.get("as_of", ""),
+                              regulations=[t["regulation"] for t in regs_by_fund.get(fid, [])],
                               buffer_bps=fund_buffer(settings, fid),
                               strategic_follows=strategic_table(s, fid).get("follows_glide_path", True)))
         return {"as_of": m.as_of.isoformat(), "funds": funds, "instruments": list(m.instruments.values()),
@@ -538,6 +571,23 @@ def _run_context():
 
 
 def _compliance(fund_id: str, rows: list[dict], ctx) -> dict:
+    """IPS rules (needs a run's risk model) plus the controls of every regulation tagged on the fund (doc 18)."""
+    from .regulations import controls_for
+    from ..regulations import overall
+    out = _ips_check(fund_id, rows, ctx)
+    out["ips_status"] = out["status"]
+    reg = controls_for(fund_id, rows)
+    if reg:
+        out["regulations"] = reg
+        out["results"] = out.get("results", []) + [r for r in reg if r["status"] != "PASS"]
+        rs = overall(reg)
+        if rs == "FAIL" or (rs == "WARN" and not str(out["status"]).startswith("FAIL")):
+            out["status"] = "FAIL" if "FAIL" in (rs, out["status"]) else "WARN"
+        out["detail"] += f"; regulation controls ({', '.join(sorted({r['regulation_name'] for r in reg}))}): {rs}"
+    return out
+
+
+def _ips_check(fund_id: str, rows: list[dict], ctx) -> dict:
     if not ctx:
         return {"status": "NOT RUN", "detail": "No agent run published yet, so the IPS check needs a run's risk model",
                 "results": []}
@@ -588,7 +638,7 @@ def generate(request: Request, body: dict = Body(...)):
         out_funds = []
         for fid in sorted(net, key=lambda x: (m.funds[x].vehicle, m.funds[x].vintage)):
             pos = positions(fid)
-            table, pre = _effective_table(settings, fid, tables(s, fid)[strategy])
+            table, pre = _effective_table(settings, fid, _table_or_error(s, fid, strategy))
             r = allocate_fund(m, fid, net[fid], pos, table, routes=settings["routes"],
                               excluded=excluded_for(settings, fid), excluded_share=settings.get("excluded_share", "redistribute"),
                               buffer_bps=fund_buffer(settings, fid))
@@ -718,7 +768,7 @@ def set_tranches(request: Request, tid: str, body: dict = Body(...)):
         scheds = ([("Whole list", plan["default"])] if plan["default"] else []) + \
             [(k, v) for k, v in plan["funds"].items()] + [(k.replace("|", " "), v) for k, v in plan["securities"].items()]
         for label, sch in scheds:
-            errs += [f"{label}: {e}" for e in validate_schedule(sch, b["trade_date"])]
+            errs += [f"{label}: {e}" for e in validate_schedule(sch, b["trade_date"], holidays=model().holidays)]
         n_tr, dates = 0, {}
         if not errs:
             for f in b["funds"]:
@@ -850,3 +900,330 @@ def crd_file(request: Request, tid: str):
         row.body, row.status = b, "exported"
     return Response(text, media_type="text/csv",
                     headers={"Content-Disposition": f"attachment; filename=charles-river-import-{tid}.csv"})
+
+
+# ---------------------------------------------------------------------------------------------- shared upload reader
+def _rows_from_upload(name: str, data: bytes) -> list[dict]:
+    if len(data) > 5_000_000:
+        raise HTTPException(400, "File is larger than 5 MB")
+    if name.lower().endswith((".xlsx", ".xlsm")):
+        try:
+            from openpyxl import load_workbook
+            ws = load_workbook(io.BytesIO(data), read_only=True, data_only=True).active
+            it = ws.iter_rows(values_only=True)
+            head = [str(h or "") for h in next(it)]
+            return [{head[i]: (v.date().isoformat() if hasattr(v, "date") else v) for i, v in enumerate(r) if i < len(head)}
+                    for r in it]
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(400, f"Could not read the Excel file: {e}") from None
+    if name.lower().endswith((".csv", ".txt")):
+        return list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"))))
+    raise HTTPException(400, "Upload an Excel (.xlsx) or CSV file")
+
+
+def _norm(row: dict) -> dict:
+    return {str(k or "").strip().lower().replace(" ", "_").replace(".", ""): ("" if v is None else str(v).strip())
+            for k, v in row.items()}
+
+
+def _num(v: str, what: str, n: int) -> float:
+    try:
+        return float(str(v).replace(",", "").replace("$", ""))
+    except ValueError:
+        raise HTTPException(400, f"Row {n}: {what} is not a number") from None
+
+
+def _save_positions(s, fund_id: str, body: dict) -> None:
+    _put(s, f"positions:{fund_id}", body)
+
+
+# ---------------------------------------------------------------------------------------------- positions upload
+POS_TEMPLATE = [["as_of", "fund_id", "security_id", "quantity", "price", "market_value"],
+                ["2026-11-10", "MTRS-2050", "MER-USLC-MF", "39000000", "41.27", ""],
+                ["2026-11-10", "MTRS-2050", "VNQ", "", "", "108000000"],
+                ["2026-11-10", "MTRS-2050", "CASH", "", "", "21600000"]]
+
+
+@router.get("/api/trading/positions/template.csv")
+def positions_template(request: Request):
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    buf = io.StringIO()
+    csv.writer(buf).writerows(POS_TEMPLATE)
+    return Response(buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=meridian-positions-template.csv"})
+
+
+@router.post("/api/trading/positions/upload")
+async def upload_positions(request: Request, file: UploadFile = File(...)):
+    """Holdings at last close from a custodian or transfer-agent file. Replaces the positions of every fund in
+    the file (other funds keep theirs). Rows: as_of, fund_id (or account), security_id (or CUSIP; CASH for cash),
+    quantity and price, or market_value."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *APPROVE_ROLES)
+    rows = _rows_from_upload(file.filename or "upload", await file.read())
+    m = model()
+    accounts = {f.account: f.id for f in m.funds.values()}
+    cusips = {i.get("cusip"): k for k, i in m.instruments.items() if i.get("cusip")}
+    out: dict[str, dict] = {}
+    errs = []
+    for n, raw in enumerate(rows, start=2):
+        r = _norm(raw)
+        if not any(r.values()):
+            continue
+        fid = accounts.get(r.get("fund_id") or r.get("account", ""), r.get("fund_id") or r.get("account", ""))
+        sid = r.get("security_id") or r.get("cusip") or ""
+        sid = cusips.get(sid, sid)
+        if fid not in m.funds:
+            errs.append(f"Row {n}: unknown fund or account '{fid}'")
+            continue
+        if sid != "CASH" and sid not in m.instruments:
+            errs.append(f"Row {n}: unknown security '{sid}' (add it to the security master first)")
+            continue
+        if sid != "CASH" and m.funds[fid].product not in m.instruments[sid]["products"]:
+            errs.append(f"Row {n}: {sid} is not available to {fid}")
+            continue
+        try:
+            as_of = date.fromisoformat(r.get("as_of", "")[:10]).isoformat()
+        except ValueError:
+            errs.append(f"Row {n}: as_of must look like 2026-11-10")
+            continue
+        if r.get("market_value"):
+            mv = _num(r["market_value"], "market_value", n)
+        elif sid != "CASH" and r.get("quantity"):
+            inst = m.instruments[sid]
+            px = _num(r["price"], "price", n) if r.get("price") else float(inst["price"])
+            mv = _num(r["quantity"], "quantity", n) * px / (100 if inst["type"] == "bond" else 1)
+        else:
+            errs.append(f"Row {n}: give market_value, or quantity (and optionally price)")
+            continue
+        if mv < 0:
+            errs.append(f"Row {n}: negative holdings are not supported yet")
+            continue
+        f = out.setdefault(fid, {"as_of": as_of, "cash": 0.0, "values": {}})
+        if as_of != f["as_of"]:
+            errs.append(f"Row {n}: {fid} has more than one as_of date in the file")
+        if sid == "CASH":
+            f["cash"] += mv
+        else:
+            f["values"][sid] = f["values"].get(sid, 0.0) + mv
+    if errs:
+        raise HTTPException(400, "Nothing loaded. " + "; ".join(errs[:10]) + (" …" if len(errs) > 10 else ""))
+    if not out:
+        raise HTTPException(400, "No position rows found")
+    name = file.filename or "upload"
+    with _store().Session.begin() as s:
+        for fid, f in out.items():
+            _save_positions(s, fid, {"as_of": f["as_of"], "cash": round(f["cash"], 2),
+                                     "values": {k: round(v, 2) for k, v in f["values"].items()},
+                                     "source": f"Uploaded file {name} ({_who(user)['name']})", "loaded_at": _ts()})
+        dr = _record(s, _who(user), "positions.load", f"Positions loaded for {len(out)} funds from {name}",
+                     {"file": name, "funds": {k: {"as_of": v["as_of"], "lines": len(v["values"]),
+                                                  "nav": round(v["cash"] + sum(v["values"].values()), 2)}
+                                              for k, v in out.items()}}, "Holdings at last close", sorted(out))
+    return {"ok": True, "funds": sorted(out), "dr_id": dr}
+
+
+@router.post("/api/trading/positions/reset")
+def reset_positions(request: Request, body: dict = Body(...)):
+    """Go back to example positions for the given funds (development only)."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *APPROVE_ROLES)
+    reason = _reason(body)
+    fids = [f for f in body.get("fund_ids") or [] if f in model().funds]
+    with _store().Session.begin() as s:
+        for fid in fids:
+            row = s.get(TradingSetting, f"positions:{fid}")
+            if row:
+                s.delete(row)
+        dr = _record(s, _who(user), "positions.reset", f"Example positions restored for {len(fids)} funds",
+                     {"funds": fids}, reason, fids)
+    return {"ok": True, "dr_id": dr}
+
+
+# ---------------------------------------------------------------------------------------------- rebalance
+@router.post("/api/trading/rebalance")
+def rebalance(request: Request, body: dict = Body(...)):
+    """Explicit decision to close gaps to target for the chosen funds (doc 17, product owner 2026-11-10)."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *APPROVE_ROLES)
+    reason = _reason(body)
+    m = model()
+    strategy = body.get("strategy", "approved")
+    if strategy not in STRATEGIES or strategy == "previous_close":
+        raise HTTPException(400, "Rebalance to the neutral, strategic or approved-proposal table")
+    try:
+        td = date.fromisoformat(str(body.get("trade_date", ""))[:10]).isoformat()
+    except ValueError:
+        raise HTTPException(400, "trade_date must look like 2026-11-10") from None
+    fids = [f for f in (body.get("fund_ids") or m.fund_ids(body.get("vehicle", "all"))) if f in m.funds]
+    if not fids:
+        raise HTTPException(400, "Choose at least one fund")
+    md = float(body.get("min_drift_bps") or 0)
+    if not 0 <= md <= 500:
+        raise HTTPException(400, "Minimum drift must be between 0 and 500 bp")
+    ctx = _run_context()
+    with _store().Session.begin() as s:
+        settings = get_settings(s)
+        out = []
+        for fid in sorted(fids, key=lambda x: (m.funds[x].vehicle, m.funds[x].vintage)):
+            table, pre = _effective_table(settings, fid, _table_or_error(s, fid, strategy))
+            r = rebalance_fund(m, fid, positions(fid), table, routes=settings["routes"],
+                               excluded=excluded_for(settings, fid) | exits_for(settings, fid),
+                               buffer_bps=fund_buffer(settings, fid), min_drift_bps=md)
+            r["notes"] = pre + r["notes"]
+            r.update(compliance=_compliance(fid, r["preview"], ctx), vehicle=m.funds[fid].vehicle, cashflows=[],
+                     buffer_bps=fund_buffer(settings, fid))
+            out.append(r)
+        tl_id = "RB-" + td.replace("-", "")[2:] + "-" + uuid.uuid4().hex[:4].upper()
+        n = sum(len(f["orders"]) for f in out)
+        b = {"id": tl_id, "kind": "rebalance", "status": "draft", "trade_date": td, "strategy": strategy,
+             "strategy_name": f"Rebalance to {STRATEGIES[strategy]}", "vehicle": body.get("vehicle", "all"),
+             "created_by": _who(user), "created_at": _ts(), "funds": out, "order_count": n,
+             "blocked_funds": [f["fund_id"] for f in out if f["errors"] or f["compliance"]["status"] == "FAIL"],
+             "gross": round(sum(o["est_amount"] for f in out for o in f["orders"]), 2), "net_flow": 0.0,
+             "reason": reason, "min_drift_bps": md,
+             "settings_used": {"routes": settings["routes"], "buffer_bps": settings["buffer_bps"],
+                               "excluded": settings.get("excluded", []), "tilts": settings.get("tilts", []),
+                               "exits": settings.get("exits", [])},
+             "history": [{"at": _ts(), "by": _who(user), "action": "rebalance", "note": reason}]}
+        dr = _record(s, _who(user), "trades.rebalance", f"{tl_id}: rebalance of {len(out)} funds to "
+                     f"{STRATEGIES[strategy]}, {n} orders", {"trade_list": tl_id, "strategy": strategy,
+                     "min_drift_bps": md, "orders": [dict(o, fund_id=f["fund_id"]) for f in out for o in f["orders"]],
+                     "compliance": {f["fund_id"]: f["compliance"]["status"] for f in out}}, reason, fids)
+        b["dr_ids"] = [dr]
+        s.add(TradeList(id=tl_id, status="draft", body=b))
+    return b
+
+
+# ---------------------------------------------------------------------------------------------- fills and booking
+def _order_index(b: dict) -> dict[str, tuple[int, int, dict | None]]:
+    """External Order ID (as in the Charles River file) → (fund index, order index, tranche or None)."""
+    idx, n = {}, 0
+    for fi, f in enumerate(b["funds"]):
+        for oi, o in enumerate(f["orders"]):
+            n += 1
+            parent = f"{b['id']}-{n:04d}"
+            if o.get("tranches"):
+                for t in o["tranches"]:
+                    idx[f"{parent}-T{t['n']}"] = (fi, oi, t)
+            else:
+                idx[parent] = (fi, oi, None)
+    return idx
+
+
+def _book(s, b: dict, fills: list[dict], actor: dict) -> dict:
+    """Apply new fills to positions and cash. Cashflows of the list settle into cash at the first booking."""
+    m = model()
+    idx = _order_index(b)
+    done = dict(b.get("fills", {}))
+    by_fund: dict[int, list] = {}
+    errs = []
+    for n, f in enumerate(fills, start=1):
+        oid = f["order_id"]
+        if oid not in idx:
+            errs.append(f"Fill {n}: unknown order ID {oid}")
+            continue
+        fi, oi, tr = idx[oid]
+        o = b["funds"][fi]["orders"][oi]
+        want = tr["quantity"] if tr else o["quantity"]
+        prev = done.get(oid, {"filled": 0.0})
+        status = f.get("status", "FILLED").upper()
+        if status not in ("FILLED", "PARTIAL", "CANCELLED"):
+            errs.append(f"Fill {n}: status must be FILLED, PARTIAL or CANCELLED")
+            continue
+        qty = 0.0 if status == "CANCELLED" else float(f.get("quantity", want if status == "FILLED" else 0))
+        if qty < 0 or prev["filled"] + qty > want + 1e-6:
+            errs.append(f"Fill {n}: {oid} would be filled beyond its quantity ({want:,})")
+            continue
+        px = float(f.get("price") or o["price"])
+        done[oid] = {"filled": round(prev["filled"] + qty, 6), "ordered": want, "price": px,
+                     "status": "CANCELLED" if status == "CANCELLED" else
+                               "FILLED" if abs(prev["filled"] + qty - want) < 1e-6 else "PARTIAL"}
+        if qty:
+            by_fund.setdefault(fi, []).append((o, qty, px))
+    if errs:
+        raise HTTPException(400, "Nothing booked. " + "; ".join(errs[:10]))
+    booked = []
+    for fi in sorted(set(by_fund) | {i for i, f in enumerate(b["funds"]) if f.get("flow") and not f.get("flow_booked")}):
+        f = b["funds"][fi]
+        p = positions(f["fund_id"])
+        values, cash = dict(p["values"]), float(p["cash"])
+        if f.get("flow") and not f.get("flow_booked"):
+            cash += f["flow"]
+            f["flow_booked"] = True
+        for o, qty, px in by_fund.get(fi, []):
+            amt = qty * px / (100 if o["quantity_type"] == "FACE" else 1)
+            sign = 1 if o["side"] == "BUY" else -1
+            values[o["instrument"]] = round(values.get(o["instrument"], 0.0) + sign * amt, 2)
+            cash -= sign * amt
+        values = {k: v for k, v in values.items() if abs(v) >= 0.01}
+        _save_positions(s, f["fund_id"], {"as_of": b["trade_date"], "cash": round(cash, 2), "values": values,
+                                          "source": f"Booked from {b['id']} ({actor['name']})", "loaded_at": _ts()})
+        booked.append(f["fund_id"])
+    b["fills"] = done
+    states = [done.get(k, {}).get("status") for k in idx]
+    b["fill_status"] = ("filled" if all(st in ("FILLED", "CANCELLED") for st in states) else
+                        "partially_filled" if any(states) else "none")
+    return {"booked_funds": booked, "fill_status": b["fill_status"]}
+
+
+@router.post("/api/trading/trade-lists/{tid}/fills")
+async def fills(request: Request, tid: str):
+    """Record executions: a file (External Order ID, Filled Quantity, Fill Price, Status) or JSON
+    {"all": true} to mark every open order filled at its estimated price (shadow mode). Positions update."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    ctype = request.headers.get("content-type", "")
+    name = "manual"
+    if ctype.startswith("multipart/"):
+        form = await request.form()
+        up = form.get("file")
+        if up is None:
+            raise HTTPException(400, "Attach a fills file")
+        name = up.filename or "upload"
+        rows = []
+        for n, raw in enumerate(_rows_from_upload(name, await up.read()), start=2):
+            r = _norm(raw)
+            if not any(r.values()):
+                continue
+            rows.append({"order_id": r.get("external_order_id") or r.get("order_id", ""),
+                         "quantity": _num(r.get("filled_quantity") or r.get("quantity") or "0", "Filled Quantity", n),
+                         "price": _num(r["fill_price"], "Fill Price", n) if r.get("fill_price") else None,
+                         "status": r.get("status") or "FILLED"})
+        body = {}
+    else:
+        body = await request.json()
+        rows = body.get("fills") or []
+    with _store().Session.begin() as s:
+        row = _get_tl(s, tid)
+        b = json.loads(json.dumps(row.body))
+        if b["status"] != "exported":
+            raise HTTPException(409, "Record fills after the trade list has been exported for Charles River")
+        if body.get("all"):
+            done = b.get("fills", {})
+            rows = []
+            for oid, (fi, oi, tr) in _order_index(b).items():
+                if done.get(oid, {}).get("status") in ("FILLED", "CANCELLED"):
+                    continue
+                o = b["funds"][fi]["orders"][oi]
+                want = (tr["quantity"] if tr else o["quantity"]) - done.get(oid, {}).get("filled", 0.0)
+                rows.append({"order_id": oid, "quantity": want, "price": o["price"], "status": "FILLED"})
+            name = "all open orders at estimated prices"
+        if not rows:
+            raise HTTPException(400, "No fills to record")
+        res = _book(s, b, rows, _who(user))
+        dr = _record(s, _who(user), "trades.fills", f"{tid}: {len(rows)} fills recorded ({name}); "
+                     f"status {res['fill_status']}", {"trade_list": tid, "fills": rows, **res},
+                     "Executions booked to positions", res["booked_funds"])
+        b["dr_ids"] = b["dr_ids"] + [dr]
+        b["history"] = b["history"] + [{"at": _ts(), "by": _who(user), "action": "fills",
+                                        "note": f"{len(rows)} fills · {res['fill_status']}"}]
+        if res["fill_status"] == "filled":
+            b["status"] = "filled"
+        row.body, row.status = b, b["status"]
+    return {"ok": True, **res, "dr_id": dr}

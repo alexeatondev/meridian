@@ -1,0 +1,205 @@
+# Fund-level regulations (doc 18). A fund or portfolio can carry any number of these tags.
+# Tagging a fund switches on, for that fund only:
+#   controls      -> deterministic checks run on every trade list's post-trade holdings (FAIL blocks approval)
+#   obligations   -> recurring or one-time tasks with owner role, due dates and evidence, tracked to completion
+#   required_roles-> named people the regulation needs (shown as gaps until filled in config/entity_profile.yaml)
+#   retention_years -> the fund's record retention is the maximum over its tags
+# Firm-level operating-entity packs stay in regimes/regimes.yaml (doc 08).
+#
+# CITATIONS, LIMITS AND DUE DATES ARE A DESIGN AID, NOT LEGAL ADVICE. Every regulation is marked
+# counsel_review: required until the CCO or counsel confirms it. Due-date rules are editable here.
+#
+# Control kinds (src/meridian/regulations.py):
+#   max_single_fund          each underlying fund (mutual fund, CIT, ETF) <= limit of NAV
+#   max_fund_group           sum of underlying funds matching a filter <= limit
+#   max_unaffiliated_fund    12(d)(1)(A)-style: each unaffiliated fund <= limit_each, all <= limit_total
+#   issuer_5_10_40           single issuer <= limit_each; issuers above threshold sum <= limit_sum
+#   diversified_75_5_10      issuers above 5% (excluding government and fund securities) sum <= 25%
+#   max_illiquid             illiquid holdings <= limit
+#   max_derivatives          derivatives exposure <= limit
+#   min_cash / max_cash      uninvested cash bounds
+# Frequencies: once | daily | monthly | quarterly | semiannual | annual. due_days = days after the period
+# end (or after tagging, for once).
+
+regulations:
+
+  # =============================================================== United States (domestic)
+  ICA40:
+    name: Investment Company Act of 1940 — registered open-end fund
+    short: "ACT 40"
+    jurisdiction: US
+    scope: domestic
+    regulator: SEC
+    counsel_review: required
+    retention_years: 6
+    applies_to: [mutual_fund]
+    required_roles: [chief_compliance_officer, fund_board, liquidity_program_administrator, derivatives_risk_manager]
+    controls:
+      - {id: ICA-12D1-UNAFF, kind: max_unaffiliated_fund, limit_each: 0.05, limit_total: 0.10, severity: FAIL,
+         cite: "ICA §12(d)(1)(A)", text: "Unaffiliated funds: ≤5% of assets each and ≤10% in total, unless relying on Rule 12d1-4 with fund-of-funds agreements",
+         param_flag: rule_12d1_4}
+      - {id: ICA-22E4-ILLIQ, kind: max_illiquid, limit: 0.15, severity: FAIL, cite: "Rule 22e-4", text: "Illiquid investments ≤15% of net assets"}
+      - {id: ICA-18F4-LDU, kind: max_derivatives, limit: 0.10, severity: WARN, cite: "Rule 18f-4(c)(4)", text: "Limited derivatives user: derivatives exposure ≤10% of net assets (else full program and VaR limit)"}
+      - {id: ICA-5B1-DIV, kind: diversified_75_5_10, severity: WARN, cite: "ICA §5(b)(1)", text: "Diversified fund: issuers above 5% (excluding government securities and other investment companies) ≤25% of assets"}
+    obligations:
+      - {id: ICA-38A1, title: "Annual CCO report to the board (Rule 38a-1)", frequency: annual, due_days: 30, owner_role: chief_compliance_officer, cite: "Rule 38a-1(a)(4)", evidence: "Board materials and minutes"}
+      - {id: ICA-NPORT, title: "Form N-PORT portfolio holdings report", frequency: monthly, due_days: 60, owner_role: compliance, cite: "Rule 30b1-9; Form N-PORT", evidence: "EDGAR accession number",
+         note: "Current rule: monthly data filed quarterly within 60 days of quarter-end. Amendments requiring monthly filing were deferred (large groups 2027-11-17) and a 2026 proposal would change them; confirm with counsel"}
+      - {id: ICA-NCEN, title: "Form N-CEN annual report", frequency: annual, due_days: 75, owner_role: compliance, cite: "Rule 30a-1; Form N-CEN", evidence: "EDGAR accession number"}
+      - {id: ICA-NCSR, title: "Shareholder report and Form N-CSR", frequency: semiannual, due_days: 70, owner_role: compliance, cite: "Rule 30e-1; Form N-CSR", evidence: "Report and filing confirmation"}
+      - {id: ICA-LIQ-CLASS, title: "Liquidity classification of every holding (Rule 22e-4)", frequency: monthly, due_days: 5, owner_role: risk, cite: "Rule 22e-4(b)(1)(ii)", evidence: "Classification file"}
+      - {id: ICA-LIQ-BOARD, title: "Annual liquidity program report to the board", frequency: annual, due_days: 60, owner_role: liquidity_program_administrator, cite: "Rule 22e-4(b)(2)(iii)", evidence: "Board report"}
+      - {id: ICA-LDU-CHECK, title: "Confirm limited-derivatives-user status (≤10% derivatives exposure)", frequency: monthly, due_days: 5, owner_role: risk, cite: "Rule 18f-4(c)(4)", evidence: "Exposure calculation"}
+      - {id: ICA-VAL, title: "Valuation designee report to the board (Rule 2a-5)", frequency: quarterly, due_days: 45, owner_role: compliance, cite: "Rule 2a-5(b)(1)", evidence: "Board report"}
+      - {id: ICA-15C, title: "Advisory contract approval (Section 15(c))", frequency: annual, due_days: 0, owner_role: fund_board, cite: "ICA §15(c)", evidence: "Board minutes"}
+      - {id: ICA-RIC, title: "RIC asset diversification test (Subchapter M) at quarter-end", frequency: quarterly, due_days: 30, owner_role: compliance, cite: "IRC §851(b)(3)", evidence: "Test workpaper"}
+      - {id: ICA-SETUP, title: "Board adopts compliance, liquidity and valuation programs for this fund", frequency: once, due_days: 30, owner_role: chief_compliance_officer, cite: "Rules 38a-1, 22e-4, 2a-5", evidence: "Board resolutions"}
+
+  ERISA:
+    name: ERISA plan assets (fund holds plan assets, e.g. a CIT)
+    short: "ERISA"
+    jurisdiction: US
+    scope: domestic
+    regulator: DOL
+    counsel_review: required
+    retention_years: 6
+    applies_to: [cit]
+    required_roles: [chief_compliance_officer, plan_fiduciary]
+    controls: []
+    obligations:
+      - {id: ERISA-PTE, title: "Document the prohibited-transaction exemption relied on for affiliated underlying funds", frequency: once, due_days: 30, owner_role: chief_compliance_officer, cite: "ERISA §406; e.g. PTE 77-4", evidence: "Exemption memo"}
+      - {id: ERISA-5500, title: "Form 5500 (DFE) for the collective trust", frequency: annual, due_days: 210, owner_role: compliance, cite: "ERISA §103; DOL Form 5500 instructions", evidence: "EFAST2 filing confirmation"}
+      - {id: ERISA-408B2, title: "Review 408(b)(2) fee disclosures to plan clients", frequency: annual, due_days: 30, owner_role: compliance, cite: "ERISA §408(b)(2)", evidence: "Disclosure package"}
+      - {id: ERISA-PT, title: "Prohibited-transaction review (cross trades, affiliated funds, fees)", frequency: quarterly, due_days: 30, owner_role: compliance, cite: "ERISA §406, §408", evidence: "Review memo"}
+      - {id: ERISA-TDF, title: "Fiduciary review of the target-date series (glide path, underlying funds, fees)", frequency: annual, due_days: 60, owner_role: investment_committee, cite: "DOL target date fund tips for ERISA fiduciaries", evidence: "Committee minutes"}
+
+  OCC_CIT:
+    name: Bank collective investment fund (OCC 12 CFR 9.18)
+    short: "CIT (OCC 9.18)"
+    jurisdiction: US
+    scope: domestic
+    regulator: OCC / state banking regulator
+    counsel_review: required
+    retention_years: 6
+    applies_to: [cit]
+    required_roles: [trustee_bank_officer, chief_compliance_officer]
+    controls: []
+    obligations:
+      - {id: OCC-AUDIT, title: "Annual audit of the collective fund by auditors responsible to the board", frequency: annual, due_days: 120, owner_role: compliance, cite: "12 CFR 9.18(b)(6)(i)", evidence: "Audit report"}
+      - {id: OCC-VALUE, title: "Value fund assets at market value (at least quarterly)", frequency: quarterly, due_days: 0, owner_role: compliance, cite: "12 CFR 9.18(b)(4)", evidence: "Valuation record"}
+      - {id: OCC-REPORT, title: "Annual financial report to participants", frequency: annual, due_days: 120, owner_role: compliance, cite: "12 CFR 9.18(b)(6)(ii)", evidence: "Report and distribution record"}
+      - {id: OCC-PLAN, title: "Review the written plan (declaration of trust)", frequency: annual, due_days: 30, owner_role: chief_compliance_officer, cite: "12 CFR 9.18(b)(1)", evidence: "Board-approved plan"}
+
+  CFTC45:
+    name: CFTC Rule 4.5 exclusion (registered fund using futures/swaps)
+    short: "CFTC 4.5"
+    jurisdiction: US
+    scope: domestic
+    regulator: CFTC / NFA
+    counsel_review: required
+    retention_years: 5
+    applies_to: [mutual_fund]
+    required_roles: [chief_compliance_officer]
+    controls:
+      - {id: CFTC-45-TRADE, kind: max_derivatives, limit: 0.05, severity: WARN, cite: "17 CFR 4.5(c)(2)(iii)", text: "Non-hedging commodity interest positions: margin/premium ≤5% of liquidation value (or net notional ≤100%); proxy: derivatives exposure ≤5%"}
+    obligations:
+      - {id: CFTC-45-AFFIRM, title: "Annual affirmation of the 4.5 exclusion notice with NFA", frequency: annual, due_days: 60, owner_role: compliance, cite: "17 CFR 4.5(c)(5)", evidence: "NFA confirmation"}
+
+  # =============================================================== International (ex-US)
+  UCITS:
+    name: EU UCITS (Directive 2009/65/EC)
+    short: "UCITS"
+    jurisdiction: EU
+    scope: international
+    regulator: Home-state regulator (e.g. CBI, CSSF)
+    counsel_review: required
+    retention_years: 5
+    applies_to: [mutual_fund, cit]
+    required_roles: [chief_compliance_officer, ucits_management_company, depositary]
+    controls:
+      - {id: UCITS-55-SINGLE, kind: max_single_fund, limit: 0.20, severity: FAIL, cite: "UCITS Art. 55(1)", text: "≤20% of assets in any one UCITS or other collective investment undertaking"}
+      - {id: UCITS-55-NONUCITS, kind: max_fund_group, filter: non_ucits, limit: 0.30, severity: FAIL, cite: "UCITS Art. 55(2)", text: "Non-UCITS funds ≤30% of assets in aggregate"}
+      - {id: UCITS-52-5-10-40, kind: issuer_5_10_40, limit_each: 0.10, threshold: 0.05, limit_sum: 0.40, severity: FAIL, cite: "UCITS Art. 52(1)–(2)", text: "Single issuer ≤10%; issuers above 5% ≤40% in total (government issuers excepted)"}
+      - {id: UCITS-DERIV, kind: max_derivatives, limit: 1.0, severity: WARN, cite: "UCITS Art. 51(3)", text: "Global exposure from derivatives ≤100% of NAV (commitment approach)"}
+    obligations:
+      - {id: UCITS-KID, title: "Review and publish the PRIIPs KID", frequency: annual, due_days: 0, owner_role: compliance, cite: "PRIIPs Regulation (EU) 1286/2014", evidence: "Published KID"}
+      - {id: UCITS-AR, title: "Annual report", frequency: annual, due_days: 120, owner_role: compliance, cite: "UCITS Art. 68–69", evidence: "Published report"}
+      - {id: UCITS-SAR, title: "Half-yearly report", frequency: semiannual, due_days: 60, owner_role: compliance, cite: "UCITS Art. 68–69", evidence: "Published report"}
+      - {id: UCITS-RMP, title: "Review the risk management process and global exposure method", frequency: annual, due_days: 30, owner_role: risk, cite: "UCITS Art. 51; Directive 2010/43/EU", evidence: "RMP document"}
+      - {id: UCITS-GE, title: "Calculate global exposure (commitment or VaR)", frequency: daily, due_days: 1, owner_role: risk, cite: "UCITS Art. 51(3)", evidence: "Daily calculation"}
+
+  AIFMD:
+    name: EU AIFMD (alternative investment fund)
+    short: "AIFMD"
+    jurisdiction: EU
+    scope: international
+    regulator: Home-state regulator
+    counsel_review: required
+    retention_years: 5
+    applies_to: [mutual_fund, cit]
+    required_roles: [aifm, depositary, chief_compliance_officer]
+    controls:
+      - {id: AIFMD-LEV, kind: max_derivatives, limit: 2.0, severity: WARN, cite: "AIFMD Art. 25; Reg. 231/2013 Art. 7–8", text: "Leverage monitoring (commitment); limit set in fund documents"}
+    obligations:
+      - {id: AIFMD-ANNEX4, title: "Annex IV regulatory report", frequency: quarterly, due_days: 30, owner_role: compliance, cite: "AIFMD Art. 24; Reg. 231/2013 Art. 110", evidence: "Filing confirmation", note: "Frequency depends on AUM and leverage (quarterly, semi-annual or annual)"}
+      - {id: AIFMD-AR, title: "Annual report", frequency: annual, due_days: 180, owner_role: compliance, cite: "AIFMD Art. 22", evidence: "Published report"}
+      - {id: AIFMD-LIQ, title: "Liquidity stress test", frequency: annual, due_days: 30, owner_role: risk, cite: "AIFMD Art. 16; ESMA guidelines", evidence: "Stress test results"}
+
+  UK_UCITS:
+    name: UK UCITS / authorised fund (FCA COLL)
+    short: "UK COLL"
+    jurisdiction: UK
+    scope: international
+    regulator: FCA
+    counsel_review: required
+    retention_years: 5
+    applies_to: [mutual_fund, cit]
+    required_roles: [authorised_fund_manager, depositary, chief_compliance_officer]
+    controls:
+      - {id: COLL-5-2-SINGLE, kind: max_single_fund, limit: 0.20, severity: FAIL, cite: "COLL 5.2.13 (UK UCITS: 20% in any one scheme)", text: "≤20% in any one collective investment scheme"}
+      - {id: COLL-5-2-NONUCITS, kind: max_fund_group, filter: non_ucits, limit: 0.30, severity: FAIL, cite: "COLL 5.2.13", text: "Non-UCITS schemes ≤30% in aggregate"}
+      - {id: COLL-5-2-ISSUER, kind: issuer_5_10_40, limit_each: 0.10, threshold: 0.05, limit_sum: 0.40, severity: FAIL, cite: "COLL 5.2.11", text: "Single issuer ≤10%; issuers above 5% ≤40%"}
+    obligations:
+      - {id: COLL-AOV, title: "Assessment of Value report", frequency: annual, due_days: 120, owner_role: compliance, cite: "COLL 4.5.7", evidence: "Published report"}
+      - {id: COLL-CD, title: "Consumer Duty fair value assessment", frequency: annual, due_days: 0, owner_role: compliance, cite: "PRIN 2A", evidence: "Board report"}
+      - {id: COLL-REPORTS, title: "Annual and half-yearly long reports", frequency: semiannual, due_days: 120, owner_role: compliance, cite: "COLL 4.5", evidence: "Published reports"}
+
+  CA_81102:
+    name: Canada NI 81-102 (investment fund)
+    short: "NI 81-102"
+    jurisdiction: CA
+    scope: international
+    regulator: Canadian Securities Administrators
+    counsel_review: required
+    retention_years: 7
+    applies_to: [mutual_fund, cit]
+    required_roles: [chief_compliance_officer, independent_review_committee]
+    controls:
+      - {id: NI81102-ISSUER, kind: issuer_5_10_40, limit_each: 0.10, threshold: 1.0, limit_sum: 1.0, severity: FAIL, cite: "NI 81-102 s. 2.1", text: "Single issuer ≤10% of net assets (government and fund securities excepted)"}
+      - {id: NI81102-ILLIQ, kind: max_illiquid, limit: 0.10, severity: FAIL, cite: "NI 81-102 s. 2.4", text: "Illiquid assets ≤10% at purchase (15% hold limit)"}
+    obligations:
+      - {id: NI81102-FF, title: "Fund Facts update", frequency: annual, due_days: 0, owner_role: compliance, cite: "NI 81-101", evidence: "Filed Fund Facts"}
+      - {id: NI81102-MRFP, title: "Management report of fund performance", frequency: semiannual, due_days: 60, owner_role: compliance, cite: "NI 81-106", evidence: "Filed MRFP"}
+      - {id: NI81102-IRC, title: "Independent Review Committee annual report", frequency: annual, due_days: 90, owner_role: independent_review_committee, cite: "NI 81-107", evidence: "IRC report"}
+
+  HK_SFC:
+    name: Hong Kong SFC-authorised fund (Code on Unit Trusts and Mutual Funds)
+    short: "SFC UT Code"
+    jurisdiction: HK
+    scope: international
+    regulator: SFC
+    counsel_review: required
+    retention_years: 7
+    applies_to: [mutual_fund, cit]
+    required_roles: [hk_representative, chief_compliance_officer]
+    controls:
+      - {id: SFC-7-1-ISSUER, kind: issuer_5_10_40, limit_each: 0.10, threshold: 1.0, limit_sum: 1.0, severity: FAIL, cite: "UT Code 7.1", text: "Single issuer ≤10% of NAV"}
+      - {id: SFC-7-11-FUNDS, kind: max_fund_group, filter: non_ucits, limit: 0.10, severity: WARN, cite: "UT Code 7.11", text: "Non-eligible schemes ≤10% of NAV (eligible-scheme rules apply above that)"}
+    obligations:
+      - {id: SFC-KFS, title: "Product key facts statement review", frequency: annual, due_days: 0, owner_role: compliance, cite: "UT Code 6.2A", evidence: "Updated KFS"}
+      - {id: SFC-REPORTS, title: "Annual and interim reports to the SFC and holders", frequency: semiannual, due_days: 120, owner_role: compliance, cite: "UT Code 5.10", evidence: "Published reports"}
+
+# Suggested tags shown to Compliance (not applied automatically: tagging is a compliance decision).
+suggestions:
+  mutual_fund: [ICA40]
+  cit: [ERISA, OCC_CIT]

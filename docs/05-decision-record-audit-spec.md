@@ -96,7 +96,7 @@ Approval DRs add: approver identity, entitlement used, reason text (required), o
 ## 8. As implemented (pilot, 2026-11-10)
 | Spec item | Implementation |
 |---|---|
-| Ledgers | One hash chain per run (agent and system steps, approvals, adjustments) plus a **governance ledger** (`run_id` "governance") for exceptions (`dr_type` "exception") and trading (`dr_type` "trading": cashflow loads, setting and route changes, target tables, trade lists, approvals, tranches, exports) |
+| Ledgers | One hash chain per run (agent and system steps, approvals, adjustments) plus a **governance ledger** (`run_id` "governance") for exceptions (`dr_type` "exception") trading (`dr_type` "trading": cashflow and position loads, setting and route changes, target tables, trade lists, rebalances, approvals, tranches, exports, fills) and regulations (`dr_type` "regulation": tags, removals, obligation actions) |
 | Access log | Separate append-only table of every user access change (who, what, before, after, reason) |
 | Integrity | SHA-256 chain (`prev_hash`, `record_hash`) verified on every Console page load; database triggers refuse UPDATE, DELETE and TRUNCATE on ledger records and the access log |
 | Not yet | Daily anchoring (Merkle root) and WORM copy (deferred to production: cost); payload storage is inline JSON rather than content-addressed files |

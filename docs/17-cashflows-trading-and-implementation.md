@@ -1,6 +1,6 @@
 # 17 — Cashflows, Trading & Implementation
 
-**Version 0.3 · 2026-11-10 · Status: decisions recorded (§0); cashflow trading, tilts, single-security tickets, full exits, tranches and the route permission are built and live in the **Trading** screen (`/trading`); remaining items as phased in §5; held items in the backlog (§9).**
+**Version 0.4 · 2026-11-10 · Status: decisions recorded (§0); cashflow trading, tilts, single-security tickets, full exits, tranches and the route permission are built and live in the **Trading** screen (`/trading`); remaining items as phased in §5; held items in the backlog (§9).**
 
 ## 0. Decisions and what is built (2026-11-10)
 **Product-owner decisions**
@@ -36,7 +36,14 @@
 | 9 Tranches | On any draft trade list (the bucket): series of dates and percentages, equal ("Split equally") or unequal, applied to the whole list, a fund or a single security; the most specific wins, so several series can run in one bucket; a security can be left out of tranching. Data checks on save: each series totals 100%, dates are weekdays, in order and not before the trade date, quantities respect lot sizes and add back to the order exactly, no empty tranche. Bucket view: totals by date, then fund → security → tranche |
 | Records | Cashflow loads and cancellations, table and setting changes, generate, approve, cancel and export are hash-chained governance records (`dr_type` "trading"), searchable in the console's Decision ledger |
 
-**Still to build:** 7 derivatives, 13 custom calculations, 14 in-kind, 17 mandates, 18 margin and leverage, 19 capital calls; rebalance trades (closing gaps to target); position files from custodians and TAs; Charles River results coming back; the API connection. Known limits of what is built: positions are static example data, so an exported trade does not yet change holdings; tranche dates skip weekends but not market holidays; later tranches use today's prices as estimates.
+| Approved-proposal table | Fourth allocation table: the latest proposal both PM and Risk approved in the console, split to securities |
+| Rebalance | Explicit decision (PM, reason) to close gaps to the approved, neutral or strategic table; minimum drift; cash invested; no-target, excluded and exiting holdings untouched; list `RB-…` |
+| Positions upload | Excel/CSV of holdings at last close replaces example data per fund; any bad row stops the load |
+| Fills and booking | Fills file keyed by the Charles River order or tranche ID (or "mark all filled" in shadow mode); positions and cash update; cashflows settle; list becomes *Filled and booked* |
+| Holidays | Tranche dates may not fall on US market holidays (2026–2028 calendar in `config/trading.yaml`) |
+| Regulation controls | Controls of any regulation tagged on the fund run on every trade list (doc 18) |
+
+**Still to build:** 7 derivatives, 13 custom calculations, 14 in-kind, 17 mandates, 18 margin and leverage, 19 capital calls; rebalance trades (closing gaps to target); position files from custodians and TAs; Charles River results coming back; the API connection. Known limits: until files arrive from custodians and transfer agents, positions are example data or what you upload; later tranches use today's prices as estimates.
 
 Requested by the product owner for the system as a whole, Portfolio Managers and Target Date analysts. This brings most of roadmap **Phase 6 (Implementation)** forward and adds items that were not on the roadmap (mandates, margin, capital calls, redemptions in kind).
 
@@ -137,5 +144,4 @@ These stay open and are tracked in doc 16 (findings log) and doc 03 (backlog):
 | Charles River version, hosting and set-up | Needed before mapping the mock file to the real import specification |
 | Charles River as source of official positions (IBOR) | Decides where Meridian reads positions from |
 | Charles River API connection; compliance results and fills coming back | Production item |
-| Market-holiday calendar for tranche dates | Weekends are checked today |
 

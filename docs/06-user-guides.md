@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 0.4 · 2026-11-10 · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 0.5 · 2026-11-10 · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository. Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -18,7 +18,8 @@
 9. Audit
 10. Trading (PMs, analysts; read-only for Risk, Compliance, Audit, Leadership, Admin)
 11. Platform Admin: User access
-12. Not built yet
+12. Regulations & obligations (Compliance; read-only for others)
+13. Not built yet
 Appendix A: Approval checklist · Appendix B: Glossary
 
 ---
@@ -40,7 +41,7 @@ Appendix A: Approval checklist · Appendix B: Glossary
 | Area | What it does |
 |---|---|
 | **Workspace** (top of the side bar) | Switch between the workspaces you hold, e.g. Portfolio Manager and Risk Analytics. You only see your own |
-| Name and links | Your name; **User access** (Admin, Audit, Compliance), **Trading** (PM, analyst, Risk, Compliance, Audit, Leadership, Admin), **Sign out** |
+| Name and links | Your name; **User access** (Admin, Audit, Compliance), **Trading** and **Regulations** (PM, analyst, Risk, Compliance, Audit, Leadership, Admin), **Sign out** |
 | **Run** | Pick which agent run you are looking at (newest first) |
 | Tabs | The screens of your workspace (section headings below list them) |
 | Side-bar footer | Policy version, **Ledger: ✓ verified (n records)** (hash chain checked on every page load), entities in force |
@@ -136,7 +137,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 ![Risk budget by vintage](img/guide/pm-07-risk-budget.png)
 *Image: `pm-07-risk-budget.png`*
 
-1. Click **Risk budget**: % of each vintage's tracking-error budget used; amber at the warning level.
+1. Click **Risk budget**: % of each vintage's tracking-error budget used; amber at the warning level. **With adjustment** shows the tracking error of a recorded weight adjustment still awaiting re-approval.
 2. To change a budget: choose the vintage, enter the new budget and a reason, click **Submit change request**. A second person (PM or Risk) must approve; you can't approve your own request.
 
 ### 3.5 Other PM screens
@@ -178,7 +179,7 @@ Methods and definitions: doc 13.
 
 1. Click **Look-through & search** and type a ticker or name (e.g. `NVDA`, `Treasury`).
 2. Pick a result: the right panel shows which building blocks hold it and each vintage's exposure.
-3. Known issue F-4: the public holdings files name US Treasury securities several ways, so Treasury exposure is split over several rows (fixed by the security master, doc 17).
+3. US Treasury securities are grouped under one issuer, **UNITED STATES TREASURY** (finding F-4, fixed 2026-11-10).
 
 ### 4.5 Trend monitoring, limits and co-approval
 ![Risk history](img/guide/risk-05-history.png)
@@ -342,7 +343,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 *Image: `trd-02-fund-detail.png`*
 
 4. **Held securities** and **Not held: candidates and available securities**. Chips: *Held · no target* (never part of cash allocation), *Not held · candidate*, *Excluded from trading*, *Exiting*, *Tilt ±bp*.
-5. Target columns: **Previous close**, **Neutral**, **Strategic** (before tilts and exits).
+5. Target columns: **Previous close**, **Neutral**, **Strategic** and **Approved proposal** (the latest proposal both PM and Risk approved in the console), before tilts and exits.
 6. **Strategic table** (PMs): leave **Follow the glide path** on, or click **Set custom weights**, enter weights totalling 100%, give a reason and click **Save strategic table**. Each save is a new version in the ledger.
 
 ### 10.2 Load cashflows
@@ -360,7 +361,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 *Image: `trd-05-trade-list.png`*
 
 1. Set the vehicle toggle (all, mutual funds or CITs).
-2. Click **Trades**, choose the **Trade date** and **Allocation strategy** (Previous night close, Neutral (glide path) or Strategic), click **Generate trade list**.
+2. Click **Trades**, choose the **Trade date** and **Allocation strategy** (Previous night close, Neutral (glide path), Strategic or Approved proposal), click **Generate trade list**.
 3. Meridian splits each fund's net cashflow pro rata across the table (it never closes gaps to target), applies tilts and exits, skips securities with no target or excluded, cuts ETF buys by the cash buffer, and never sells more than is held.
 4. Read **By destination**: CIT orders → State Street, mutual fund orders → SS&C (formerly DST), ETFs, stocks and bonds → internal trading desk.
 5. **Orders** shows side, quantity (units, whole shares or $1,000 face), estimated price and amount, destination.
@@ -370,7 +371,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 *Image: `trd-06-preview.png`*
 
 1. Click **Current vs post-trade**: current value and weight, trade, post-trade value and weight, target weight and post vs target in bp, for every security and for cash.
-2. Each fund shows NAV and cash before and after, buffer held, rounding left in cash, notes, and the **IPS check** of post-trade asset-class weights against that fund's own glide path. An error or FAIL blocks approval.
+2. Each fund shows NAV and cash before and after, buffer held, rounding left in cash, notes, the **IPS check** of post-trade asset-class weights against that fund's own glide path, and the **regulation controls** of any regulation tagged on the fund (section 12). An error or FAIL blocks approval.
 
 ### 10.5 Tranche a trade list (optional)
 ![Bucket by date and tranches per security](img/guide/trd-07-tranches.png)
@@ -383,7 +384,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 *Image: `trd-08-tranche-editor.png`*
 
 3. In **Apply to**, choose **Whole trade list**, a fund or a single security, and click **Apply series**. Repeat for other funds or securities: the most specific series wins. **Don't tranche this security** leaves one order whole.
-4. Click **Save tranches**. Meridian checks every series totals 100%, dates are weekdays, in order and not before the trade date, quantities respect lot sizes and add back to each order exactly, and no tranche is empty.
+4. Click **Save tranches**. Meridian checks every series totals 100%, dates are weekdays and not market holidays, in order and not before the trade date, quantities respect lot sizes and add back to each order exactly, and no tranche is empty.
 5. The bucket view shows totals by date, then each fund → security → tranche. Tranches can be changed until the list is approved.
 
 ### 10.6 Approve and export for Charles River
@@ -420,6 +421,34 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 5. **Excluded from trading** (PM, admin): security, fund, optional end date; choose whether an excluded share is spread over the other holdings or stays in cash.
 6. Enter a **Reason for these changes** and click **Save settings**. Everything is saved together and recorded.
 7. **Trading change log**: every trading record from the ledger.
+
+### 10.9 Load positions (holdings at last close)
+![Load positions](img/guide/trd-13-positions-upload.png)
+*Image: `trd-13-positions-upload.png`*
+
+1. (PM) On **Funds & securities**, download the **CSV template**.
+2. Fill one row per holding: `as_of, fund_id (or account), security_id (or CUSIP), quantity and price, or market_value`; use `CASH` as the security for uninvested cash.
+3. Choose the file and click **Upload positions**. Every fund in the file gets these holdings in place of the example data; any bad row (unknown fund or security, missing value) stops the whole load. The **Positions** column then shows the file and its date.
+
+### 10.10 Rebalance to target
+![Rebalance to target](img/guide/trd-14-rebalance.png)
+*Image: `trd-14-rebalance.png`*
+
+1. (PM) On **Trades**, in **Rebalance to target**, choose the **Target**: Approved proposal, Neutral (glide path) or Strategic.
+2. Choose one fund or all funds in the vehicle filter, a minimum drift to trade (default 5 bp of NAV) and the trade date.
+3. Give a reason and click **Create rebalance trade list** (`RB-…`). Uninvested cash is invested; holdings with no target, excluded and exiting securities are left alone; ETF buys keep the cash buffer.
+4. Review, tranche, approve and export like any trade list. If a regulation control fails, approval is blocked:
+
+![A rebalance blocked by a regulation control](img/guide/trd-15-rebalance-blocked.png)
+*Image: `trd-15-rebalance-blocked.png`*
+
+### 10.11 Record fills and book positions
+![Fills and booking](img/guide/trd-16-fills.png)
+*Image: `trd-16-fills.png`*
+
+1. After export, the list shows **Fills and booking**.
+2. Upload the fills file (`External Order ID, Filled Quantity, Fill Price, Status` = FILLED, PARTIAL or CANCELLED; IDs as in the Charles River file, one per order or tranche), or in shadow mode click **Mark all open orders filled at estimated prices**.
+3. Each fill updates the fund's positions and cash; the list's cashflows settle into cash at the first booking. When every order is filled or cancelled the list becomes **Filled and booked**, and the fund's **Positions** column shows "Booked from …".
 
 ---
 
@@ -459,8 +488,55 @@ Deploys, agent runs and the fallback `manage-users` workflow are in GitHub Actio
 
 ---
 
-## 12. Not built yet
-Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · replay of an approver's screen · due diligence workflow · CMA forecast-vs-realized · rebalance trades (closing gaps to target) · derivatives, in-kind redemptions, mandates, margin and capital calls (doc 17 Phase F) · Charles River API and results coming back.
+## 12. Regulations & obligations (doc 18)
+
+Open **Regulations** from the console side bar or the Trading header (`/regulations`). The same All / Mutual funds / CITs toggle applies.
+
+### 12.1 Tag funds with a regulation (Compliance)
+![Tag funds](img/guide/reg-01-tag.png)
+*Image: `reg-01-tag.png`*
+
+1. On **Funds**, tick the funds (or the box in the header for all funds in the filter). Suggested tags show under each fund.
+2. Choose the regulation: **United States (domestic)** or **International (ex-US)** groups, e.g. ACT 40, ERISA, CIT (OCC 9.18), UCITS, UK COLL, NI 81-102.
+3. For ACT 40, tick **Relies on Rule 12d1-4** if fund-of-funds agreements are in place (the 12(d)(1)(A) limits then don't apply).
+4. Give a reason (e.g. the prospectus or board resolution) and click **Add to ticked funds**. The obligations are created at once.
+5. **Remove from ticked funds** is only for the Chief Compliance Officer; it cancels that regulation's open obligations.
+
+![Funds with their regulations](img/guide/reg-02-funds.png)
+*Image: `reg-02-funds.png`*
+
+### 12.2 See a fund's controls, required people and obligations
+![Fund detail](img/guide/reg-03-fund-detail.png)
+*Image: `reg-03-fund-detail.png`*
+
+1. Click a fund: its regulations, **Controls on current holdings** (PASS/WARN/FAIL with measured value and citation), **People these regulations require** (unfilled ones in red), record retention and open obligations.
+2. The same controls run on every trade list for the fund (section 10.4).
+
+### 12.3 Work the obligations
+![Obligations](img/guide/reg-04-obligations.png)
+*Image: `reg-04-obligations.png`*
+
+1. Click **Obligations**. Counters show open, overdue, due in 30 days and done; filter by status or regulation. Overdue rows are red.
+2. Click an obligation.
+
+![An obligation with evidence](img/guide/reg-05-task.png)
+*Image: `reg-05-task.png`*
+
+3. **Assign** an owner, **Mark in progress**, **Add note**, or **Complete** with the evidence (e.g. the EDGAR accession number). Completing a recurring obligation creates the next period's.
+4. **Waive (CCO)** is for the Chief Compliance Officer only, with a note.
+5. An obligation not done by its due date opens an exception case once (console → **Exceptions**).
+
+### 12.4 Library and change log
+![Regulation library](img/guide/reg-06-library.png)
+*Image: `reg-06-library.png`*
+
+- **Regulation library**: every regulation with its controls, obligations (frequency, due days, owner, citation), required people and retention, grouped US and international.
+- **Change log**: every tag, removal and obligation action from the governance ledger.
+
+---
+
+## 13. Not built yet
+Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · replay of an approver's screen · due diligence workflow · CMA forecast-vs-realized · custom sell-down calculations · derivatives, in-kind redemptions, mandates, margin and capital calls (doc 17 Phase F) · Charles River API and results coming back automatically.
 
 ---
 

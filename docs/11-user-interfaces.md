@@ -38,6 +38,9 @@ Design rules applied across every view:
 ## Trading screen (`/trading`, built 2026-11-10)
 A separate page linked from the console side bar, for the implementation workflow in doc 17: **Funds & securities**, **Cashflows**, **Trades**, **Routing & settings**, with an **All funds / Mutual funds / CITs** toggle on every tab. PMs and analysts prepare; PMs approve; route changes need the `route_manager` permission; Risk, Compliance, Audit, Leadership and Admin see it read-only. Step-by-step use with screenshots: doc 06 §10.
 
+## Regulations screen (`/regulations`, built 2026-11-10)
+Funds (tag regulations, controls on current holdings, required people), Obligations (owner, due date, evidence, overdue), Regulation library (US and international) and Change log, with the All / Mutual funds / CITs toggle. Compliance tags; the CCO removes tags and waives obligations; Compliance, Risk, Leadership and PMs work obligations; others read. Doc 06 §12, doc 18.
+
 ## User access screen (`/admin`)
 Users, Access review (CSV) and Access log tabs. Admins edit; Audit and Compliance read. Doc 06 §11, doc 14 §5.
 

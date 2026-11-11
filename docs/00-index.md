@@ -37,6 +37,7 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 15 | User Personas — each role's job, day, critical needs and what they need from Meridian; gap summary | Everyone, product |
 | 16 | UAT Test Scripts — per-role scripts, automated browser tests, findings log | Product owner, testers, everyone |
 | 17 | Cashflows, Trading & Implementation — requirements, decisions, what is built, phases, backlog | PMs, analysts, compliance, product |
+| 18 | Fund Regulations & Obligations — US and international regulation tags, controls, tracked obligations | Compliance, PMs, audit, leadership |
 | — | Sample run board memo | Leadership, IC |
 
 The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/`, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.

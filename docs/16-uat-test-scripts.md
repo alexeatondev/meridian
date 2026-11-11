@@ -1,6 +1,6 @@
 # 16 — User Acceptance Test (UAT) Scripts
 
-**Version 0.3 · 2026-11-10 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
+**Version 0.4 · 2026-11-10 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
 
 One script per role, built from the personas (doc 15). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
 
@@ -155,6 +155,21 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 **Usefulness questions:** Does pro rata by each table match how the desk allocates today? Is the Charles River file missing any field your import needs? Is the ETF buffer applied the way you meant (§0 of doc 17)?
 
+| TRD-14 | PM: Trades → Rebalance to target (Neutral, one fund, reason) → approve → export → **Mark all open orders filled** | `RB-…` list; fills booked; list *Filled and booked*; fund's Positions column shows "Booked from …" | `test_trd_14` |
+| TRD-15 | PM: Funds & securities → upload a positions CSV (one bad security, then a good file) | Refused naming the row; then loaded and shown as "Uploaded file" | `test_approved_table_rebalance_positions_and_fills` |
+| TRD-16 | Rebalance to **Approved proposal** before and after PM + Risk approve a vintage | Refused ("no approved proposal"), then the list follows the approved weights | API test |
+
+## REG — Regulations & obligations (Nina Alvarez, analyst; Robert Hayes, CCO) · built 2026-11-10 (doc 18)
+
+| # | Step | Expected result | Auto test |
+|---|---|---|---|
+| REG-1 | Regulations → Mutual funds → tick MTRS-2045 → ACT 40 → reason → Add | Tag shown; obligations created; fund detail lists ACT 40 controls (PASS) and unfilled required people | `test_reg_01` |
+| REG-2 | As analyst, look for Remove; as CCO, remove a tag | No remove button for the analyst; CCO removes it and its open obligations are cancelled | `test_reg_01`, API test |
+| REG-3 | Obligations → open Form N-CEN → Complete with evidence | Done; next year's obligation created; logged | `test_reg_01` |
+| REG-4 | Tag a CIT with UCITS, then rebalance it | Trade list shows UCITS-55-SINGLE FAIL and approval is blocked | `test_reg_02` |
+| REG-5 | Let an obligation pass its due date | Shown overdue; one exception case opened (console → Exceptions) | API test |
+| REG-6 | Regulation library | US and international regulations with controls, obligations, roles, retention | `test_reg_01` |
+
 ---
 
 ## Findings log
@@ -163,14 +178,14 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 |---|---|---|---|---|
 | F-1 | 2026-11-09, writing UAT-LEAD | Medium (latent) | Leadership and Compliance approve as `investment_committee` and `chief_compliance_officer`, but sign-in groups are `leadership` and `compliance`, so the hosted app refuses those approvals. Routine proposals only need PM + Risk, so it shows up only when a glide-path change or exception needs IC or CCO approval. | **Fixed** 2026-11-09: new per-user permissions `investment_committee` and `chief_compliance_officer` (switch on/off with manage-users `grant`/`revoke`); the approve form only appears for people who hold the authority |
 | F-2 | 2026-11-09, automated ACC-3 | Medium | Changing the address to another workspace (`#pm`) switched an Audit-only user into that workspace's screens. The server already refused actions for roles the user doesn't hold. | **Fixed** 2026-11-09 (workspace switch now limited to the user's roles); covered by `test_access_03` |
-| F-4 | 2026-11-10, round 1 (RISK-5) | Low | Look-through lists the same issuer under several names ("TREASURY NOTE", "(OLD)", "(2OLD)", "TBILL TREASURY BILL"), so exposure to one issuer is split across rows | Open — data backlog (normalize issuer names in the holdings feed) |
+| F-4 | 2026-11-10, round 1 (RISK-5) | Low | Look-through lists the same issuer under several names ("TREASURY NOTE", "(OLD)", "(2OLD)", "TBILL TREASURY BILL"), so exposure to one issuer is split across rows | **Fixed** 2026-11-10: one issuer, UNITED STATES TREASURY |
 | F-5 | 2026-11-10, round 1 (MGR-3) | Medium | Underlying funds showed only the returns proxy (Vanguard ETFs) while look-through uses iShares holdings, with no explanation | **Fixed** 2026-11-10: both proxies shown and explained (`test_ovs_08`) |
 | F-6 | 2026-11-10, round 1 (ADM-11) | Low | Workspace label "Leadership / IC" misleading now that Investment Committee is a separate permission | **Fixed**: label is "Leadership" |
 | F-7 | 2026-11-10, round 1 (AUD-2) | Low | Ledger header read "verified verified" | **Fixed** |
 | F-8 | 2026-11-10, round 1 (COMP-3) | Low | Compliance report quotes the ledger size at run time (118) while the live ledger has more (123), unexplained | **Fixed**: note above the report |
 | F-9 | 2026-11-10, round 1 (COMP-4) | Medium | Human decisions are hard to find among system records; search limited to one run | **Fixed**: Search all runs with type, vintage, actor and date filters, CSV export |
 | F-10 | 2026-11-10, automated OVS-5 | Medium | With 13 PM tabs, the bottom tabs fell off short screens with no way to scroll | **Fixed**: side bar scrolls |
-| F-11 | 2026-11-10, round 1 (PM-4) | Low | Risk budget shows the proposal's tracking error, not the effect of a pending adjustment | Open — design question: show pending adjustments next to the proposal? |
+| F-11 | 2026-11-10, round 1 (PM-4) | Low | Risk budget shows the proposal's tracking error, not the effect of a pending adjustment | **Fixed** 2026-11-10: "With adjustment" column on Risk budget |
 | F-3 | 2026-11-09, design review | Low (informational) | Each run's page carries the full run data for every workspace; roles limit screens and actions, not data. Fine while every user may see the whole pilot; portfolio-level entitlements (doc 05 §7) would need server-side filtering. | Open — for the entitlements design |
 
 ## Results log (fill in per UAT round)
@@ -181,4 +196,5 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 0b (automated) | 2026-11-09 | Browser tests | All + permissions | 38 pass | F-1 fixed; placeholder CCO verified as still a blocker |
 | 1 (manual, hosted) | 2026-11-10 | Claude, in Alex Eaton's signed-in session | PM-1–5, RISK-1–5 and 7, RES-1–3, MGR-1–3, LEAD-1–3 and 5, COMP-1–4, AUD-1–3, ADM-2, ADM-10–13 | All run steps passed. Not run: RISK-6 (needs a second person), ACC-1–3 and ADM-14–15 (need other logins; covered by automated tests) | Found F-4 to F-9, F-11. Approvals, one adjustment and a disabled test login (aeaton3252+uat@gmail.com) are in the live ledger and access log, all marked "UAT (run by Claude for Alex)" |
 | 2 (automated) | 2026-11-10 | Browser + API tests | All + OVS | 99 pass | Found F-10; F-5 to F-10 fixed |
+| 4 (automated) | 2026-11-10 | Browser + API tests | All + REG + TRD-14 to 16 | 125 pass | Regulations, rebalance, positions, fills; F-4 and F-11 fixed |
 | 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |

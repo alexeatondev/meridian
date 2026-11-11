@@ -20,7 +20,8 @@ from .. import REPO_ROOT
 from ..policy import Policy, load_policy
 
 TRADING_PATH = REPO_ROOT / "config" / "trading.yaml"
-STRATEGIES = {"previous_close": "Previous night close", "neutral": "Neutral (glide path)", "strategic": "Strategic"}
+STRATEGIES = {"previous_close": "Previous night close", "neutral": "Neutral (glide path)", "strategic": "Strategic",
+              "approved": "Approved proposal"}
 VEHICLES = {"mutual_fund": "Mutual funds", "cit": "CITs"}
 ROLL_FREQS = ("monthly", "quarterly", "semiannual", "annual")
 EXCHANGE_TRADED = ("etf", "stock", "bond")
@@ -80,6 +81,10 @@ class TradingModel:
     def share(self, inst: dict, fund_id: str) -> float:
         return float(inst.get("share", 0.0)) if self.funds[fund_id].product in inst["products"] else 0.0
 
+    @property
+    def holidays(self) -> set[str]:
+        return {str(d) for d in self.raw.get("market_holidays", [])}
+
     def route_for(self, inst: dict, routes: dict) -> str:
         return routes.get(inst["type"], "Internal trading desk")
 
@@ -91,11 +96,14 @@ class TradingModel:
         return dict(zip(self.policy.assets, (float(x) for x in w)))
 
     def neutral_table(self, fund_id: str, as_of: date | None = None) -> dict[str, float]:
-        aw = self.neutral_asset_weights(fund_id, as_of)
+        return self.table_from_asset_weights(fund_id, self.neutral_asset_weights(fund_id, as_of))
+
+    def table_from_asset_weights(self, fund_id: str, aw: dict[str, float]) -> dict[str, float]:
+        """Security-level table from asset-class weights, split by each instrument's share of its asset class."""
         out = {}
         for i in self.fund_instruments(fund_id):
             if self.has_target(i, fund_id):
-                out[i["id"]] = aw[i["asset_class"]] * self.share(i, fund_id)
+                out[i["id"]] = aw.get(i["asset_class"], 0.0) * self.share(i, fund_id)
         tot = sum(out.values())
         return {k: v / tot for k, v in out.items() if v > 0}
 

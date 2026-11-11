@@ -30,14 +30,16 @@
 4. **Security hardening is held** (admin deploy role, no MFA). Acceptable with test users only.
 5. **No human CCO or counsel review.** Blocks production, not development.
 
+## Built 2026-11-10 (evening)
+- **Fund-level regulations (doc 18):** tag funds with US and ex-US regulations (ACT 40, ERISA, CIT/OCC 9.18, CFTC 4.5, UCITS, AIFMD, UK COLL, NI 81-102, SFC); controls checked on current holdings and on every trade list (FAIL blocks); obligations tracked with owner, due date and evidence; overdue obligations open an exception; removal and waivers need the CCO permission.
+- **Next steps 1, 2, 4, 5 done:** Approved-proposal trading table and **rebalance** trade lists; **positions upload** and **fills with booking** (positions and cash update); F-4 (US Treasury issuer consolidated) and F-11 (pending adjustment on the risk budget) fixed; **market-holiday calendar** for tranche dates (2026–2028).
+- 125 automated tests (63 in the browser); user guide updated with 50 screenshots.
+
 ## Next steps (not blocked, in order)
-1. **Link approved proposals to trading and add rebalance trades:** approved weights become a selectable trading table; a rebalance closes gaps to target (as decided: only on a rebalance or an explicit decision).
-2. **Position book and trade lifecycle:** upload positions (Excel/CSV, same pattern as cashflows) to replace example holdings; mark exported orders pending, then filled or cancelled from a returned file; positions update.
-3. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
-4. **Fix open findings:** F-4 (normalize issuer names, starting with US Treasury), F-11 (show pending adjustments on the risk budget).
-5. **Market-holiday calendar** for tranche dates.
-6. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view.
-7. **You:** run RISK-6 with the RCTest login; try the Trading screen with the doc 16 TRD scripts.
+1. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
+2. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).
+3. **Fiscal year ends per fund** for annual and semiannual obligations (doc 18 §5).
+4. **You:** run RISK-6 with the RCTest login; try the Trading (TRD) and Regulations (REG) scripts in doc 16; tag the real funds with their regulations once the CCO confirms them.
 
 ## Blocked (and what unblocks each)
 | Item | Blocked by |
@@ -56,14 +58,15 @@
 | Portfolio-level entitlements (F-3) | Your decision on who may see which funds |
 | Risk add-ons (doc 13 §8) | Your direction |
 | Vendor data (holdings, factor models, prices) and AI-use licensing | Vendor contracts |
+| Confirming the regulation library (controls, citations, due dates, owners) | CCO and counsel (doc 18 §5) |
 | Production go-live | Named human CCO, IC sponsor and model-risk owner; counsel review of regimes and the IPS (including whether it governs the CITs and whether `bank_cit` applies); written policies (doc 04 §6); independent validation; parallel run ≥ 2 quarters |
 
 ## Open UAT findings (remediate later; do not drop)
 | ID | Finding | Plan |
 |---|---|---|
 | F-3 | Run data not filtered by entitlement | Entitlements design |
-| F-4 | Issuer names not normalized in look-through | Next step 4 (US Treasury first); fully by a vendor security master |
-| F-11 | Risk budget doesn't show pending adjustments | Next step 4 |
+| F-4 | Issuer names not normalized in look-through | **Fixed 2026-11-10** for US Treasury; other issuers by a vendor security master |
+| F-11 | Risk budget doesn't show pending adjustments | **Fixed 2026-11-10** ("With adjustment" column) |
 
 ## Backlog (held by the product owner; keep visible)
 | Item | Status | Why it matters |
@@ -74,6 +77,8 @@
 | Next ad hoc run (as of 2026-11-30) | **Held** | Gives "Changes since last run" real data |
 | CloudWatch alarms; Node 20 action updates; remaining least-privilege steps | Backlog | Operations |
 | Risk add-ons (doc 13 §8); vendor data; second product type; human CCO | Awaiting your direction | Product scope |
+| **Question for the CCO and counsel:** does the IPS (doc 07) also govern the target-date CITs, or do they need their own investment policy under the declaration of trust? | Open (raised 2026-11-10) | Every CIT trade is checked against the mutual-fund IPS today |
+| **Question for the CCO and counsel:** should the firm-level `bank_cit` entity pack (doc 08) be switched on for the CITs? | Open (raised 2026-11-10) | Adds bank-trustee obligations, roles and retention |
 
 ## Strategy in one paragraph
 Rebuild the paper's SAA pipeline first on public data in **shadow mode** (no money moves), wrapped from day one in the decision ledger and the compliance engine — those two are what make this a product rather than a research demo. Then widen: portfolio hierarchy and look-through, fixed income and derivatives analytics, manager selection/FoF, and finally implementation proposals to your OMS. Learning agents come last, behind change control. Run in parallel against the human process for at least two quarters before any approval workflow is live.

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meridian · Regulations</title>
+<style>
+:root{--bg:#f4f3f0;--surface:#fcfcfb;--surface-2:#f0efec;--line:#e2e0da;--line-strong:#cfccc4;--text:#0b0b0b;--text-2:#52514e;
+--muted:#7a7873;--accent:#1f4e8c;--accent-ink:#fff;--ok:#1d7a46;--ok-bg:#e3f2e8;--warn:#8a5a00;--warn-bg:#fbf0d9;--crit:#a3261b;--crit-bg:#f8e1de;--info-bg:#e4ecf7;
+font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#121211;--surface:#1a1a19;--surface-2:#232321;--line:#2e2e2b;--line-strong:#3c3c38;--text:#f0efec;
+--text-2:#c3c2b7;--muted:#9a998f;--accent:#7aa7e6;--accent-ink:#0b0b0b;--ok:#6cc08c;--ok-bg:#1d2e23;--warn:#e0b25a;--warn-bg:#2f2717;--crit:#ef8a80;--crit-bg:#331d1b;--info-bg:#1d2633}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+header h1{font-size:17px;margin:0}header .sp{flex:1}a{color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+.tabs{display:flex;gap:6px;margin-bottom:16px}.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:14px 0 6px;color:var(--text-2)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}tr.sel td{background:var(--surface-2)}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;margin:1px 3px 1px 0;background:var(--surface-2);border:1px solid var(--line)}
+.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chip.crit{background:var(--crit-bg);color:var(--crit);border-color:transparent}.chip.perm{background:var(--info-bg);border-color:transparent}
+.btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input[type=text],input[type=email],textarea,input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.opt{display:flex;gap:8px;align-items:flex-start;padding:6px 0}.opt input{margin-top:3px}.opt .d{font-size:12px;color:var(--muted)}
+.switch{position:relative;width:36px;height:20px;flex:none}.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line-strong);border-radius:999px;transition:.15s}.switch span:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--accent)}.switch input:checked+span:before{transform:translateX(16px)}.switch input:focus-visible+span{outline:2px solid var(--accent)}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:13px}.warnbox ul{margin:4px 0 0 18px;padding:0}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;max-width:90vw;z-index:9}
+.matrix td,.matrix th{text-align:center}.matrix td:first-child,.matrix th:first-child{text-align:left}
+</style><style>
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}.seg button{border:0;background:var(--surface);color:var(--text);padding:6px 12px;cursor:pointer;font:inherit}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-2)}
+.banner{background:var(--info-bg);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:13px}
+.kpis{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 10px}.kpis div{min-width:120px}.kpis b{display:block;font-size:16px}
+select,input[type=date]{padding:7px 9px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+tr.overdue td{background:var(--crit-bg, #fdecea)}details summary{cursor:pointer;font-weight:600;margin:6px 0}
+.reg{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:var(--surface)}
+</style>
+</head><body>
+<header><h1>Meridian · Regulations &amp; obligations</h1><span class="muted small" id="who"></span><span class="sp"></span>
+<span class="seg" id="veh" role="group" aria-label="Fund vehicle"><button data-v="all" class="on">All funds</button><button data-v="mutual_fund">Mutual funds</button><button data-v="cit">CITs</button></span>
+<a href="/runs/latest">Back to console</a><a href="/trading">Trading</a><a href="/logout">Sign out</a></header>
+<main>
+<div class="banner">Tag a fund with the regulations it is subject to, in the US or abroad. Each regulation switches on its <b>controls</b> (checked on current holdings and on every trade list; a FAIL blocks approval) and its <b>obligations</b> (tasks with an owner, due date and evidence; overdue ones open an exception). Citations, limits and due dates are a design aid for your CCO and counsel to confirm.</div>
+<div class="tabs" role="tablist"><button data-tab="funds" class="active">Funds</button><button data-tab="tasks">Obligations</button><button data-tab="library">Regulation library</button><button data-tab="log">Change log</button></div>
+<section id="funds"></section><section id="tasks" hidden></section><section id="library" hidden></section><section id="log" hidden></section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+const BOOT = /*BOOT*/null;
+const S = {veh: sessionStorage.getItem('rg_veh')||'all', tab: sessionStorage.getItem('rg_tab')||'funds', st:null, fund:null, sel:new Set(), tf:'active', task:null};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+const pct = v => (v*100).toFixed(2)+'%';
+const chip = (t, cls='') => `<span class="chip ${cls}">${esc(t)}</span>`;
+const stChip = s => s==='PASS'?chip('PASS','ok'):s==='WARN'?chip('WARN','warn'):s==='FAIL'?chip('FAIL','crit'):chip(s);
+const tChip = t => { const od = ['open','in_progress'].includes(t.status) && t.due < S.st.today; return od?chip('Overdue','crit'):({open:chip('Open','warn'),in_progress:chip('In progress','perm'),done:chip('Done','ok'),waived:chip('Waived'),cancelled:chip('Cancelled')})[t.status]; };
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',6000)}
+async function api(method,url,body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':BOOT.csrf},body:body?JSON.stringify(body):undefined});const j=await r.json().catch(()=>({}));if(!r.ok) throw new Error(typeof j.detail==='string'?j.detail:r.statusText);return j}
+const funds = () => S.st.funds.filter(f => S.veh==='all' || f.vehicle===S.veh);
+const vname = v => ({mutual_fund:'Mutual fund', cit:'CIT'})[v]||v;
+const regName = id => (S.st.library[id]||{}).short || id;
+async function load(){ S.st = await api('GET','/api/regulations/state'); render(); }
+function render(){
+  document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
+  for (const t of ['funds','tasks','library','log']) $('#'+t).hidden = t!==S.tab;
+  ({funds:vFunds, tasks:vTasks, library:vLibrary, log:vLog})[S.tab]();
+}
+// ------------------------------------------------------------------ Funds
+function vFunds(){
+  const fs = funds(), lib = S.st.library;
+  const opts = grp => Object.values(lib).filter(r=>r.scope===grp).map(r=>`<option value="${r.id}">${esc(r.short)} — ${esc(r.name)} (${esc(r.jurisdiction)})</option>`).join('');
+  let h = `<div class="card"><h2>Funds (${fs.length})</h2><p class="small muted">Tick funds, then add a regulation below. Suggested tags come from each fund's vehicle and are not applied until Compliance adds them.</p>
+  <table><thead><tr><th><input type="checkbox" id="selAll" aria-label="Select all"></th><th>Fund</th><th>Vehicle</th><th>Regulations</th><th>Controls on current holdings</th><th class="n">Open obligations</th><th class="n">Retention</th></tr></thead><tbody>
+  ${fs.map(f=>`<tr class="click" data-fund="${f.id}"><td><input type="checkbox" data-sel="${f.id}" ${S.sel.has(f.id)?'checked':''}></td><td><b>${f.id}</b></td><td>${vname(f.vehicle)}</td>
+   <td>${f.tags.map(t=>chip(t.regulation, t.scope==='international'?'perm':'ok')).join(' ')||'<span class="muted small">None</span>'}${f.suggested.length?`<br><span class="small muted">Suggested: ${f.suggested.map(regName).join(', ')}</span>`:''}</td>
+   <td>${f.controls.length?stChip(f.controls_status)+` <span class="small muted">${f.controls.length} checks</span>`:'—'}</td><td class="n">${f.open_tasks||'—'}</td><td class="n">${f.retention_years?f.retention_years+' yrs':'—'}</td></tr>`).join('')}</tbody></table></div>`;
+  if (BOOT.can_tag || BOOT.can_remove) h += `<div class="card"><h2>Add or remove a regulation (${S.sel.size} funds ticked)</h2>
+   <div class="row"><select id="rgReg"><optgroup label="United States (domestic)">${opts('domestic')}</optgroup><optgroup label="International (ex-US)">${opts('international')}</optgroup></select>
+   <label class="row" id="p12" style="gap:6px"><input type="checkbox" id="rg12d1"> Relies on Rule 12d1-4 (fund-of-funds agreements in place)</label></div>
+   <label class="f" for="rgReason">Reason (kept in the ledger)</label><input type="text" id="rgReason" placeholder="At least 10 characters, e.g. prospectus registration or board resolution">
+   <div class="row" style="margin-top:10px">${BOOT.can_tag?'<button class="btn primary" id="rgAdd">Add to ticked funds</button>':''}${BOOT.can_remove?'<button class="btn danger" id="rgRemove">Remove from ticked funds (CCO)</button>':'<span class="small muted">Removing a regulation needs the Chief Compliance Officer permission.</span>'}</div></div>`;
+  h += `<div id="fundDetail"></div>`;
+  $('#funds').innerHTML = h;
+  document.querySelectorAll('[data-sel]').forEach(c=>{c.onclick=e=>e.stopPropagation();c.onchange=()=>{c.checked?S.sel.add(c.dataset.sel):S.sel.delete(c.dataset.sel);vFunds()}});
+  if ($('#selAll')) $('#selAll').onchange=e=>{fs.forEach(f=>e.target.checked?S.sel.add(f.id):S.sel.delete(f.id));vFunds()};
+  document.querySelectorAll('[data-fund]').forEach(tr=>tr.onclick=()=>{S.fund=tr.dataset.fund;fundDetail()});
+  const ids = () => [...S.sel].filter(id=>fs.some(f=>f.id===id));
+  if ($('#rgAdd')) $('#rgAdd').onclick=async()=>{ try{ const r=await api('POST','/api/regulations/tags',{reg_id:$('#rgReg').value,fund_ids:ids(),params:{rule_12d1_4:$('#rg12d1').checked},reason:$('#rgReason').value}); S.sel.clear(); await load(); toast(`${regName($('#rgReg')?.value||'')} added to ${r.added.length} funds; ${r.tasks_created} obligations created and recorded`) }catch(e){toast(e.message)} };
+  if ($('#rgRemove')) $('#rgRemove').onclick=async()=>{ try{ const r=await api('POST','/api/regulations/tags/remove',{reg_id:$('#rgReg').value,fund_ids:ids(),reason:$('#rgReason').value}); S.sel.clear(); await load(); toast(`Removed from ${r.removed.length} funds; ${r.cancelled_tasks} open obligations cancelled`) }catch(e){toast(e.message)} };
+  if (S.fund) fundDetail();
+}
+function fundDetail(){
+  const f = S.st.funds.find(x=>x.id===S.fund); if(!f) return;
+  const tasks = S.st.tasks.filter(t=>t.fund_id===f.id && ['open','in_progress'].includes(t.status)).sort((a,b)=>a.due.localeCompare(b.due));
+  let h = `<div class="card"><h2>${f.id} · ${vname(f.vehicle)} ${f.vintage}</h2>
+  <div class="kpis"><div><span class="muted small">Regulations</span><b>${f.tags.length}</b></div><div><span class="muted small">Controls</span><b>${f.controls.length?f.controls_status:'—'}</b></div><div><span class="muted small">Open obligations</span><b>${f.open_tasks}</b></div><div><span class="muted small">Record retention</span><b>${f.retention_years?f.retention_years+' years':'—'}</b></div></div>`;
+  if (!f.tags.length) h += `<p class="muted">No regulations tagged yet${f.suggested.length?'; suggested: '+f.suggested.map(regName).join(', '):''}.</p>`;
+  for (const t of f.tags) h += `<div class="reg"><b>${esc(t.regulation)}</b> ${chip(t.scope==='international'?'International':'US',t.scope==='international'?'perm':'ok')} ${t.fits_vehicle?'':chip('Not usual for this vehicle','warn')}<div class="small muted">Added ${esc(t.added_at.slice(0,10))} by ${esc(t.added_by.name)}: ${esc(t.reason)}${t.params&&t.params.rule_12d1_4?' · relies on Rule 12d1-4':''}</div></div>`;
+  if (f.controls.length) h += `<h3>Controls on current holdings</h3><table><tr><th>Control</th><th>Regulation</th><th>Result</th><th>Detail</th><th>Cite</th></tr>${f.controls.map(c=>`<tr><td class="mono small">${esc(c.rule_id)}</td><td>${esc(c.regulation_name)}</td><td>${stChip(c.status)}</td><td class="small">${esc(c.detail)}</td><td class="small muted">${esc(c.cite)}</td></tr>`).join('')}</table><p class="small muted">The same checks run on post-trade holdings in every trade list; a FAIL blocks approval.</p>`;
+  if (f.roles.length) h += `<h3>People these regulations require</h3><table>${f.roles.map(r=>`<tr><td>${esc(r.role.replace(/_/g,' '))}</td><td>${r.filled?esc(r.holder):chip('Unfilled','crit')+' <span class="small muted">'+esc(r.holder)+'</span>'}</td></tr>`).join('')}</table>`;
+  if (tasks.length) h += `<h3>Open obligations</h3>${taskTable(tasks)}`;
+  $('#fundDetail').innerHTML = h+'</div>';
+  bindTaskRows();
+}
+// ------------------------------------------------------------------ Obligations
+function taskTable(ts){
+  return `<table><thead><tr><th>Due</th><th>Fund</th><th>Regulation</th><th>Obligation</th><th>Period</th><th>Owner</th><th>Status</th></tr></thead><tbody>${ts.map(t=>`<tr class="click ${['open','in_progress'].includes(t.status)&&t.due<S.st.today?'overdue':''}" data-task="${t.id}"><td>${esc(t.due)}</td><td>${esc(t.fund_id)}</td><td>${esc(t.regulation)}</td><td>${esc(t.title)}<br><span class="small muted">${esc(t.cite)}</span></td><td>${esc(t.period)}</td><td>${esc(t.owner||t.owner_role.replace(/_/g,' '))}</td><td>${tChip(t)}${t.escalated?' '+chip(t.escalated,'crit'):''}</td></tr>`).join('')||'<tr><td colspan=7 class="muted">None</td></tr>'}</tbody></table>`;
+}
+function vTasks(){
+  const ids = new Set(funds().map(f=>f.id)), today = S.st.today, in30 = new Date(Date.parse(today)+30*864e5).toISOString().slice(0,10);
+  const all = S.st.tasks.filter(t=>ids.has(t.fund_id));
+  const open = all.filter(t=>['open','in_progress'].includes(t.status));
+  const f = {active:t=>['open','in_progress'].includes(t.status), overdue:t=>['open','in_progress'].includes(t.status)&&t.due<today, soon:t=>['open','in_progress'].includes(t.status)&&t.due>=today&&t.due<=in30, done:t=>['done','waived'].includes(t.status), all:()=>true}[S.tf];
+  const regs = [...new Set(all.map(t=>t.reg_id))];
+  const rf = S.rf||'', list = all.filter(f).filter(t=>!rf||t.reg_id===rf).sort((a,b)=>a.due.localeCompare(b.due));
+  $('#tasks').innerHTML = `<div class="card"><h2>Obligations</h2><div class="kpis"><div><span class="muted small">Open</span><b>${open.length}</b></div><div><span class="muted small">Overdue</span><b>${open.filter(t=>t.due<today).length}</b></div><div><span class="muted small">Due in 30 days</span><b>${open.filter(t=>t.due>=today&&t.due<=in30).length}</b></div><div><span class="muted small">Done</span><b>${all.filter(t=>t.status==='done').length}</b></div></div>
+   <div class="row"><select id="tf">${[['active','Open & in progress'],['overdue','Overdue'],['soon','Due in 30 days'],['done','Done or waived'],['all','All']].map(([v,l])=>`<option value="${v}" ${S.tf===v?'selected':''}>${l}</option>`).join('')}</select><select id="rf"><option value="">All regulations</option>${regs.map(r=>`<option value="${r}" ${rf===r?'selected':''}>${esc(regName(r))}</option>`).join('')}</select></div>
+   <p class="small muted">Completing a recurring obligation creates the next one. Overdue obligations open an exception case once (console → Exceptions).</p>${taskTable(list.slice(0,300))}${list.length>300?`<p class="small muted">Showing 300 of ${list.length}.</p>`:''}</div><div id="taskDetail"></div>`;
+  $('#tf').onchange=e=>{S.tf=e.target.value;vTasks()}; $('#rf').onchange=e=>{S.rf=e.target.value;vTasks()};
+  bindTaskRows();
+  if (S.task) taskDetail();
+}
+function bindTaskRows(){ document.querySelectorAll('[data-task]').forEach(tr=>tr.onclick=()=>{S.task=tr.dataset.task; if(S.tab!=='tasks'){S.tab='tasks';render()} else taskDetail()}); }
+function taskDetail(){
+  const t = S.st.tasks.find(x=>x.id===S.task); if(!t) return;
+  const live = ['open','in_progress'].includes(t.status);
+  let h = `<div class="card"><h2>${esc(t.title)}</h2><table>
+   <tr><td>Fund</td><td>${esc(t.fund_id)}</td><td>Regulation</td><td>${esc(t.regulation)}</td></tr>
+   <tr><td>Period</td><td>${esc(t.period)} (ends ${esc(t.period_end)})</td><td>Due</td><td>${esc(t.due)} ${tChip(t)}</td></tr>
+   <tr><td>Owner</td><td>${esc(t.owner||'—')} <span class="small muted">(role: ${esc(t.owner_role.replace(/_/g,' '))})</span></td><td>Frequency</td><td>${esc(t.frequency)}</td></tr>
+   <tr><td>Cite</td><td>${esc(t.cite)}</td><td>Evidence needed</td><td>${esc(t.evidence_required)}</td></tr>
+   ${t.note?`<tr><td>Note</td><td colspan=3 class="small">${esc(t.note)}</td></tr>`:''}${t.evidence?`<tr><td>Evidence</td><td colspan=3>${esc(t.evidence)} <span class="small muted">— ${esc(t.completed_by?.name||'')}</span></td></tr>`:''}
+   ${t.escalated?`<tr><td>Escalated</td><td colspan=3>Exception ${esc(t.escalated)} (console → Exceptions)</td></tr>`:''}</table>`;
+  if (live && BOOT.can_work) h += `<h3>Act</h3><div class="row"><input type="text" id="tkOwner" placeholder="Owner (name or email)" value="${esc(t.owner||'')}" style="max-width:260px"><button class="btn" data-act="assign">Assign</button><button class="btn" data-act="start">Mark in progress</button></div>
+   <label class="f" for="tkEvidence">Evidence (what was filed or done, with a reference)</label><input type="text" id="tkEvidence" placeholder="e.g. EDGAR accession 0001234567-26-000123">
+   <label class="f" for="tkNote">Note</label><input type="text" id="tkNote" placeholder="Optional note; required to waive">
+   <div class="row" style="margin-top:10px"><button class="btn primary" data-act="complete">Complete</button><button class="btn" data-act="note">Add note</button>${BOOT.is_cco?'<button class="btn danger" data-act="waive">Waive (CCO)</button>':''}</div>`;
+  h += `<h3>History</h3><table>${t.history.map(x=>`<tr><td class="small">${esc(x.at.slice(0,16).replace('T',' '))}</td><td>${esc(x.action)}</td><td>${esc(x.by.name)}</td><td class="small">${esc(x.note)}</td></tr>`).join('')||'<tr><td class="muted">Created '+esc(t.created_at.slice(0,10))+'</td></tr>'}</table></div>`;
+  $('#taskDetail') ? $('#taskDetail').innerHTML = h : null;
+  document.querySelectorAll('[data-act]').forEach(b=>b.onclick=async()=>{ try{ const r=await api('POST',`/api/regulations/tasks/${t.id}/actions`,{action:b.dataset.act, owner:$('#tkOwner').value, evidence:$('#tkEvidence').value, note:$('#tkNote').value}); await load(); toast(`Recorded: ${b.dataset.act}`+(r.next_task?'; next occurrence created':'')) }catch(e){toast(e.message)} });
+}
+// ------------------------------------------------------------------ Library
+function vLibrary(){
+  const lib = Object.values(S.st.library);
+  const block = r => `<div class="reg" id="lib-${r.id}"><h3 style="margin:0">${esc(r.short)} — ${esc(r.name)}</h3><div class="small muted">${esc(r.jurisdiction)} · ${esc(r.regulator)} · usually for ${r.applies_to.map(vname).join(', ')} · retention ${r.retention_years} years · counsel review ${esc(r.counsel_review)}</div>
+   <details><summary>Controls (${r.controls.length})</summary>${r.controls.length?`<table><tr><th>ID</th><th>Rule</th><th>Severity</th><th>Cite</th></tr>${r.controls.map(c=>`<tr><td class="mono small">${esc(c.id)}</td><td class="small">${esc(c.text)}</td><td>${stChip(c.severity)}</td><td class="small muted">${esc(c.cite)}</td></tr>`).join('')}</table>`:'<p class="small muted">No holdings controls; obligations only.</p>'}</details>
+   <details><summary>Obligations (${r.obligations.length})</summary><table><tr><th>Obligation</th><th>Frequency</th><th class="n">Due (days after period)</th><th>Owner</th><th>Cite</th></tr>${r.obligations.map(o=>`<tr><td class="small">${esc(o.title)}${o.note?`<br><span class="muted">${esc(o.note)}</span>`:''}</td><td>${esc(o.frequency)}</td><td class="n">${o.due_days}</td><td>${esc(o.owner_role.replace(/_/g,' '))}</td><td class="small muted">${esc(o.cite)}</td></tr>`).join('')}</table></details>
+   <div class="small">People required: ${r.required_roles.map(x=>esc(x.replace(/_/g,' '))).join(', ')}</div></div>`;
+  $('#library').innerHTML = `<div class="card"><h2>United States (domestic)</h2>${lib.filter(r=>r.scope==='domestic').map(block).join('')}</div><div class="card"><h2>International (ex-US)</h2>${lib.filter(r=>r.scope==='international').map(block).join('')}</div><p class="small muted">The library lives in <span class="mono">regimes/fund_regulations.yaml</span> and changes through change control. New regulations, controls and obligations are added there.</p>`;
+}
+function vLog(){
+  const recs = S.st.records.slice().reverse();
+  $('#log').innerHTML = `<div class="card"><h2>Regulation change log (${recs.length})</h2><p class="small muted">From the hash-chained governance ledger (type <span class="mono">regulation</span>).</p><table><tr><th>When</th><th>Step</th><th>Who</th><th>What</th><th>Reason</th></tr>${recs.map(r=>`<tr><td class="small">${esc(r.created_at.slice(0,16).replace('T',' '))}</td><td class="mono">${esc(r.step)}</td><td>${esc(r.actor.id)}</td><td>${esc(r.summary)}</td><td class="small">${esc(r.rationale)}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">Nothing yet</td></tr>'}</table></div>`;
+}
+document.querySelectorAll('#veh button').forEach(b=>b.onclick=()=>{S.veh=b.dataset.v;sessionStorage.setItem('rg_veh',S.veh);render()});
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;sessionStorage.setItem('rg_tab',S.tab);render()});
+$('#who').textContent = BOOT.user.name;
+load().catch(e=>toast(e.message));
+</script></body></html>

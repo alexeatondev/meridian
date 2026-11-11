@@ -37,5 +37,15 @@
  "trd-09-approve",
  "trd-10-charles-river",
  "trd-11-settings",
- "trd-12-tilts-exits"
+ "trd-12-tilts-exits",
+ "reg-01-tag",
+ "reg-02-funds",
+ "reg-03-fund-detail",
+ "reg-04-obligations",
+ "reg-05-task",
+ "reg-06-library",
+ "trd-13-positions-upload",
+ "trd-14-rebalance",
+ "trd-15-rebalance-blocked",
+ "trd-16-fills"
 ]
