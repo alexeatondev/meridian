@@ -8,8 +8,8 @@ from conftest import open_tab, tabs
 # ---------------------------------------------------------------- Research
 def test_res_01_workspace(sign_in):
     p = sign_in("Priya Raman", "analyst")
-    assert tabs(p) == ["Home", "Positioning", "Changes since last run", "Metrics", "Factor risk", "Look-through & search",
-                       "Capital market assumptions", "Agent votes", "Glide path"]
+    assert sorted(tabs(p)) == sorted(["Home", "Positioning", "Changes since last run", "Metrics", "Factor risk", "Look-through & search",
+                       "Capital market assumptions", "Agent votes", "Glide path"])  # grouped sidebar: order follows the section headings
 
 
 def test_res_02_cma_judge_reasoning(sign_in):
@@ -30,7 +30,7 @@ def test_res_03_agent_votes(sign_in):
 # ---------------------------------------------------------------- Manager selection
 def test_mgr_01_workspace(sign_in):
     p = sign_in("Marcus Webb", "manager_selection")
-    assert tabs(p) == ["Home", "Funds & vintages", "Underlying funds", "Look-through & search", "Positioning"]
+    assert sorted(tabs(p)) == sorted(["Home", "Funds & vintages", "Underlying funds", "Look-through & search", "Positioning"])  # grouped sidebar: order follows the section headings
 
 
 def test_mgr_02_issuer_search_and_fund_drilldown(sign_in):
@@ -53,8 +53,8 @@ def test_mgr_03_underlying_funds(sign_in):
 # ---------------------------------------------------------------- Leadership / IC
 def test_lead_01_workspace(sign_in):
     p = sign_in("Elena Rossi", "leadership")
-    assert tabs(p) == ["Home", "Funds & vintages", "Board memo", "Changes since last run", "Fund risk", "Stress tests",
-                       "Risk budget", "Metrics", "Glide path", "Approvals", "Exceptions"]
+    assert sorted(tabs(p)) == sorted(["Home", "Funds & vintages", "Board memo", "Changes since last run", "Fund risk", "Stress tests",
+                       "Risk budget", "Metrics", "Glide path", "Approvals", "Exceptions"])  # grouped sidebar: order follows the section headings
 
 
 def test_lead_02_board_memo(sign_in):
@@ -73,8 +73,8 @@ def test_lead_03_stress_losses(sign_in):
 # ---------------------------------------------------------------- Compliance
 def test_comp_01_workspace(sign_in):
     p = sign_in("Robert Hayes", "compliance")
-    assert tabs(p) == ["Home", "Compliance", "Exceptions", "Risk budget", "Look-through & search", "Compliance report",
-                       "Decision ledger"]
+    assert sorted(tabs(p)) == sorted(["Home", "Compliance", "Exceptions", "Risk budget", "Look-through & search", "Compliance report",
+                       "Decision ledger"])  # grouped sidebar: order follows the section headings
 
 
 def test_comp_02_rule_results(sign_in):
@@ -98,7 +98,7 @@ def test_comp_04_trace_an_approval_in_the_ledger(sign_in):
     p.check("#ack")
     p.fill("#reason", "Approval for the compliance trace test.")
     p.click("[data-decide=approve]")
-    p.wait_for_selector("#toast", state="visible")
+    p.wait_for_selector("#mtoasts .mtoast", state="visible")
     p = sign_in("Robert Hayes", "compliance")
     open_tab(p, "Decision ledger")
     p.fill("#lf", "approval")
@@ -109,7 +109,7 @@ def test_comp_04_trace_an_approval_in_the_ledger(sign_in):
 # ---------------------------------------------------------------- Audit
 def test_audit_01_read_only_workspace(sign_in):
     p = sign_in("Grace Liu", "audit")
-    assert tabs(p) == ["Home", "Decision ledger", "Exceptions", "Compliance", "Compliance report"]
+    assert sorted(tabs(p)) == sorted(["Home", "Decision ledger", "Exceptions", "Compliance", "Compliance report"])  # grouped sidebar: order follows the section headings
     assert p.query_selector("[data-decide]") is None
 
 

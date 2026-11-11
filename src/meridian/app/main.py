@@ -54,6 +54,9 @@ app.include_router(_trading_router)
 from .regulations import router as _regulations_router  # noqa: E402
 
 app.include_router(_regulations_router)
+from .shell import router as _shell_router  # noqa: E402
+
+app.include_router(_shell_router)
 
 
 def _revoked_after(email: str):
@@ -194,8 +197,9 @@ def console(request: Request, run_id: str):
     live["prev"] = previous_summary(st, run)
     live["exceptions"] = list_cases()
     live["governance"] = [r for r in st.ledger("governance") if r.get("dr_type") == "exception"][-300:]
-    return HTMLResponse(console_html(run.results, ledger, {"ok": ok, "message": msg}, run.board_memo,
-                                     run.compliance_report, st.change_requests(), pol, live))
+    from .shell import wrap
+    return HTMLResponse(wrap(console_html(run.results, ledger, {"ok": ok, "message": msg}, run.board_memo,
+                                          run.compliance_report, st.change_requests(), pol, live), user, "console"))
 
 
 def _verify_records(records: list[dict]) -> tuple[bool, str]:

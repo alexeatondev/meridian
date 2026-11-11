@@ -1,6 +1,6 @@
 # 16 — User Acceptance Test (UAT) Scripts
 
-**Version 0.4 · 2026-11-10 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
+**Version 0.5 · 2026-11-11 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
 
 One script per role, built from the personas (doc 15). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
 
@@ -172,6 +172,19 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | REG-5 | Let an obligation pass its due date | Shown overdue; one exception case opened (console → Exceptions) | API test |
 | REG-6 | Regulation library | US and international regulations with controls, obligations, roles, retention | `test_reg_01` |
 
+## UX — App bar, My work, Help, messages and confirmations (any persona) · built 2026-11-11 (doc 11)
+
+| # | Step | Expected result | Auto test |
+|---|---|---|---|
+| UX-1 | Open the console, Trading, Regulations and (as admin) User access | The same app bar on every screen; only the screens your access allows; the current one underlined; no "Back to console" links; a **Read-only** label for view-only access | `test_ux_01`, `test_every_page_carries_the_shell_without_duplicate_links` |
+| UX-2 | As a PM, generate a trade list, go to the console, open **My work** and click the trade list | Item "Approve TL-…" listed; Esc closes the list; clicking opens Trading → Trades with that list selected | `test_ux_02`, `test_my_work_lists_drafts_committee_requests_and_obligations` |
+| UX-3 | Cancel that trade list: try a 5-character reason, then **Go back**, then cancel with a proper reason | In-page confirmation names the list; **Cancel trade list** stays disabled until the reason has 10 characters; Go back changes nothing; then "Trade list cancelled" | `test_ux_02` |
+| UX-4 | Type in any reason field; submit a rebalance with no reason | Counter shows "n/10 characters minimum"; the red error stays until you close it | `test_ux_03` |
+| UX-5 | Keyboard only: Tab from the top of Trading, then use ← → on the tab row | First Tab offers "Skip to main content"; arrows move between tabs | `test_ux_03` |
+| UX-6 | On Regulations click **? Help**, search "obligation", go back | Guide opens at §12; headings filter; back returns to Regulations | `test_ux_04`, `test_help_anchors_exist` |
+| UX-7 | Let the session expire (or sign out in another tab), then act | "Your session has expired" with Sign in / Stay on page; Sign in goes to the sign-in page | `test_ux_04` |
+| UX-8 | As a Compliance user with obligations due soon, open My work | Obligations due within 14 days or overdue for your role, red when overdue; click opens that obligation | API test |
+
 ---
 
 ## Findings log
@@ -200,3 +213,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 2 (automated) | 2026-11-10 | Browser + API tests | All + OVS | 99 pass | Found F-10; F-5 to F-10 fixed |
 | 4 (automated) | 2026-11-10 | Browser + API tests | All + REG + TRD-14 to 16 | 125 pass | Regulations, rebalance, positions, fills; F-4 and F-11 fixed |
 | 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |
+| 3 (automated) | 2026-11-11 | Browser + API tests | All + TRD + REG + UX | 135 pass (65 browser) | UX update: app bar, My work, Help, dialogs, messages, keyboard; tests updated for the grouped console tabs |

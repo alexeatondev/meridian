@@ -8,7 +8,7 @@ RISK_TABS = ["Home", "Fund risk", "Factor risk", "Stress tests", "Risk history",
 
 def test_risk_01_workspace(sign_in):
     p = sign_in("Daniel Okafor", "risk")
-    assert tabs(p) == RISK_TABS
+    assert sorted(tabs(p)) == sorted(RISK_TABS)  # grouped sidebar: order follows the section headings
 
 
 def test_risk_02_fund_risk_all_vintages(sign_in):

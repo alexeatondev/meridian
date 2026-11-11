@@ -101,5 +101,5 @@ def tabs(page) -> list[str]:
 
 
 def toast_text(page, timeout: int = 5000) -> str:
-    page.wait_for_selector("#toast", state="visible", timeout=timeout)
-    return page.inner_text("#toast")
+    page.wait_for_selector("#mtoasts .mtoast", state="visible", timeout=timeout)
+    return page.inner_text("#mtoasts .mtoast:last-child")

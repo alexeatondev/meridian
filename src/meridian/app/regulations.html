@@ -44,9 +44,9 @@ tr.overdue td{background:var(--crit-bg, #fdecea)}details summary{cursor:pointer;
 .reg{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0;background:var(--surface)}
 </style>
 </head><body>
-<header><h1>Meridian · Regulations &amp; obligations</h1><span class="muted small" id="who"></span><span class="sp"></span>
+<header><h1>Regulations &amp; obligations</h1><span class="muted small" id="who"></span><span class="sp"></span>
 <span class="seg" id="veh" role="group" aria-label="Fund vehicle"><button data-v="all" class="on">All funds</button><button data-v="mutual_fund">Mutual funds</button><button data-v="cit">CITs</button></span>
-<a href="/runs/latest">Back to console</a><a href="/trading">Trading</a><a href="/logout">Sign out</a></header>
+</header>
 <main>
 <div class="banner">Tag a fund with the regulations it is subject to, in the US or abroad. Each regulation switches on its <b>controls</b> (checked on current holdings and on every trade list; a FAIL blocks approval) and its <b>obligations</b> (tasks with an owner, due date and evidence; overdue ones open an exception). Citations, limits and due dates are a design aid for your CCO and counsel to confirm.</div>
 <div class="tabs" role="tablist"><button data-tab="funds" class="active">Funds</button><button data-tab="tasks">Obligations</button><button data-tab="library">Regulation library</button><button data-tab="log">Change log</button></div>
@@ -55,14 +55,15 @@ tr.overdue td{background:var(--crit-bg, #fdecea)}details summary{cursor:pointer;
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
 const BOOT = /*BOOT*/null;
-const S = {veh: sessionStorage.getItem('rg_veh')||'all', tab: sessionStorage.getItem('rg_tab')||'funds', st:null, fund:null, sel:new Set(), tf:'active', task:null};
+const S = {veh: sessionStorage.getItem('rg_veh')||'all', tab: sessionStorage.getItem('rg_tab')||'funds', st:null, fund:null, sel:new Set(), tf:'active', task:sessionStorage.getItem('rg_task')};
+try{sessionStorage.removeItem('rg_task')}catch(e){}   // set by My work to open one obligation
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = s => document.querySelector(s);
 const pct = v => (v*100).toFixed(2)+'%';
 const chip = (t, cls='') => `<span class="chip ${cls}">${esc(t)}</span>`;
 const stChip = s => s==='PASS'?chip('PASS','ok'):s==='WARN'?chip('WARN','warn'):s==='FAIL'?chip('FAIL','crit'):chip(s);
 const tChip = t => { const od = ['open','in_progress'].includes(t.status) && t.due < S.st.today; return od?chip('Overdue','crit'):({open:chip('Open','warn'),in_progress:chip('In progress','perm'),done:chip('Done','ok'),waived:chip('Waived'),cancelled:chip('Cancelled')})[t.status]; };
-function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',6000)}
+function toast(m,type){if(window.MUI) MUI.toast(m,type); else {const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',5000)}}
 async function api(method,url,body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':BOOT.csrf},body:body?JSON.stringify(body):undefined});const j=await r.json().catch(()=>({}));if(!r.ok) throw new Error(typeof j.detail==='string'?j.detail:r.statusText);return j}
 const funds = () => S.st.funds.filter(f => S.veh==='all' || f.vehicle===S.veh);
 const vname = v => ({mutual_fund:'Mutual fund', cit:'CIT'})[v]||v;
@@ -94,8 +95,8 @@ function vFunds(){
   if ($('#selAll')) $('#selAll').onchange=e=>{fs.forEach(f=>e.target.checked?S.sel.add(f.id):S.sel.delete(f.id));vFunds()};
   document.querySelectorAll('[data-fund]').forEach(tr=>tr.onclick=()=>{S.fund=tr.dataset.fund;fundDetail()});
   const ids = () => [...S.sel].filter(id=>fs.some(f=>f.id===id));
-  if ($('#rgAdd')) $('#rgAdd').onclick=async()=>{ try{ const r=await api('POST','/api/regulations/tags',{reg_id:$('#rgReg').value,fund_ids:ids(),params:{rule_12d1_4:$('#rg12d1').checked},reason:$('#rgReason').value}); S.sel.clear(); await load(); toast(`${regName($('#rgReg')?.value||'')} added to ${r.added.length} funds; ${r.tasks_created} obligations created and recorded`) }catch(e){toast(e.message)} };
-  if ($('#rgRemove')) $('#rgRemove').onclick=async()=>{ try{ const r=await api('POST','/api/regulations/tags/remove',{reg_id:$('#rgReg').value,fund_ids:ids(),reason:$('#rgReason').value}); S.sel.clear(); await load(); toast(`Removed from ${r.removed.length} funds; ${r.cancelled_tasks} open obligations cancelled`) }catch(e){toast(e.message)} };
+  if ($('#rgAdd')) $('#rgAdd').onclick=async()=>{ try{ const r=await api('POST','/api/regulations/tags',{reg_id:$('#rgReg').value,fund_ids:ids(),params:{rule_12d1_4:$('#rg12d1').checked},reason:$('#rgReason').value}); S.sel.clear(); await load(); toast(`${regName($('#rgReg')?.value||'')} added to ${r.added.length} funds; ${r.tasks_created} obligations created and recorded`) }catch(e){toast(e.message,'error')} };
+  if ($('#rgRemove')) $('#rgRemove').onclick=async()=>{ try{ const r=await api('POST','/api/regulations/tags/remove',{reg_id:$('#rgReg').value,fund_ids:ids(),reason:$('#rgReason').value}); S.sel.clear(); await load(); toast(`Removed from ${r.removed.length} funds; ${r.cancelled_tasks} open obligations cancelled`) }catch(e){toast(e.message,'error')} };
   if (S.fund) fundDetail();
 }
 function fundDetail(){
@@ -146,7 +147,7 @@ function taskDetail(){
    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="complete">Complete</button><button class="btn" data-act="note">Add note</button>${BOOT.is_cco?'<button class="btn danger" data-act="waive">Waive (CCO)</button>':''}</div>`;
   h += `<h3>History</h3><table>${t.history.map(x=>`<tr><td class="small">${esc(x.at.slice(0,16).replace('T',' '))}</td><td>${esc(x.action)}</td><td>${esc(x.by.name)}</td><td class="small">${esc(x.note)}</td></tr>`).join('')||'<tr><td class="muted">Created '+esc(t.created_at.slice(0,10))+'</td></tr>'}</table></div>`;
   $('#taskDetail') ? $('#taskDetail').innerHTML = h : null;
-  document.querySelectorAll('[data-act]').forEach(b=>b.onclick=async()=>{ try{ const r=await api('POST',`/api/regulations/tasks/${t.id}/actions`,{action:b.dataset.act, owner:$('#tkOwner').value, evidence:$('#tkEvidence').value, note:$('#tkNote').value}); await load(); toast(`Recorded: ${b.dataset.act}`+(r.next_task?'; next occurrence created':'')) }catch(e){toast(e.message)} });
+  document.querySelectorAll('[data-act]').forEach(b=>b.onclick=async()=>{ try{ const r=await api('POST',`/api/regulations/tasks/${t.id}/actions`,{action:b.dataset.act, owner:$('#tkOwner').value, evidence:$('#tkEvidence').value, note:$('#tkNote').value}); await load(); toast(`Recorded: ${b.dataset.act}`+(r.next_task?'; next occurrence created':'')) }catch(e){toast(e.message,'error')} });
 }
 // ------------------------------------------------------------------ Library
 function vLibrary(){
@@ -163,6 +164,6 @@ function vLog(){
 }
 document.querySelectorAll('#veh button').forEach(b=>b.onclick=()=>{S.veh=b.dataset.v;sessionStorage.setItem('rg_veh',S.veh);render()});
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;sessionStorage.setItem('rg_tab',S.tab);render()});
-$('#who').textContent = BOOT.user.name;
-load().catch(e=>toast(e.message));
+$('#who').innerHTML = BOOT.can_tag||BOOT.can_work ? '' : '<span class="chip">Read-only</span>';
+load().catch(e=>toast(e.message,'error'));
 </script></body></html>

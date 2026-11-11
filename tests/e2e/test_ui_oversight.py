@@ -6,7 +6,7 @@ from conftest import open_tab, switch_workspace, tabs
 
 
 def expect_toast(p, text):
-    p.wait_for_function("t => document.querySelector('#toast').innerText.includes(t)", arg=text, timeout=15000)
+    p.wait_for_function("t => document.querySelector('#mtoasts').innerText.includes(t)", arg=text, timeout=15000)
 
 
 def test_ovs_01_why_panel_on_a_proposal(sign_in):

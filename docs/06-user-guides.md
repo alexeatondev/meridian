@@ -1,13 +1,13 @@
 # 06 — User Guides by Role
 
-**Version 0.6 · 2026-11-11 · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 0.7 · 2026-11-11 (UX update) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository. Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
 **Shadow mode.** Meridian is in shadow mode: no money moves. Approvals and trade lists are real records in the ledger, but nothing is sent to Charles River, a transfer agent, a custodian or the trading desk.
 
 ## Contents
-1. Signing in and finding your way around
+1. Signing in and finding your way around (app bar, My work, Help, messages, keyboard)
 2. Common concepts and controls (Why?, approvals, exceptions, the ledger)
 3. Portfolio Manager
 4. Risk Analytics
@@ -34,6 +34,32 @@ Appendix A: Approval checklist · Appendix B: Glossary
 
 **Forgot your password?** Use "Forgot your password?" on the sign-in page; a code is sent to your email. **MFA:** an authenticator app can be added; it will become mandatory for approvers and admins (held, doc 03 backlog). **Sessions** last 8 hours. **Never share your login:** every approval is recorded against the signed-in person. If your access changes, Meridian signs you out at once and you sign in again with the new access.
 
+### Getting around: the app bar
+Every screen has the same dark bar across the top.
+
+![App bar with My work open](img/guide/nav-01-my-work.png)
+*Image: `nav-01-my-work.png`*
+
+| Part of the bar | What it does |
+|---|---|
+| **Meridian** | Back to the console home |
+| **Console · Trading · Regulations · User access** | The screens you can use. You only see the ones your access allows; the one you are on is underlined |
+| **My work (n)** | Everything waiting for you, across all screens (see below). The number turns amber when something is due and red when something is overdue |
+| **? Help** | Opens this guide inside Meridian at the section for the screen you are on |
+| Your name and access | Your workspaces, plus any permissions (Investment Committee, CCO, Route manager) |
+| **Sign out** | Ends your session |
+
+Under the bar, each screen has its own title and, on Trading and Regulations, the **All funds / Mutual funds / CITs** filter at the right. A **Read-only** label shows there when your access lets you look but not change things.
+
+### My work
+1. Click **My work** in the app bar. A list opens, most urgent first.
+2. Each line says what is waiting, where, and when it is due: trade lists to approve (PMs) or to record fills for, glide-path changes for the Investment Committee to decide (never your own request), regulatory obligations due within 14 days or overdue for your role, and exceptions you own (Compliance also sees every overdue exception).
+3. Click a line. Meridian opens the right screen with that item selected (for example, the trade list on **Trading → Trades**, or the obligation on **Regulations → Obligations**).
+4. Press **Esc** or click elsewhere to close the list. The count refreshes every minute and when you come back to the tab.
+
+![Opened from My work: the trade list is selected](img/guide/nav-02-from-my-work.png)
+*Image: `nav-02-from-my-work.png`*
+
 ### The console layout
 ![Console home for a portfolio manager](img/guide/pm-01-home.png)
 *Image: `pm-01-home.png`*
@@ -41,14 +67,44 @@ Appendix A: Approval checklist · Appendix B: Glossary
 | Area | What it does |
 |---|---|
 | **Workspace** (top of the side bar) | Switch between the workspaces you hold, e.g. Portfolio Manager and Risk Analytics. You only see your own |
-| Name and links | Your name; **User access** (Admin, Audit, Compliance), **Trading** and **Regulations** (PM, analyst, Risk, Compliance, Audit, Leadership, Admin), **Sign out** |
 | **Run** | Pick which agent run you are looking at (newest first) |
-| Tabs | The screens of your workspace (section headings below list them) |
+| Tabs, grouped | The screens of your workspace under four headings: **Overview**, **Portfolio**, **Risk** and **Governance**. **Exceptions** shows how many are open |
 | Side-bar footer | Policy version, **Ledger: ✓ verified (n records)** (hash chain checked on every page load), entities in force |
-| Top bar | Run ID, as-of date, macro regime, overall compliance status, the Agentic Compliance Officer's review status, autonomy level and mode |
+| Top of the page | Run ID, as-of date, macro regime, overall compliance status, the Agentic Compliance Officer's review status, autonomy level and mode |
 | Yellow banner | Shown when any figure in the run comes from synthetic data. Those figures are system tests, not investment information |
 
+### Help inside Meridian
+1. Click **? Help** in the app bar. This guide opens at the section for your screen.
+2. Type in **Search the guide** (e.g. "fills", "ACT 40") to narrow the headings; press **Enter** to jump to the first match.
+3. Use the browser's back button to return to where you were.
+
+![Help, searching the guide](img/guide/nav-05-help.png)
+*Image: `nav-05-help.png`*
+
+### Messages and confirmations
+- **Messages** appear at the bottom right. Green-edged messages confirm something worked and clear themselves. **Red messages are errors and stay until you close them** with ×, so you don't miss why something was refused.
+- **Confirmations.** Anything that cancels or deletes opens a box in the page that says what will happen, asks for a reason and has a red button naming the action (e.g. **Cancel trade list**). **Go back** or **Esc** leaves everything unchanged. The action button stays disabled until the reason is long enough.
+- **Reasons.** Every reason field shows a live count (e.g. "6/10 characters minimum", then "✓ 14 characters"). Meridian needs at least 10 characters because the reason is kept in the ledger.
+- **Working…** The button you clicked shows a spinner and can't be clicked again until Meridian answers, so nothing is submitted twice.
+
+![A confirmation box](img/guide/nav-03-dialog.png)
+*Image: `nav-03-dialog.png`*
+
+![An error (stays) and a confirmation (clears itself)](img/guide/nav-04-messages.png)
+*Image: `nav-04-messages.png`*
+
+### If your session expires
+Sessions last 8 hours. If yours ends while a page is open, the next action shows **Your session has expired**. Choose **Sign in** to sign in again (anything not yet saved has to be re-entered), or **Stay on page** to copy what you typed first.
+
+### Keyboard and accessibility
+- **Tab** moves through links, buttons and fields; the focused item has a blue outline. The first **Tab** on a page offers **Skip to main content**.
+- In a row of tabs (e.g. Trading's **Funds & securities · Cashflows · Trades …**) use **← →** to move between tabs, **Home**/**End** for the first and last.
+- **Esc** closes My work, Why? panels and confirmation boxes.
+- Screen readers announce messages, and errors as alerts. Meridian follows your system's dark mode and reduced-motion settings.
+
 ### Which workspace has which tabs
+The side bar groups these under Overview, Portfolio, Risk and Governance, so the order on screen follows those headings.
+
 | Workspace | Tabs |
 |---|---|
 | Portfolio Manager | Home · Funds & vintages · Positioning · Portfolios & proposals · Changes since last run · Fund risk · Risk budget · Metrics · Look-through & search · Glide path · Approvals · Exceptions · Agent votes |
@@ -68,7 +124,7 @@ Appendix A: Approval checklist · Appendix B: Glossary
 
 | Term | Meaning |
 |---|---|
-| Run | One pipeline execution (e.g. the 2026-10-31 month-end run). Pick it in the side bar |
+| Run | One pipeline execution (e.g. the 2026-10-31 month-end run). Pick it in the console side bar |
 | Proposal | The agents' recommended weights for a vintage, waiting for human approval |
 | Decision record (DR) | The permanent, hash-chained record behind every number and every human action |
 | PASS / WARN / FAIL / ATTEST | Results of the deterministic compliance engine. FAIL blocks approval; ATTEST waits for a named human |
@@ -124,7 +180,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 1. Click **Positioning** and pick the vintage.
 2. In **Adjust weights**, choose the group or fund, **Relative (± pp)** or **Absolute (%)**, enter the amount and, if you want, the group that funds it (e.g. *Fixed Income / Short-dated +1pp from Fixed Income / Long-dated*). Click **Add**.
 3. Read the preview: new weights, tracking error, % of risk budget used, and **Indicative policy checks**.
-4. Write a reason and click **Submit adjustment**. Meridian re-runs compliance and the risk budget; the toast shows the result. The adjustment is an `override` record and needs PM + Risk re-approval.
+4. Write a reason and click **Submit adjustment**. Meridian re-runs compliance and the risk budget; the message at the bottom right shows the result. The adjustment is an `override` record and needs PM + Risk re-approval.
 
 ### 3.3 See what changed since the last run
 ![Changes since last run](img/guide/pm-06-changes.png)
@@ -321,7 +377,7 @@ Read-only. No approve buttons anywhere.
 
 ## 10. Trading (doc 17)
 
-Open **Trading** from the side bar (or `/trading`). Everything is shadow mode with **example** positions, prices and NAVs until custodian and transfer-agent files are connected.
+Open **Trading** from the app bar (or `/trading`). Everything is shadow mode with **example** positions, prices and NAVs until custodian and transfer-agent files are connected.
 
 | Who | Can |
 |---|---|
@@ -354,7 +410,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 2. **From a file:** download the **Excel template** (or CSV), fill in `trade_date, fund_id (or account), type, amount, source, reference`, choose the file and click **Upload**. If any row is wrong, nothing is loaded and the message names the row.
 3. **By hand:** date, fund, Subscription or Redemption, amount, source; click **Add cashflow**.
 4. **By connection:** transfer agents and custodians can post to `/api/trading/cashflows` with the ingest token.
-5. New cashflows wait for a trade list. To remove one, click **Cancel** and give a reason.
+5. New cashflows wait for a trade list. To remove one, click **Cancel**, give a reason in the confirmation box and click **Cancel cashflow** (or **Keep it**).
 
 ### 10.3 Generate trades from cashflows
 ![Trade list with orders by destination](img/guide/trd-05-trade-list.png)
@@ -397,7 +453,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 *Image: `trd-10-charles-river.png`*
 
 2. Click **Download Charles River import file**. One row per order, or per tranche with its date, parent order ID and "n of N". The layout is a **mock** until mapped to your Charles River import specification. Each download is recorded with a SHA-256 fingerprint, and the list becomes *Exported*.
-3. **Cancel trade list and release cashflows** (before export) puts its cashflows back to New.
+3. **Cancel trade list and release cashflows** (before export) opens a confirmation box; give a reason and click **Cancel trade list**. Its cashflows go back to New.
 
 ### 10.7 Trade individual securities and full exits
 ![Trade individual securities from a fund's page](img/guide/trd-03-ticket.png)
@@ -501,7 +557,7 @@ The **Routing & settings** tab lists every entry with its scope (e.g. "All CITs,
 ### Edit, disable, delete
 1. Click **Edit** on a person; change workspaces, permissions or name; give a reason; save. The person is signed out at once and the new access applies.
 2. **Disable** blocks sign-in (history is kept); **Enable** reverses it; **Resend invitation** re-sends the email.
-3. **Delete account…** works only on a disabled account and asks you to type the email.
+3. **Delete account…** works only on a disabled account. A confirmation box asks you to type the person's email; **Delete account** stays disabled until it matches.
 4. You can't remove your own admin role, disable or delete yourself, or remove the last enabled admin.
 
 ### Access review and access log
@@ -521,7 +577,7 @@ Deploys, agent runs and the fallback `manage-users` workflow are in GitHub Actio
 
 ## 12. Regulations & obligations (doc 18)
 
-Open **Regulations** from the console side bar or the Trading header (`/regulations`). The same All / Mutual funds / CITs toggle applies.
+Open **Regulations** from the app bar (`/regulations`). The same All / Mutual funds / CITs toggle applies.
 
 ### 12.1 Tag funds with a regulation (Compliance)
 ![Tag funds](img/guide/reg-01-tag.png)

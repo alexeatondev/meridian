@@ -217,4 +217,5 @@ def admin_page(request: Request):
     import json
     boot = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": user["roles"]},
             "csrf": user["csrf"], "can_edit": "admin" in user["roles"]}
-    return HTMLResponse(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")))
+    from .shell import wrap
+    return HTMLResponse(wrap(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")), user, "admin"))
