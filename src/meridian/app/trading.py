@@ -28,7 +28,7 @@ from ..trading import (
     crd_rows,
     load_model,
 )
-from ..trading.allocate import asset_class_weights
+from ..trading.allocate import apply_tilts, asset_class_weights, split_order, ticket_fund, validate_schedule
 from . import auth
 from .oversight import governance_record
 from .store import Base, now
@@ -38,7 +38,8 @@ router = APIRouter()
 VIEW_ROLES = ("portfolio_manager", "analyst", "risk", "compliance", "audit", "admin", "leadership")
 PREPARE_ROLES = ("portfolio_manager", "analyst")          # load cashflows, generate trade lists
 APPROVE_ROLES = ("portfolio_manager",)                    # approve trade lists, change target tables
-SETTINGS_ROLES = ("portfolio_manager", "admin")           # routes, buffer, exclusions
+SETTINGS_ROLES = ("portfolio_manager", "admin")           # buffer, exclusions
+ROUTE_PERMISSION = "route_manager"                        # permission flag: may change order routes (logged)
 CF_TYPES = ("subscription", "redemption")
 STATUS_ORDER = ("draft", "approved", "exported", "cancelled")
 
@@ -100,12 +101,12 @@ def _record(s, user_or_actor: dict, step: str, summary: str, output: dict, ratio
 def default_settings() -> dict:
     raw = model().raw
     return {"routes": dict(raw["routes"]), "buffer_bps": float(raw.get("cash_buffer_bps", 0)), "buffer_overrides": {},
-            "excluded": [], "excluded_share": "redistribute", "history": []}
+            "excluded": [], "excluded_share": "redistribute", "tilts": [], "exits": [], "history": []}
 
 
 def get_settings(s) -> dict:
     row = s.get(TradingSetting, "settings")
-    return row.body if row else default_settings()
+    return {**default_settings(), **row.body} if row else default_settings()
 
 
 def _put(s, key: str, body: dict) -> None:
@@ -134,6 +135,23 @@ def excluded_for(settings: dict, fund_id: str) -> set[str]:
             if e.get("fund") in ("*", fund_id) and (not e.get("until") or e["until"] >= today)}
 
 
+def _active(entries: list[dict], fund_id: str) -> list[dict]:
+    today = date.today().isoformat()
+    return [e for e in entries if e.get("fund") in ("*", fund_id) and (not e.get("until") or e["until"] >= today)]
+
+
+def tilts_for(settings: dict, fund_id: str) -> dict[str, float]:
+    """Tilt in bp per security; a fund-specific tilt replaces an all-funds tilt on the same security."""
+    out: dict[str, float] = {}
+    for e in sorted(_active(settings.get("tilts", []), fund_id), key=lambda e: e.get("fund") != "*"):
+        out[e["instrument"]] = float(e["bps"])
+    return out
+
+
+def exits_for(settings: dict, fund_id: str) -> set[str]:
+    return {e["instrument"] for e in _active(settings.get("exits", []), fund_id)}
+
+
 def positions(fund_id: str) -> dict:
     return model().example_positions(fund_id)
 
@@ -156,7 +174,7 @@ def trading_page(request: Request):
     roles = user["roles"]
     boot = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": roles}, "csrf": user["csrf"],
             "can_prepare": any(r in roles for r in PREPARE_ROLES), "can_approve": any(r in roles for r in APPROVE_ROLES),
-            "can_settings": any(r in roles for r in SETTINGS_ROLES)}
+            "can_settings": any(r in roles for r in SETTINGS_ROLES), "can_routes": ROUTE_PERMISSION in roles}
     return HTMLResponse(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")))
 
 
@@ -201,7 +219,8 @@ def fund_detail(request: Request, fund_id: str):
     with _store().Session() as s:
         t = tables(s, fund_id)
         st = strategic_table(s, fund_id)
-        excl = excluded_for(get_settings(s), fund_id)
+        settings = get_settings(s)
+        excl, tilt, exiting = excluded_for(settings, fund_id), tilts_for(settings, fund_id), exits_for(settings, fund_id)
     rows = []
     for i in m.fund_instruments(fund_id):
         v = p["values"].get(i["id"], 0.0)
@@ -210,6 +229,7 @@ def fund_detail(request: Request, fund_id: str):
         rows.append({"instrument": i["id"], "name": i["name"], "type": i["type"], "asset_class": i["asset_class"],
                      "status": status, "note": i.get("note", ""), "value": v, "weight": v / nav,
                      "price": i["price"], "excluded": i["id"] in excl,
+                     "tilt_bps": tilt.get(i["id"], 0.0), "exiting": i["id"] in exiting,
                      **{f"t_{k}": t[k].get(i["id"], 0.0) for k in STRATEGIES}})
     return {"fund": m.funds[fund_id].as_dict(), "nav": nav, "cash": p["cash"], "positions_source": p["source"],
             "as_of": p["as_of"], "rows": rows, "strategic": {k: st.get(k) for k in ("follows_glide_path", "version", "history")}}
@@ -418,13 +438,37 @@ def set_strategic(request: Request, fund_id: str, body: dict = Body(...)):
 def set_settings(request: Request, body: dict = Body(...)):
     user = auth.require_user(request)
     auth.check_csrf(request, user)
-    auth.require_role(user, *SETTINGS_ROLES)
+    roles = user["roles"]
+    auth.require_role(user, *SETTINGS_ROLES, ROUTE_PERMISSION)
     reason = _reason(body)
     m = model()
+
+    def _entries(key: str, extra) -> list[dict]:
+        out = []
+        for e in body[key] or []:
+            if e.get("instrument") not in m.instruments or e.get("fund", "*") not in set(m.funds) | {"*"}:
+                raise HTTPException(400, f"Unknown security or fund: {e}")
+            out.append({"instrument": e["instrument"], "fund": e.get("fund", "*"),
+                        "reason": str(e.get("reason", "")).strip() or reason, "until": e.get("until") or "",
+                        "by": e.get("by") or _who(user), "at": e.get("at") or _ts(), **extra(e)})
+        return out
+
     with _store().Session.begin() as s:
         cur = get_settings(s)
         new = json.loads(json.dumps(cur))
         changes = {}
+        if "tilts" in body:
+            def _bps(e):
+                try:
+                    b = float(e.get("bps"))
+                except (TypeError, ValueError):
+                    raise HTTPException(400, "Tilt must be a number of basis points") from None
+                if b == 0 or abs(b) > 500:
+                    raise HTTPException(400, "Tilt must be between -500 and +500 bp, and not zero")
+                return {"bps": b}
+            new["tilts"] = _entries("tilts", _bps)
+        if "exits" in body:
+            new["exits"] = _entries("exits", lambda e: {})
         if "routes" in body:
             names = set(m.raw.get("route_names", []))
             r = {k: str(v) for k, v in (body["routes"] or {}).items()}
@@ -442,29 +486,41 @@ def set_settings(request: Request, body: dict = Body(...)):
                 raise HTTPException(400, "Unknown fund in buffer overrides")
             new["buffer_overrides"] = ov
         if "excluded" in body:
-            ex = []
-            for e in body["excluded"] or []:
-                if e.get("instrument") not in m.instruments or e.get("fund", "*") not in set(m.funds) | {"*"}:
-                    raise HTTPException(400, f"Unknown security or fund in exclusion: {e}")
-                ex.append({"instrument": e["instrument"], "fund": e.get("fund", "*"),
-                           "reason": str(e.get("reason", "")).strip() or reason, "until": e.get("until") or "",
-                           "by": e.get("by") or _who(user), "at": e.get("at") or _ts()})
-            new["excluded"] = ex
+            new["excluded"] = _entries("excluded", lambda e: {})
         if "excluded_share" in body:
             if body["excluded_share"] not in ("redistribute", "cash"):
                 raise HTTPException(400, "excluded_share must be redistribute or cash")
             new["excluded_share"] = body["excluded_share"]
-        for k in ("routes", "buffer_bps", "buffer_overrides", "excluded", "excluded_share"):
+        for k in ("routes", "buffer_bps", "buffer_overrides", "excluded", "excluded_share", "tilts", "exits"):
             if new.get(k) != cur.get(k):
                 changes[k] = {"before": cur.get(k), "after": new.get(k)}
         if not changes:
             raise HTTPException(400, "Nothing changed")
+        if "routes" in changes and ROUTE_PERMISSION not in roles:
+            raise HTTPException(403, "Changing order routes needs the Trade route manager permission "
+                                     "(an admin switches it on in User access)")
+        if set(changes) - {"routes"} and not any(r in roles for r in SETTINGS_ROLES):
+            raise HTTPException(403, "Your permission covers order routes only")
+        if set(changes) & {"tilts", "exits"} and not any(r in roles for r in APPROVE_ROLES):
+            raise HTTPException(403, "Only portfolio managers set tilts and exits")
         new["history"] = (list(cur.get("history", [])) + [{"at": _ts(), "by": _who(user), "reason": reason,
                                                            "changed": sorted(changes)}])[-100:]
         _put(s, "settings", new)
-        dr = _record(s, _who(user), "settings.change", "Trading settings changed: " + ", ".join(sorted(changes)),
+        step = "routes.change" if set(changes) == {"routes"} else "settings.change"
+        dr = _record(s, _who(user), step, "Trading settings changed: " + ", ".join(sorted(changes)),
                      changes, reason)
     return {"ok": True, "dr_id": dr, "changed": sorted(changes)}
+
+
+@router.get("/api/trading/route-managers")
+def route_managers(request: Request):
+    """Who holds the route permission now (grants and removals are in the User access log)."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    from .directory import directory
+    people = [{"name": u.get("name") or u["email"], "email": u["email"], "enabled": u.get("enabled", True)}
+              for u in directory(_store()).list_users() if ROUTE_PERMISSION in u.get("roles", [])]
+    return {"permission": ROUTE_PERMISSION, "holders": people}
 
 
 # ---------------------------------------------------------------------------------------------- trade lists
@@ -532,10 +588,11 @@ def generate(request: Request, body: dict = Body(...)):
         out_funds = []
         for fid in sorted(net, key=lambda x: (m.funds[x].vehicle, m.funds[x].vintage)):
             pos = positions(fid)
-            table = tables(s, fid)[strategy]
+            table, pre = _effective_table(settings, fid, tables(s, fid)[strategy])
             r = allocate_fund(m, fid, net[fid], pos, table, routes=settings["routes"],
                               excluded=excluded_for(settings, fid), excluded_share=settings.get("excluded_share", "redistribute"),
                               buffer_bps=fund_buffer(settings, fid))
+            r["notes"] = pre + r["notes"]
             r["compliance"] = _compliance(fid, r["preview"], ctx)
             r["vehicle"] = m.funds[fid].vehicle
             r["cashflows"] = [c.id for c in cfs if c.body["fund_id"] == fid]
@@ -543,13 +600,14 @@ def generate(request: Request, body: dict = Body(...)):
             out_funds.append(r)
         orders = sum(len(f["orders"]) for f in out_funds)
         blocked = [f["fund_id"] for f in out_funds if f["errors"] or f["compliance"]["status"] == "FAIL"]
-        body_tl = {"id": tl_id, "status": "draft", "trade_date": td, "strategy": strategy,
+        body_tl = {"id": tl_id, "kind": "cashflow", "status": "draft", "trade_date": td, "strategy": strategy,
                    "strategy_name": STRATEGIES[strategy], "vehicle": vehicle, "created_by": _who(user),
                    "created_at": _ts(), "funds": out_funds, "order_count": orders, "blocked_funds": blocked,
                    "gross": round(sum(abs(o["est_amount"]) for f in out_funds for o in f["orders"]), 2),
                    "net_flow": round(sum(net.values()), 2), "settings_used": {
                        "routes": settings["routes"], "buffer_bps": settings["buffer_bps"],
-                       "excluded": settings.get("excluded", []), "excluded_share": settings.get("excluded_share")},
+                       "excluded": settings.get("excluded", []), "excluded_share": settings.get("excluded_share"),
+                       "tilts": settings.get("tilts", []), "exits": settings.get("exits", [])},
                    "history": [{"at": _ts(), "by": _who(user), "action": "generate", "note": ""}]}
         dr = _record(s, _who(user), "trades.generate",
                      f"{tl_id}: {orders} orders for {len(out_funds)} funds from {len(cfs)} cashflows ({STRATEGIES[strategy]})",
@@ -564,6 +622,142 @@ def generate(request: Request, body: dict = Body(...)):
             c.body = dict(c.body, status="in_trade_list", trade_list=tl_id)
             c.status = "in_trade_list"
     return body_tl
+
+
+def _effective_table(settings: dict, fund_id: str, table: dict) -> tuple[dict, list[str]]:
+    """The allocation table after exits (weight removed, rest scaled up) and tilts."""
+    notes = []
+    gone = sorted(k for k in exits_for(settings, fund_id) if k in table)
+    if gone:
+        rest = sum(v for k, v in table.items() if k not in gone)
+        table = {k: v / rest for k, v in table.items() if k not in gone} if rest > 0 else {}
+        notes += [f"{k} is being exited: no cashflow trades; its share goes to the other holdings" for k in gone]
+    table, tn = apply_tilts(table, tilts_for(settings, fund_id))
+    return table, notes + tn
+
+
+@router.post("/api/trading/tickets")
+def ticket(request: Request, body: dict = Body(...)):
+    """Hand-entered orders for individual securities in one fund, or the sale of a position flagged for exit.
+    They go through the same preview, IPS check, approval, tranching and Charles River export."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    m = model()
+    fid = body.get("fund_id")
+    if fid not in m.funds:
+        raise HTTPException(404, "Unknown fund")
+    reason = _reason(body)
+    try:
+        td = date.fromisoformat(str(body.get("trade_date", ""))[:10]).isoformat()
+    except ValueError:
+        raise HTTPException(400, "trade_date must look like 2026-11-10") from None
+    tickets = body.get("orders") or []
+    if not tickets or len(tickets) > 50:
+        raise HTTPException(400, "Give between 1 and 50 orders")
+    kind = "exit" if body.get("kind") == "exit" else "ticket"
+    ctx = _run_context()
+    with _store().Session.begin() as s:
+        settings = get_settings(s)
+        exiting = exits_for(settings, fid)
+        if kind == "exit":
+            bad = [t.get("instrument") for t in tickets if t.get("instrument") not in exiting]
+            if bad:
+                raise HTTPException(400, f"Not flagged for exit in {fid}: {', '.join(map(str, bad))}")
+            tickets = [{"instrument": t["instrument"], "side": "SELL", "all": True} for t in tickets]
+        excl = excluded_for(settings, fid) - (exiting if kind == "exit" else set())
+        r = ticket_fund(m, fid, tickets, positions(fid), routes=settings["routes"], table=m.neutral_table(fid),
+                        excluded=excl, blocked_buys=exiting)
+        if r["errors"]:
+            raise HTTPException(400, "; ".join(r["errors"]))
+        r.update(compliance=_compliance(fid, r["preview"], ctx), vehicle=m.funds[fid].vehicle, cashflows=[],
+                 buffer_bps=fund_buffer(settings, fid))
+        if kind == "exit":
+            r["notes"].append("Sale proceeds stay in cash; reinvesting them is a rebalance decision")
+        tl_id = ("EX-" if kind == "exit" else "TK-") + td.replace("-", "")[2:] + "-" + uuid.uuid4().hex[:4].upper()
+        name = "Full exit" if kind == "exit" else "Manual ticket"
+        b = {"id": tl_id, "kind": kind, "status": "draft", "trade_date": td, "strategy": "manual", "strategy_name": name,
+             "vehicle": m.funds[fid].vehicle, "created_by": _who(user), "created_at": _ts(), "funds": [r],
+             "order_count": len(r["orders"]), "blocked_funds": [fid] if r["compliance"]["status"] == "FAIL" else [],
+             "gross": round(sum(o["est_amount"] for o in r["orders"]), 2), "net_flow": 0.0, "reason": reason,
+             "settings_used": {"routes": settings["routes"], "buffer_bps": settings["buffer_bps"],
+                               "excluded": settings.get("excluded", []), "exits": settings.get("exits", [])},
+             "history": [{"at": _ts(), "by": _who(user), "action": kind, "note": reason}]}
+        dr = _record(s, _who(user), f"trades.{kind}", f"{tl_id}: {name.lower()}, {len(r['orders'])} orders in {fid}",
+                     {"trade_list": tl_id, "trade_date": td, "orders": [dict(o, fund_id=fid) for o in r["orders"]],
+                      "compliance": r["compliance"]["status"]}, reason, [fid])
+        b["dr_ids"] = [dr]
+        s.add(TradeList(id=tl_id, status="draft", body=b))
+    return b
+
+
+def _okey(fund_id: str, instrument: str) -> str:
+    return f"{fund_id}|{instrument}"
+
+
+@router.put("/api/trading/trade-lists/{tid}/tranches")
+def set_tranches(request: Request, tid: str, body: dict = Body(...)):
+    """Tranche a draft trade list (the bucket). Schedules are [{date, pct}] at three levels; the most specific
+    wins: security ("FUND|SECURITY") > fund > whole list. Orders listed in `excluded` trade in full on the trade
+    date. Sending no schedules clears the tranches."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    plan = {"default": body.get("default") or None, "funds": {k: v for k, v in (body.get("funds") or {}).items() if v},
+            "securities": {k: v for k, v in (body.get("securities") or {}).items() if v},
+            "excluded": sorted(set(body.get("excluded") or []))}
+    with _store().Session.begin() as s:
+        row = _get_tl(s, tid)
+        b = json.loads(json.dumps(row.body))
+        if b["status"] != "draft":
+            raise HTTPException(409, "Tranches can only be changed while the trade list is a draft")
+        keys = {_okey(f["fund_id"], o["instrument"]) for f in b["funds"] for o in f["orders"]}
+        fids = {f["fund_id"] for f in b["funds"]}
+        errs = [f"Unknown fund {k}" for k in plan["funds"] if k not in fids]
+        errs += [f"No order for {k}" for k in [*plan["securities"], *plan["excluded"]] if k not in keys]
+        scheds = ([("Whole list", plan["default"])] if plan["default"] else []) + \
+            [(k, v) for k, v in plan["funds"].items()] + [(k.replace("|", " "), v) for k, v in plan["securities"].items()]
+        for label, sch in scheds:
+            errs += [f"{label}: {e}" for e in validate_schedule(sch, b["trade_date"])]
+        n_tr, dates = 0, {}
+        if not errs:
+            for f in b["funds"]:
+                for o in f["orders"]:
+                    k = _okey(f["fund_id"], o["instrument"])
+                    sch = None if k in plan["excluded"] else (plan["securities"].get(k) or plan["funds"].get(f["fund_id"])
+                                                              or plan["default"])
+                    o.pop("tranches", None)
+                    o.pop("tranche_level", None)
+                    if not sch:
+                        continue
+                    o["tranches"], e = split_order(o, sch)
+                    o["tranche_level"] = ("security" if k in plan["securities"] else
+                                          "fund" if f["fund_id"] in plan["funds"] else "list")
+                    errs += [f"{f['fund_id']} {x}" for x in e]
+                    n_tr += 1
+                    for t in o["tranches"]:
+                        sign = 1 if o["side"] == "BUY" else -1
+                        d = dates.setdefault(t["date"], {"buys": 0.0, "sells": 0.0, "orders": 0})
+                        d["buys" if sign > 0 else "sells"] += t["est_amount"]
+                        d["orders"] += 1
+        if errs:
+            raise HTTPException(400, "Tranches not saved. " + "; ".join(errs[:12]) + (" …" if len(errs) > 12 else ""))
+        has = any(scheds)
+        b["tranche_plan"] = plan if has else None
+        b["tranche_summary"] = {"orders_tranched": n_tr, "orders_whole": b["order_count"] - n_tr,
+                                "by_date": [dict(date=k, **{x: round(v, 2) if x != "orders" else v for x, v in d.items()})
+                                            for k, d in sorted(dates.items())],
+                                "checks": ["Every schedule totals 100%", "Dates are weekdays, in order, on or after the trade date",
+                                           "Tranche quantities add back to each order exactly", "No empty tranches"]} if has else None
+        dr = _record(s, _who(user), "trades.tranche",
+                     f"{tid}: {n_tr} of {b['order_count']} orders tranched" if has else f"{tid}: tranches cleared",
+                     {"trade_list": tid, "plan": b["tranche_plan"], "summary": b["tranche_summary"]},
+                     str(body.get("note", "")).strip(), sorted(fids))
+        b["dr_ids"] = b["dr_ids"] + [dr]
+        b["history"] = b["history"] + [{"at": _ts(), "by": _who(user), "action": "tranche" if has else "clear tranches",
+                                        "note": str(body.get("note", "")).strip()}]
+        row.body = b
+    return b
 
 
 def _get_tl(s, tid: str) -> TradeList:
@@ -647,7 +841,7 @@ def crd_file(request: Request, tid: str):
         text = buf.getvalue()
         import hashlib
         digest = hashlib.sha256(text.encode()).hexdigest()
-        dr = _record(s, _who(user), "trades.export", f"{tid} exported for Charles River ({len(rows)} orders)",
+        dr = _record(s, _who(user), "trades.export", f"{tid} exported for Charles River ({len(rows)} rows)",
                      {"trade_list": tid, "orders": len(rows), "sha256": digest, "format": "Charles River import (mock)"},
                      "Export of the approved trade list", [f["fund_id"] for f in b["funds"]])
         exports = list(b.get("exports", [])) + [{"at": _ts(), "by": _who(user), "sha256": digest, "dr_id": dr}]

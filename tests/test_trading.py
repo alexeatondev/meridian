@@ -165,8 +165,16 @@ def test_settings_and_strategic_table_are_controlled_and_logged(client):
     assert client.put("/api/trading/settings", headers=hp, json={"buffer_bps": 25, "reason": "short"}).status_code == 400
     assert client.put("/api/trading/settings", headers=hp,
                       json={"routes": {"etf": "Somewhere else"}, "reason": R}).status_code == 400
+    # routes need the route permission, even for a PM; the permission alone covers routes only
+    assert client.put("/api/trading/settings", headers=hp,
+                      json={"routes": {"etf": "State Street"}, "reason": R}).status_code == 403
+    hr = login(client, "Daniel Okafor", "risk", "route_manager")
+    assert client.put("/api/trading/settings", headers=hr, json={"buffer_bps": 10, "reason": R}).status_code == 403
+    only = client.put("/api/trading/settings", headers=hr, json={"routes": {"bond": "State Street"}, "reason": R})
+    assert only.status_code == 200 and only.json()["changed"] == ["routes"]
+    hp = login(client, "Maya Chen", "portfolio_manager", "route_manager")
     r = client.put("/api/trading/settings", headers=hp, json={
-        "routes": {"etf": "State Street"}, "buffer_bps": 75,
+        "routes": {"etf": "State Street", "bond": "Internal trading desk"}, "buffer_bps": 75,
         "excluded": [{"instrument": "VNQ", "fund": "*"}], "reason": R})
     assert r.status_code == 200 and set(r.json()["changed"]) == {"routes", "buffer_bps", "excluded"}
     st = client.get("/api/trading/state").json()["settings"]
@@ -197,7 +205,7 @@ def test_settings_and_strategic_table_are_controlled_and_logged(client):
     orders = {o["instrument"]: o for o in tl["funds"][0]["orders"]}
     assert "VNQ" not in orders and orders["PDBC"]["route"] == "State Street"
     steps = [r["step"] for r in client.get("/api/trading/state").json()["trading_records"]]
-    assert steps[:2] == ["settings.change", "targets.strategic"]
+    assert steps[:3] == ["routes.change", "settings.change", "targets.strategic"]
 
 
 def test_page_access(client):
@@ -208,3 +216,125 @@ def test_page_access(client):
     login(client, "Grace Liu", "audit")
     assert client.get("/trading").status_code == 200
     assert client.post("/api/trading/trade-lists", json={}, headers={"X-CSRF-Token": "x"}).status_code == 403
+
+
+def test_tilts_fund_pro_rata_and_total_100(m):
+    from meridian.trading.allocate import apply_tilts
+    t = m.neutral_table("MTRS-2050")
+    out, notes = apply_tilts(t, {"MER-EM-MF": 100, "MER-HY-MF": -50, "NOPE": 10})
+    assert abs(sum(out.values()) - 1) < 1e-9
+    assert out["MER-EM-MF"] == pytest.approx(t["MER-EM-MF"] + 0.01) and out["MER-HY-MF"] == pytest.approx(t["MER-HY-MF"] - 0.005)
+    rest = [k for k in t if k not in ("MER-EM-MF", "MER-HY-MF")]
+    ratios = {round(out[k] / t[k], 9) for k in rest}
+    assert len(ratios) == 1                                          # everything else scaled by one factor
+    assert any("NOPE" in n for n in notes)
+    away, _ = apply_tilts(t, {"MER-EMD-MF": -500})                   # can't go below zero
+    assert "MER-EMD-MF" not in away and abs(sum(away.values()) - 1) < 1e-9
+
+
+def test_tranche_checks_and_split(m):
+    from meridian.trading.allocate import split_order, validate_schedule
+    ok = [{"date": "2026-11-10", "pct": 50}, {"date": "2026-11-12", "pct": 30}, {"date": "2026-11-13", "pct": 20}]
+    assert validate_schedule(ok, "2026-11-10") == []
+    assert "not 100%" in validate_schedule(ok[:2], "2026-11-10")[0]
+    assert any("weekend" in e for e in validate_schedule([{"date": "2026-11-14", "pct": 100}], "2026-11-10"))
+    assert any("before" in e for e in validate_schedule([{"date": "2026-11-09", "pct": 100}], "2026-11-10"))
+    assert any("order" in e for e in validate_schedule(list(reversed(ok)), "2026-11-10"))
+    o = {"instrument": "VNQ", "quantity": 1001.0, "quantity_type": "SHARES", "price": 92.15}
+    parts, errs = split_order(o, ok)
+    assert not errs and [p["quantity"] for p in parts] == [500, 300, 201] and sum(p["quantity"] for p in parts) == 1001
+    tiny, errs = split_order(dict(o, quantity=1.0), ok)
+    assert errs                                                      # too small to split
+
+
+def test_tickets_exits_tilts_and_tranches_api(client):
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    ha = login(client, "Priya Raman", "analyst", email="priya@example.com")
+    # analysts can't set tilts or exits
+    assert client.put("/api/trading/settings", headers=ha, json={
+        "tilts": [{"instrument": "MER-EM-MF", "fund": "MTRS-2050", "bps": 100}], "reason": R}).status_code == 403
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    assert client.put("/api/trading/settings", headers=hp, json={
+        "tilts": [{"instrument": "MER-EM-MF", "fund": "MTRS-2050", "bps": 900}], "reason": R}).status_code == 400
+    r = client.put("/api/trading/settings", headers=hp, json={
+        "tilts": [{"instrument": "MER-EM-MF", "fund": "MTRS-2050", "bps": 100}],
+        "exits": [{"instrument": "MER-LISC-MF", "fund": "*"}, {"instrument": "MER-HY-MF", "fund": "MTRS-2050"}],
+        "reason": R})
+    assert r.status_code == 200 and set(r.json()["changed"]) == {"tilts", "exits"}
+    row = {x["instrument"]: x for x in client.get("/api/trading/funds/MTRS-2050").json()["rows"]}
+    assert row["MER-EM-MF"]["tilt_bps"] == 100 and row["MER-HY-MF"]["exiting"] and row["MER-LISC-MF"]["exiting"]
+
+    # cashflow trades: tilt applied, exiting security not traded
+    client.post("/api/trading/cashflows", headers=hp, json=[
+        {"trade_date": "2026-11-10", "fund_id": "MTRS-2050", "amount": 2e7, "type": "subscription"},
+        {"trade_date": "2026-11-10", "fund_id": "MTRS-2040", "amount": 1e7, "type": "subscription"}])
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    tl = client.post("/api/trading/trade-lists", headers=hp, json={"trade_date": "2026-11-10", "strategy": "neutral"}).json()
+    f50 = next(f for f in tl["funds"] if f["fund_id"] == "MTRS-2050")
+    o = {x["instrument"]: x for x in f50["orders"]}
+    assert "MER-HY-MF" not in o and any("Tilt +100 bp on MER-EM-MF" in n for n in f50["notes"])
+    prev = {x["instrument"]: x for x in f50["preview"]}
+    assert o["MER-EM-MF"]["est_amount"] == pytest.approx(2e7 * prev["MER-EM-MF"]["target_w"], rel=1e-4)
+
+    # tranches: list-level equal split, a fund-level unequal series, one security series, one order excluded
+    days = [{"date": "2026-11-10", "pct": 50}, {"date": "2026-11-11", "pct": 50}]
+    bad = client.put(f"/api/trading/trade-lists/{tl['id']}/tranches", headers=hp,
+                     json={"default": [{"date": "2026-11-10", "pct": 60}, {"date": "2026-11-11", "pct": 50}]})
+    assert bad.status_code == 400 and "110.00%" in bad.json()["detail"]
+    t = client.put(f"/api/trading/trade-lists/{tl['id']}/tranches", headers=hp, json={
+        "default": days,
+        "funds": {"MTRS-2040": [{"date": "2026-11-10", "pct": 20}, {"date": "2026-11-12", "pct": 30}, {"date": "2026-11-13", "pct": 50}]},
+        "securities": {"MTRS-2050|VNQ": [{"date": "2026-11-12", "pct": 25}, {"date": "2026-11-13", "pct": 75}]},
+        "excluded": ["MTRS-2050|MER-USLC-MF"], "note": "UAT tranche plan"})
+    assert t.status_code == 200, t.text
+    b = t.json()
+    f50 = next(f for f in b["funds"] if f["fund_id"] == "MTRS-2050")
+    f40 = next(f for f in b["funds"] if f["fund_id"] == "MTRS-2040")
+    o = {x["instrument"]: x for x in f50["orders"]}
+    assert "tranches" not in o["MER-USLC-MF"] and o["VNQ"]["tranche_level"] == "security" and len(o["VNQ"]["tranches"]) == 2
+    assert o["MER-EM-MF"]["tranche_level"] == "list" and len(o["MER-EM-MF"]["tranches"]) == 2
+    assert all(len(x["tranches"]) == 3 and x["tranche_level"] == "fund" for x in f40["orders"])
+    for f in b["funds"]:
+        for x in f["orders"]:
+            if "tranches" in x:
+                assert sum(p["quantity"] for p in x["tranches"]) == pytest.approx(x["quantity"], abs=1e-6)
+    assert b["tranche_summary"]["orders_whole"] == 1
+    assert [d["date"] for d in b["tranche_summary"]["by_date"]] == ["2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13"]
+    client.post(f"/api/trading/trade-lists/{tl['id']}/approve", headers=hp, json={"checked": True, "reason": R})
+    assert client.put(f"/api/trading/trade-lists/{tl['id']}/tranches", headers=hp, json={"default": days}).status_code == 409
+    rows = list(csv.DictReader(io.StringIO(client.get(f"/api/trading/trade-lists/{tl['id']}/crd.csv").text)))
+    vnq = [r for r in rows if r["Security ID"] == "VNQ" and r["Account"] == "MF2050"]
+    assert [r["Trade Date"] for r in vnq] == ["2026-11-12", "2026-11-13"] and vnq[0]["Tranche"] == "1 of 2"
+    assert vnq[0]["Parent Order ID"] and vnq[0]["External Order ID"].endswith("-T1")
+    whole = [r for r in rows if r["Security ID"] == "MER-USLC-MF" and r["Account"] == "MF2050"]
+    assert len(whole) == 1 and whole[0]["Tranche"] == ""
+
+    # manual ticket: buy a candidate ETF from cash; too big a buy and a buy of an exiting security are refused
+    ha = login(client, "Priya Raman", "analyst", email="priya@example.com")
+    tk = client.post("/api/trading/tickets", headers=ha, json={"fund_id": "MTRS-2050", "trade_date": "2026-11-10",
+                     "orders": [{"instrument": "IEFA", "side": "BUY", "amount": 5e6}], "reason": R})
+    assert tk.status_code == 200 and tk.json()["id"].startswith("TK-") and tk.json()["kind"] == "ticket"
+    f = tk.json()["funds"][0]
+    assert f["orders"][0]["route"] == "Internal trading desk" and f["cash_after"] == pytest.approx(f["cash_before"] - f["orders"][0]["est_amount"])
+    for orders, msg in (([{"instrument": "IEFA", "side": "BUY", "amount": 5e9}], "Cash would go negative"),
+                        ([{"instrument": "MER-HY-MF", "side": "BUY", "amount": 1e5}], "being exited"),
+                        ([{"instrument": "MER-USLC-CIT", "side": "BUY", "amount": 1e5}], "not available"),
+                        ([{"instrument": "VNQ", "side": "SELL", "amount": 9e9}], "only")):
+        bad = client.post("/api/trading/tickets", headers=ha, json={"fund_id": "MTRS-2050", "trade_date": "2026-11-10",
+                                                                    "orders": orders, "reason": R})
+        assert bad.status_code == 400 and msg in bad.json()["detail"], bad.text
+    # full exit: sells the whole flagged position; only flagged securities qualify
+    assert client.post("/api/trading/tickets", headers=ha, json={"fund_id": "MTRS-2050", "trade_date": "2026-11-10", "kind": "exit",
+                       "orders": [{"instrument": "VNQ"}], "reason": R}).status_code == 400
+    ex = client.post("/api/trading/tickets", headers=ha, json={"fund_id": "MTRS-2050", "trade_date": "2026-11-10", "kind": "exit",
+                     "orders": [{"instrument": "MER-HY-MF"}, {"instrument": "MER-LISC-MF"}], "reason": R}).json()
+    assert ex["id"].startswith("EX-")
+    post = {x["instrument"]: x for x in ex["funds"][0]["preview"]}
+    assert abs(post["MER-HY-MF"]["post"]) < 0.02 and abs(post["MER-LISC-MF"]["post"]) < 0.02
+    assert all(x["side"] == "SELL" for x in ex["funds"][0]["orders"])
+
+
+def test_route_managers_list(client):
+    login(client, "Maya Chen", "portfolio_manager")
+    j = client.get("/api/trading/route-managers").json()
+    assert j["permission"] == "route_manager" and isinstance(j["holders"], list)

@@ -92,14 +92,27 @@ def allocate_fund(model: TradingModel, fund_id: str, flow: float, positions: dic
             q = min(q, math.floor(values.get(k, 0.0) / (float(inst[k]["price"]) / (100 if inst[k]["type"] == "bond" else 1))))
         if q <= 0:
             continue
-        amt = _amount(inst[k], q)
-        signed = amt if side == "BUY" else -amt
-        traded[k] = signed
-        orders.append({"instrument": k, "name": inst[k]["name"], "type": inst[k]["type"],
-                       "asset_class": inst[k]["asset_class"], "side": side, "quantity": q,
-                       "quantity_type": "FACE" if inst[k]["type"] == "bond" else "SHARES" if inst[k]["type"] in ("etf", "stock") else "UNITS",
-                       "price": float(inst[k]["price"]), "est_amount": amt, "route": model.route_for(inst[k], routes)})
+        o = _order(model, k, side, q, routes)
+        traded[k] = o["est_amount"] if side == "BUY" else -o["est_amount"]
+        orders.append(o)
 
+    return _result(model, fund_id, flow, values, cash, traded, orders, table, excluded, notes, buffer_held)
+
+
+def _order(model: TradingModel, k: str, side: str, q: float, routes: dict) -> dict:
+    i = model.instruments[k]
+    return {"instrument": k, "name": i["name"], "type": i["type"], "asset_class": i["asset_class"], "side": side,
+            "quantity": q, "quantity_type": _qtype(i), "price": float(i["price"]), "est_amount": _amount(i, q),
+            "route": model.route_for(i, routes)}
+
+
+def _qtype(i: dict) -> str:
+    return "FACE" if i["type"] == "bond" else "SHARES" if i["type"] in ("etf", "stock") else "UNITS"
+
+
+def _result(model, fund_id, flow, values, cash, traded, orders, table, excluded, notes, buffer_held=0.0) -> dict:
+    inst = model.instruments
+    nav = cash + sum(values.values())
     cash_after = round(cash + flow - sum(traded.values()), 2)
     nav_after = nav + flow
     rows = []
@@ -127,6 +140,145 @@ def allocate_fund(model: TradingModel, fund_id: str, flow: float, positions: dic
             "cash_before": round(cash, 2), "cash_after": cash_after, "nav_before": round(nav, 2),
             "nav_after": round(nav_after, 2), "buffer_held": round(buffer_held, 2),
             "rounding_residual": round(flow - sum(traded.values()) - buffer_held, 2) if flow else 0.0}
+
+
+def apply_tilts(table: dict[str, float], tilts: dict[str, float]) -> tuple[dict[str, float], list[str]]:
+    """Tilt toward (+bp) or away from (-bp) specific holdings in an allocation table (doc 17 item 5).
+    The tilt is funded pro rata from (or returned pro rata to) the other holdings; weights still total 100%."""
+    notes, out = [], dict(table)
+    live = {k: bp for k, bp in tilts.items() if bp}
+    for k in sorted(set(live) - set(table)):
+        notes.append(f"Tilt on {k} ignored: it is not in this allocation table")
+    live = {k: bp for k, bp in live.items() if k in table}
+    if not live:
+        return out, notes
+    for k, bp in live.items():
+        new = max(0.0, table[k] + bp / 10000)
+        if new == 0.0 and table[k] + bp / 10000 < 0:
+            notes.append(f"Tilt on {k} capped: its weight can't go below zero")
+        out[k] = new
+    rest = sum(v for k, v in table.items() if k not in live)
+    left = 1 - sum(out[k] for k in live)
+    if rest <= 0 or left < 0:
+        return dict(table), [*notes, "Tilts ignored: nothing left to fund them from"]
+    for k in table:
+        if k not in live:
+            out[k] = table[k] * left / rest
+    for k, bp in sorted(live.items()):
+        notes.append(f"Tilt {bp:+g} bp on {k}: {table[k] * 100:.2f}% → {out[k] * 100:.2f}% of the allocation, "
+                     "funded pro rata from the other holdings")
+    return {k: v for k, v in out.items() if v > 0}, notes
+
+
+def ticket_fund(model: TradingModel, fund_id: str, tickets: list[dict], positions: dict, *, routes: dict,
+                table: dict[str, float] | None = None, excluded: set[str] | None = None,
+                blocked_buys: set[str] | None = None) -> dict:
+    """Hand-entered orders for individual securities in one fund (doc 17 items 11, 12). Buys are paid from the
+    fund's cash and sells add to it. tickets: [{instrument, side, amount | quantity | all}]."""
+    inst, values, cash = model.instruments, dict(positions["values"]), float(positions["cash"])
+    allowed = {i["id"] for i in model.fund_instruments(fund_id)}
+    excluded, blocked_buys = set(excluded or ()), set(blocked_buys or ())
+    orders, traded, errors, notes = [], {}, [], []
+    for t in tickets:
+        k, side = t.get("instrument"), str(t.get("side", "")).upper()
+        if k not in allowed:
+            errors.append(f"{k} is not available to {fund_id}")
+            continue
+        if side not in ("BUY", "SELL"):
+            errors.append(f"{k}: side must be BUY or SELL")
+            continue
+        if k in traded:
+            errors.append(f"{k}: one order per security")
+            continue
+        i, held = inst[k], values.get(k, 0.0)
+        unit = float(i["price"]) / (100 if i["type"] == "bond" else 1)
+        if t.get("all"):
+            if side != "SELL":
+                errors.append(f"{k}: only a sell can be for the whole position")
+                continue
+            q = math.floor(held / unit) if i["type"] in EXCHANGE_TRADED else round(held / unit, 3)
+            if i["type"] == "bond":
+                q = math.floor(q / 1000) * 1000
+        elif t.get("quantity"):
+            q = float(t["quantity"])
+        else:
+            q = _qty(i, float(t.get("amount") or 0), side)
+        if q <= 0:
+            errors.append(f"{k}: nothing to trade")
+            continue
+        o = _order(model, k, side, float(q), routes)
+        if side == "SELL" and o["est_amount"] > held + 0.01:
+            errors.append(f"{k}: selling ${o['est_amount']:,.0f} but only ${held:,.0f} is held")
+        if side == "BUY" and k in blocked_buys:
+            errors.append(f"{k} is being exited: no new buys")
+        if k in excluded:
+            errors.append(f"{k} is excluded from trading")
+        if side == "BUY" and i.get("status") == "candidate":
+            notes.append(f"{k} is a candidate not yet held: this would be a first purchase")
+        traded[k] = o["est_amount"] if side == "BUY" else -o["est_amount"]
+        orders.append(o)
+    r = _result(model, fund_id, 0.0, values, cash, traded, orders, table or {}, excluded, notes)
+    r["errors"] = errors + r["errors"]
+    r["rounding_residual"] = 0.0
+    return r
+
+
+# ------------------------------------------------------------------------------------------------ tranches
+def validate_schedule(schedule: list[dict], trade_date: str, max_n: int = 24) -> list[str]:
+    """Data checks for one tranche schedule [{date, pct}] (doc 17 item 9)."""
+    from datetime import date as _d
+    errs = []
+    if not schedule:
+        return ["Schedule is empty"]
+    if len(schedule) > max_n:
+        errs.append(f"At most {max_n} tranches")
+    dates = []
+    for n, t in enumerate(schedule, 1):
+        try:
+            d = _d.fromisoformat(str(t.get("date", ""))[:10])
+        except ValueError:
+            errs.append(f"Tranche {n}: date must look like 2026-11-12")
+            continue
+        if d.weekday() >= 5:
+            errs.append(f"Tranche {n}: {d.isoformat()} is a weekend")
+        if d.isoformat() < trade_date:
+            errs.append(f"Tranche {n}: {d.isoformat()} is before the trade date {trade_date}")
+        dates.append(d.isoformat())
+        try:
+            if float(t.get("pct")) <= 0:
+                errs.append(f"Tranche {n}: percentage must be above zero")
+        except (TypeError, ValueError):
+            errs.append(f"Tranche {n}: percentage is not a number")
+    if len(set(dates)) != len(dates):
+        errs.append("Two tranches share a date")
+    if dates != sorted(dates):
+        errs.append("Dates must be in order")
+    if not errs:
+        tot = sum(float(t["pct"]) for t in schedule)
+        if abs(tot - 100) > 0.01:
+            errs.append(f"Percentages add up to {tot:.2f}%, not 100%")
+    return errs
+
+
+def split_order(order: dict, schedule: list[dict]) -> tuple[list[dict], list[str]]:
+    """Split one parent order across a validated schedule. Quantities respect the security's lot size and the
+    last tranche takes the remainder, so the tranches always add back to the parent exactly."""
+    step = 1000.0 if order["quantity_type"] == "FACE" else 1.0 if order["quantity_type"] == "SHARES" else 0.001
+    unit = order["price"] / (100 if order["quantity_type"] == "FACE" else 1)
+    out, used, errs = [], 0.0, []
+    for n, t in enumerate(schedule, 1):
+        if n == len(schedule):
+            q = round(order["quantity"] - used, 3)
+        else:
+            q = round(math.floor(order["quantity"] * float(t["pct"]) / 100 / step + 1e-9) * step, 3)
+        used = round(used + q, 3)
+        if q <= 0:
+            errs.append(f"{order['instrument']}: tranche {n} would be empty (order too small to split this way)")
+        out.append({"n": n, "date": str(t["date"])[:10], "pct": float(t["pct"]), "quantity": q,
+                    "est_amount": round(q * unit, 2)})
+    if abs(sum(x["quantity"] for x in out) - order["quantity"]) > 1e-6:
+        errs.append(f"{order['instrument']}: tranches don't add back to the order")
+    return out, errs
 
 
 def asset_class_weights(model: TradingModel, rows: list[dict], key: str = "post_w") -> dict[str, float]:

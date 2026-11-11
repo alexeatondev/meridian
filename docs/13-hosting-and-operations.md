@@ -94,7 +94,7 @@ Rules the server enforces: every change needs a reason (≥ 10 characters); an a
 | `roles` | Comma-separated workspace roles from §2 and/or permissions: `investment_committee`, `chief_compliance_officer` |
 | `action` | `add` (create and email a temporary password), `set-roles` (replace all roles), `grant` / `revoke` (switch the listed roles or permissions on / off, leaving the rest), `disable` (block sign-in; history is kept) |
 
-**Permissions** are switched on or off per person: `investment_committee` lets a Leadership user record committee decisions (glide-path and autonomy changes); `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes and must only go to the named CCO. Example: `grant` with roles `investment_committee`. Changes apply at the user's next sign-in. Neither permission gives screens on its own.
+**Permissions** are switched on or off per person: `investment_committee` lets a Leadership user record committee decisions (glide-path and autonomy changes); `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes and must only go to the named CCO. `route_manager` (Trade route manager) lets a person change where orders are routed on the Trading screen; every change is recorded (doc 16). Example: `grant` with roles `investment_committee`. Changes apply at the user's next sign-in. Neither permission gives screens on its own.
 
 Cognito emails the temporary password; the person sets their own password at first sign-in (doc 06, "Signing in"). Nobody else ever sees it.
 

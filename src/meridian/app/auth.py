@@ -33,6 +33,7 @@ ROLES = {
 PERMISSIONS = {
     "investment_committee": "Investment Committee member (approves glide-path changes and autonomy changes)",
     "chief_compliance_officer": "Chief Compliance Officer (approves exceptions; must be a named person)",
+    "route_manager": "Trade route manager (may change where orders are routed; every change is logged)",
 }
 ROLES.update(PERMISSIONS)
 # Console workspace key for each role

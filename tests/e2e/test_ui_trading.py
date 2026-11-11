@@ -71,9 +71,14 @@ def test_trd_02_cashflow_to_charles_river(sign_in, app_url):
     page.click("#veh button:text-is('All funds')")
 
 
-def test_trd_03_settings_logged_and_roles(sign_in, app_url):
-    """TRD-7/8: route change needs a reason and is logged; analysts prepare but can't approve or change settings."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+def test_trd_03_route_permission_logged_and_roles(sign_in, app_url):
+    """TRD-7/8: routes need the route permission and a reason and are logged; analysts can't change settings."""
+    page = sign_in("Jordan Ellis", "portfolio_manager")
+    page.goto(app_url + "/trading")
+    page.click(".tabs button:text-is('Routing & settings')")
+    assert page.locator("[data-route=bond]").is_disabled()
+    expect(page.locator("#rtWho")).to_contain_text("You do not hold the route permission")
+    page = sign_in("Maya Chen", "portfolio_manager", "route_manager")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Routing & settings')")
     page.select_option("[data-route=bond]", "State Street")
@@ -83,7 +88,7 @@ def test_trd_03_settings_logged_and_roles(sign_in, app_url):
     page.fill("#setReason", R)
     page.click("#setSave")
     _toast(page, "Saved and recorded: routes")
-    expect(page.locator("#settings")).to_contain_text("settings.change")
+    expect(page.locator("#settings")).to_contain_text("routes.change")
     page.select_option("[data-route=bond]", "Internal trading desk")
     page.fill("#setReason", R + " (revert)")
     page.click("#setSave")
@@ -95,3 +100,55 @@ def test_trd_03_settings_logged_and_roles(sign_in, app_url):
     assert page.locator("[data-route=etf]").is_disabled()
     page.click(".tabs button:text-is('Cashflows')")
     assert page.locator("#cfAdd").count() == 1
+
+
+def test_trd_04_tilt_exit_ticket_and_tranches(sign_in, app_url):
+    """TRD-10 to TRD-13: tilt and exit flag, manual ticket, exit trade list, unequal tranches with checks."""
+    page = sign_in("Maya Chen", "portfolio_manager")
+    page.goto(app_url + "/trading")
+    page.click(".tabs button:text-is('Routing & settings')")
+    page.select_option("#tiInst", "MER-EM-MF")
+    page.select_option("#tiFund", "MTRS-2060")
+    page.fill("#tiBps", "50")
+    page.click("#tiAdd")
+    page.select_option("#exitInst", "MER-LISC-MF")
+    page.select_option("#exitFund", "MTRS-2060")
+    page.click("#exitAdd")
+    page.fill("#setReason", R)
+    page.click("#setSave")
+    _toast(page, "Saved and recorded: exits, tilts")
+    page.click(".tabs button:text-is('Funds & securities')")
+    page.click("[data-fund='MTRS-2060']")
+    d = page.locator("#fundDetail")
+    expect(d).to_contain_text("Tilt +50 bp")
+    expect(d).to_contain_text("Exiting")
+    # manual ticket: buy the candidate ETF
+    page.select_option("[data-tki='0']", "IEFA")
+    page.fill("[data-tka='0']", "2000000")
+    page.fill("#tkReason", R)
+    page.click("#tkGo")
+    _toast(page, "ticket created")
+    det = page.locator("#tlDetail")
+    expect(det).to_contain_text("IEFA")
+    expect(det).to_contain_text("Internal trading desk")
+    # exit trade list, then tranche it 25/75 over two days
+    page.click(".tabs button:text-is('Funds & securities')")
+    page.click("[data-fund='MTRS-2060']")
+    page.wait_for_selector("#tkExit")
+    page.wait_for_timeout(400)
+    page.fill("#tkReason", R)
+    page.click("#tkExit")
+    _toast(page, "exit trade list created")
+    expect(det).to_contain_text("MER-LISC-MF")
+    page.click("#tlv button:has-text('Tranches')")
+    page.fill("[data-sp='0']", "25")
+    page.fill("[data-sp='1']", "70")
+    page.click("#trApply")
+    _toast(page, "95.00%")
+    page.fill("[data-sp='1']", "75")
+    page.click("#trApply")
+    page.click("#trSave")
+    _toast(page, "Tranches saved: 1 orders across 2 dates")
+    expect(det).to_contain_text("Bucket by date")
+    expect(det).to_contain_text("1 of 2")
+    expect(det).to_contain_text("25.00%")

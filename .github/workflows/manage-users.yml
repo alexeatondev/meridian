@@ -7,7 +7,7 @@ on:
       email: {description: "Email address", required: true}
       name: {description: "Full name", required: true}
       roles:
-        description: "Comma-separated. Workspaces: portfolio_manager, risk, analyst, manager_selection, leadership, compliance, audit, admin. Permissions: investment_committee, chief_compliance_officer"
+        description: "Comma-separated. Workspaces: portfolio_manager, risk, analyst, manager_selection, leadership, compliance, audit, admin. Permissions: investment_committee, chief_compliance_officer, route_manager"
         required: true
       action:
         description: "add | set-roles (replace all) | grant (switch on) | revoke (switch off) | disable"
@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           POOL=$(aws cloudformation describe-stacks --stack-name Meridian --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)
-          VALID="portfolio_manager risk analyst manager_selection leadership compliance audit admin investment_committee chief_compliance_officer"
+          VALID="portfolio_manager risk analyst manager_selection leadership compliance audit admin investment_committee chief_compliance_officer route_manager"
           check() { case " $VALID " in *" $1 "*) return 0;; *) echo "::warning::unknown role $1 skipped"; return 1;; esac; }
           if [ "$ACTION" = "grant" ] || [ "$ACTION" = "revoke" ]; then
             for r in $(echo "$ROLES" | tr ',' ' '); do
