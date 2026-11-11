@@ -14,7 +14,7 @@
 | Area | State | Comment |
 |---|---|---|
 | Phase 0 Foundations | Done | |
-| Phase 1 SAA MVP | Mostly done | 7 of 20 construction methods and 13 of the paper's 18 asset classes; enough for the pilot |
+| Phase 1 SAA MVP | Mostly done | 7 of 20 construction methods and 13 of the paper's 18 asset classes; enough for the pilot. A model makes 24 judgments per run (regime, 13 return assumptions, 9 ensemble choices, compliance narrative); construction, risk, the review vote and the memo are code. Agent SDK backend with read-only tools and spend caps added 2026-11-11 (doc 02 §4a). Still to do: make construction, review, vote, risk and memo real agents |
 | Phase 2 Governance | Mostly done | Kill switch, autonomy controls and WORM records missing; WORM deferred for cost |
 | Phase 3 Workspaces | Mostly done | UAT run by Claude on the product owner's login; real people in each role have not tested; Ask Meridian not built |
 | Phase 4 Multi-asset hierarchy | Partial | Look-through via public proxies; security-level positions exist only as example data |

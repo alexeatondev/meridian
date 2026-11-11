@@ -13,3 +13,6 @@ min_variance_tilt, max_diversification_tilt and risk_budget_tilt (risk-structure
 
 ## Output contract
 Proposal: `{"weights": {...}, "solver": str}` · Ballot: `{"top": [..3], "bottom_flag": str, "lens": str}`
+
+## Status
+Design role only. In the pilot portfolio-construction proposals and the review vote are produced by deterministic code, not by a model, and the ledger records them as `system` steps with `design_agent` set to this role.

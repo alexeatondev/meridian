@@ -9,7 +9,10 @@ def _p(x, d=1):
 def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, model_label, snapshot_id, snap=None) -> str:
     L = [f"# Board Memo — Meridian Target Retirement Series", "",
          f"**Run:** `{run_id}` · **As of:** {as_of} · **Policy:** `{policy.id}` · **Data snapshot:** `{snapshot_id}`  ",
-         f"**Judgment engine:** {model_label} · **Compliance review:** {co['status']} · **Autonomy:** {regime.autonomy_level} (human approval required)", ""]
+         f"**Judgment engine:** {model_label} · **Compliance review:** {co['status']} · **Autonomy:** {regime.autonomy_level} (human approval required)", "",
+         "*Where AI is used:* the regime call, the return assumption for each asset class, the ensemble choice for each vintage "
+         "and the compliance narrative. Portfolio construction, the review vote, risk, compliance rule results and this memo "
+         "are computed by code.", ""]
     if synthetic:
         parts = "; ".join(f"{k}: {v}" for k, v in synthetic.items()) if isinstance(synthetic, dict) else "all data"
         L += [f"> **CONTAINS SYNTHETIC DATA — SYSTEM TEST ONLY.** Generated data was used for — {parts}. "

@@ -16,7 +16,8 @@ import numpy as np
 import pandas as pd
 
 from .. import REPO_ROOT
-from ..agents import LLMBackend, actor, load_agent
+from ..agents import actor, load_agent, make_backend, method_actor
+from ..agents import tools as T
 from ..analytics import core as A
 from ..analytics.optimizers import PC_METHODS, Bounds, adversarial_diversifier
 from ..compliance import evaluate, summarize
@@ -130,6 +131,11 @@ def borda_vote(cands: dict, top_k: int = 3) -> tuple[dict, list]:
     return points, ballots
 
 
+def _with_trace(output: dict, llm) -> dict:
+    """Attach the agent session trace (turns, tool calls, cost) to a ledger output, when there is one."""
+    return {**output, "agent_trace": llm.last_trace} if llm.last_trace else output
+
+
 def _norm(x: np.ndarray) -> np.ndarray:
     return (x - x.min()) / (x.max() - x.min()) if x.max() > x.min() else np.ones_like(x) * 0.5
 
@@ -147,7 +153,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     out = Path(out_root or REPO_ROOT / "runs") / run_id
     out.mkdir(parents=True, exist_ok=True)
     L = Ledger(out / "ledger.jsonl")
-    llm = LLMBackend()
+    llm = make_backend()
     pv = policy.id
 
     # 0. preflight ---------------------------------------------------------------------------
@@ -193,24 +199,28 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     # 2. macro regime agent ----------------------------------------------------------------------
     spec = load_agent("macro-regime", ["macro-regime"])
     mv = classify_regime(macro)
+    macro_detail = {r["indicator"]: {"value": r["value"], "date": str(r["date"])[:10], "source": r["_source"],
+                                     "synthetic": "synthetic" in str(r["_source"])} for r in mf.to_dict("records")}
     llm_mv = llm.judge(spec, "Review the deterministic regime classification. You may confirm it or choose another of "
                        "[expansion, late_cycle, recession, recovery] with rationale.", {"indicators": macro, "scored": mv},
-                       '{"regime": str, "confidence": float, "rationale": str}')
+                       '{"regime": str, "confidence": float, "rationale": str}',
+                       tools=T.macro_tools(macro, macro_detail, classify_regime), schema=T.MACRO_SCHEMA)
+    macro_trace = llm.last_trace
     if llm_mv and llm_mv.get("regime") in ("expansion", "late_cycle", "recession", "recovery"):
         try:
             conf = float(np.clip(float(llm_mv.get("confidence", mv["confidence"])), 0, 1))
         except (TypeError, ValueError):
             conf = mv["confidence"]
         mv.update(regime=llm_mv["regime"], confidence=conf, rationale=str(llm_mv.get("rationale", ""))[:2000],
-                  rule_based_regime=mv["regime"], judge_path="llm")
+                  rule_based_regime=mv["regime"], judge_path=llm.path_name)
     else:
         mv["judge_path"] = "offline"
         mv["rationale"] = (f"Growth score {mv['scores']['growth']}, inflation {mv['scores']['inflation']}, "
                            f"policy {mv['scores']['monetary_policy']}, financial conditions {mv['scores']['financial_conditions']} "
                            f"→ {mv['regime']} (rule-based classifier).")
-    macro_dr = L.record(dr_type="signal", run_id=run_id, step="macro-regime", actor=actor(spec, llm), policy_version=pv,
-                        inputs=[snap_dr], summary=f"Regime: {mv['regime']} (confidence {mv['confidence']})",
-                        output=mv, rationale=mv["rationale"])
+    macro_dr = L.record(dr_type="signal", run_id=run_id, step="macro-regime", actor=actor(spec, llm, path=mv["judge_path"]),
+                        policy_version=pv, inputs=[snap_dr], summary=f"Regime: {mv['regime']} (confidence {mv['confidence']})",
+                        output={**mv, "agent_trace": macro_trace} if macro_trace else mv, rationale=mv["rationale"])
 
     # 3. covariance agent -------------------------------------------------------------------------
     cov, shrink = A.ledoit_wolf_cov(rets)
@@ -224,16 +234,23 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     cands = A.cma_candidates(assets, stats, cov, series_neutral, val, yl, rf, inflation, mv["regime"])
     judge_spec = load_agent("asset-class-analyst", ["cma-judge"])
     vrow = val.set_index("asset_id")
+    yrow = yl.set_index("asset_id")
+    cma_cross = {a: {"name": universe[a]["name"], "min": min(cands[a].values()), "max": max(cands[a].values()),
+                     "auto_blend": A.auto_blend(cands[a])} for a in assets}
     mu, cma_table, cma_drs = [], [], []
     for a in assets:
         m = cands[a]
         lo, hi = min(m.values()), max(m.values())
+        facts = {"history": stats.loc[a].to_dict(),
+                 "valuation": vrow.loc[a].dropna().to_dict() if a in vrow.index else None,
+                 "yield": yrow.loc[a].dropna().to_dict() if a in yrow.index else None}
         llm_j = llm.judge(judge_spec, f"Select the final 10-year expected return for {universe[a]['name']}.",
                           {"methods": m, "regime": mv, "valuation": vrow.loc[a].to_dict() if a in vrow.index else None},
-                          '{"weights": {method: float}, "rationale": str}')
+                          '{"weights": {method: float}, "rationale": str}',
+                          tools=T.cma_tools(a, m, A.auto_blend, validate_weights, facts, cma_cross), schema=T.cma_schema(m))
         w = validate_weights(llm_j.get("weights") if llm_j else None, m)
         if w:
-            why, path = str(llm_j.get("rationale", ""))[:2000], "llm"
+            why, path = str(llm_j.get("rationale", ""))[:2000], llm.path_name
         else:
             w, why = offline_cma_judge(a, m, mv["regime"], vrow.loc[a] if a in vrow.index else None)
             path = "offline"
@@ -243,10 +260,10 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         cma_table.append({"asset": a, "name": universe[a]["name"], **{k: round(v, 4) for k, v in m.items()},
                           "auto_blend": round(blend, 4), "judge": round(final, 4), "judge_minus_blend": round(final - blend, 4),
                           "vol": round(float(np.sqrt(cov[assets.index(a), assets.index(a)])), 4)})
-        cma_drs.append(L.record(dr_type="decision", run_id=run_id, step=f"ac-{a}.cma-judge", actor=actor(judge_spec, llm),
+        cma_drs.append(L.record(dr_type="decision", run_id=run_id, step=f"ac-{a}.cma-judge", actor=actor(judge_spec, llm, path=path),
                                 policy_version=pv, inputs=[macro_dr, cov_dr, snap_dr], portfolio_scope=[a],
                                 summary=f"{universe[a]['name']}: E[r] {final:.2%} (auto-blend {blend:.2%})",
-                                output={"expected_return": final, "weights": w, "judge_path": path},
+                                output=_with_trace({"expected_return": final, "weights": w, "judge_path": path}, llm),
                                 rationale=why, alternatives=[{"option": k, "value": v} for k, v in m.items()],
                                 constraints_checked=[{"rule_id": "CMA-BOUND", "result": "PASS", "range": [lo, hi]}]))
     mu = np.array(mu)
@@ -290,11 +307,11 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                      eff_n=A.effective_n(wv), backtest=bt, compliance=summarize(comp),
                      dist_centroid=float(np.abs(wv - centroid).sum()))
             c["sharpe"] = (c["exp_ret"] - rf) / c["vol"]
-            L.record(dr_type="signal", run_id=run_id, step=f"pc-{k}.proposal", actor={**actor(pc_spec, llm), "id": f"pc-{k}"},
+            L.record(dr_type="signal", run_id=run_id, step=f"pc-{k}.proposal", actor=method_actor(f"pc-{k}", design_agent=pc_spec.slug),
                      policy_version=pv, inputs=cma_drs[:1] + [cov_dr], portfolio_scope=[f"MTRS-{v}"],
                      summary=f"{v}: {k} E[r] {c['exp_ret']:.2%}, vol {c['vol']:.2%}, TE {c['te']:.2%}; compliance {c['compliance']['overall']}",
                      output={"weights": dict(zip(assets, np.round(c["w"], 4))), "solver": c["status"]})
-        cro_dr = L.record(dr_type="signal", run_id=run_id, step="cro.risk-report", actor=actor(cro_spec, llm),
+        cro_dr = L.record(dr_type="signal", run_id=run_id, step="cro.risk-report", actor=method_actor("cro", design_agent=cro_spec.slug),
                           policy_version=pv, portfolio_scope=[f"MTRS-{v}"],
                           summary=f"{v}: risk report on {len(cand)} candidates",
                           output={k: {x: (c[x] if x != "backtest" else c[x]) for x in ("exp_ret", "vol", "te", "eff_n", "backtest", "compliance")} for k, c in cand.items()})
@@ -329,16 +346,23 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         cs = np.array([dict((k, s) for k, s, _ in ranking)[k] for k in eligible]) + 1e-6
         ens["composite_score_weighted"] = (W * (cs / cs.sum())[:, None]).sum(0)
         ens["top_ranked_single"] = cand[[k for k, _, _ in ranking if k in eligible][0]]["w"]
-        ens_eval = {}
+        ens_eval, ens_rules = {}, {}
         for k, wv in ens.items():
             wv = wv / wv.sum()
             ens[k] = wv
+            comp_e = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
+            ens_rules[k] = [r.to_dict() for r in comp_e]
             ens_eval[k] = {"exp_ret": float(mu @ wv), "vol": A.port_vol(wv, cov), "te": A.tracking_error(wv, n, cov),
-                           "eff_n": A.effective_n(wv), "compliance": summarize(evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb))}
+                           "eff_n": A.effective_n(wv), "compliance": summarize(comp_e)}
         llm_c = llm.judge(cio_spec, f"Choose the ensemble method for the {v} vintage.",
                           {"regime": mv, "ensembles": ens_eval, "ranking": ranking[:5]},
-                          '{"ensemble": str, "rationale": str, "invalidation_conditions": [str]}')
+                          '{"ensemble": str, "rationale": str, "invalidation_conditions": [str]}',
+                          tools=T.cio_tools(assets, {a: universe[a]["name"] for a in assets}, n, ens, ens_eval, ens_rules,
+                                            cand, ranking, ballots),
+                          schema=T.cio_schema(list(ens)))
+        cio_path = "offline"
         if llm_c and llm_c.get("ensemble") in ens and ens_eval[llm_c["ensemble"]]["compliance"]["FAIL"] == 0:
+            cio_path = llm.path_name
             choice, why = llm_c["ensemble"], str(llm_c.get("rationale", ""))[:3000]
             invalid = [str(c)[:300] for c in (llm_c.get("invalidation_conditions") or []) if isinstance(c, (str, int, float))][:8]
             if not invalid:
@@ -357,11 +381,11 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         summ = summarize(comp)
         bt = A.historical_backtest(final, rets)
         bt_n = A.historical_backtest(n, rets)
-        cio_dr = L.record(dr_type="decision", run_id=run_id, step="cio.ensemble", actor=actor(cio_spec, llm),
+        cio_dr = L.record(dr_type="decision", run_id=run_id, step="cio.ensemble", actor=actor(cio_spec, llm, path=cio_path),
                           policy_version=pv, inputs=[vote_dr, cro_dr, macro_dr], portfolio_scope=[f"MTRS-{v}"],
                           summary=f"{v}: {choice}; equity {eq_m @ final:.1%} vs neutral {neq:.1%}; compliance {summ['overall']}",
-                          output={"weights": dict(zip(assets, np.round(final, 4))), "ensemble": choice,
-                                  "invalidation_conditions": invalid},
+                          output=_with_trace({"weights": dict(zip(assets, np.round(final, 4))), "ensemble": choice,
+                                              "invalidation_conditions": invalid, "judge_path": cio_path}, llm),
                           rationale=why, alternatives=[{"option": k, **{x: round(y, 4) for x, y in e.items() if x != 'compliance'}} for k, e in ens_eval.items()],
                           constraints_checked=[r.to_dict() for r in comp], dissent=dissent)
         approvers = policy.raw["approvals"]["tactical_tilt"]
@@ -454,20 +478,29 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
 
     # 6. compliance officer agent --------------------------------------------------------------
     from ..compliance.officer import review as co_review
-    co = co_review(run_id, regime_cfg, vint_out, synthetic_detail, L, policy)
+    co = co_review(run_id, regime_cfg, vint_out, synthetic_detail, L, policy, llm=llm)
     (out / "compliance_report.md").write_text(co["report_md"])
 
-    if llm.enabled:
+    if llm.usage["calls"] or llm.enabled:
         L.record(dr_type="signal", run_id=run_id, step="llm.usage", actor=SYSTEM, policy_version=pv,
-                 summary=f"LLM {llm.model}: {llm.usage['calls']} calls, {llm.usage['failures']} fell back to deterministic policy",
+                 summary=(f"Model {llm.model} via {llm.runtime or 'Messages API'}: {llm.usage['calls']} judgments requested, "
+                          f"{llm.usage['failures']} fell back to deterministic policy"
+                          + (f", ${llm.usage['cost_usd']:.2f} of ${llm.usage['budget_usd']:.2f} run budget spent"
+                             if "cost_usd" in llm.usage else "")),
                  output=llm.usage)
 
     # 7. board memo ----------------------------------------------------------------------------
     from .memo import board_memo
-    memo = board_memo(run_id, as_of, mv, cma_table, vint_out, regime_cfg, co, synthetic_detail, policy, llm.label, snap["snapshot_id"], snap)
+    paths = [r["output"]["judge_path"] for r in L.records() if (r.get("output") or {}).get("judge_path")]
+    by_model = sum(p != "offline" for p in paths)
+    engine = ("offline-deterministic" if not by_model else
+              f"{llm.model} via {llm.runtime or 'Messages API'} ({by_model} of {len(paths)} judgments; "
+              f"{len(paths) - by_model} used the deterministic policy)")
+    memo = board_memo(run_id, as_of, mv, cma_table, vint_out, regime_cfg, co, synthetic_detail, policy, engine, snap["snapshot_id"], snap)
     (out / "board_memo.md").write_text(memo)
-    L.record(dr_type="signal", run_id=run_id, step="board-memo", actor=actor(load_agent("board-memo-writer"), llm),
-             policy_version=pv, summary="Board memo generated", output={"path": "board_memo.md"})
+    L.record(dr_type="signal", run_id=run_id, step="board-memo",
+             actor=method_actor("board-memo-writer", design_agent="board-memo-writer"),
+             policy_version=pv, summary="Board memo assembled from run results by a code template", output={"path": "board_memo.md"})
     (out / "results.json").write_text(json.dumps({"run_id": run_id, "as_of": as_of, "macro": mv, "cma": cma_table,
                                                   "model": {"assets": assets, "cov": np.round(cov, 8).tolist(), "mu": mu.round(6).tolist(),
                                                             "taxonomy": tax.leaves, "views": tax.raw["views"],

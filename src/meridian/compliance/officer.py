@@ -10,13 +10,15 @@ FAIL, and marks every attestation DRAFT until a human role-holder signs it.
 """
 from __future__ import annotations
 
-from ..agents import LLMBackend, actor, load_agent
+from ..agents import actor, load_agent, make_backend
+from ..agents import tools as T
 from ..ledger import Ledger, verify
 
 
-def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger, policy) -> dict:
+def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger, policy, llm=None) -> dict:
+    """``llm``: the run's judgment backend, so usage and the spend cap are shared with the rest of the run."""
     spec = load_agent("compliance-officer", ["compliance-review"])
-    llm = LLMBackend()
+    llm = llm or make_backend()
     fails, warns, attest = [], [], set()
     for v, d in vintages.items():
         for r in d["compliance"]:
@@ -52,9 +54,11 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
                    "data_synthetic": synthetic,
                    "rule_results_by_vintage": {str(v): {r["rule_id"]: r["status"] for r in d["compliance"]} for v, d in vintages.items()},
                    "required_human_roles": {r: regime.holder_label(r) for r in regime.required_roles}},
-                  '{"narrative": str, "recommended_actions": [str]}')
-    if j:
-        narrative = j.get("narrative")
+                  '{"narrative": str, "recommended_actions": [str]}',
+                  tools=T.compliance_tools(vintages, ledger.records), schema=T.COMPLIANCE_SCHEMA)
+    path = "offline"
+    if j and isinstance(j.get("narrative"), str) and j["narrative"].strip():
+        narrative, path = j["narrative"][:6000], llm.path_name
     status = "BLOCKED" if (fails or not ok) else ("CONDITIONAL" if (attest or warns or regime.production_blockers) else "CLEAR")
 
     lines = [f"# Compliance Review — {run_id}", "",
@@ -68,7 +72,7 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
     lines += [f"| {o['id']} | {o['cite']} | {o['summary']} | {o['regime']} |" for o in regime.obligations]
     lines += ["", "## Findings", ""] + [f"- {f}" for f in findings or ["None."]]
     if narrative:
-        lines += ["", "## ACO narrative (LLM)", "", narrative]
+        lines += ["", "## ACO narrative (AI-drafted)", "", narrative]
     lines += ["", "## Rule results by vintage", "", "| Vintage | PASS | WARN | FAIL | ATTEST | OFF |", "|---|---|---|---|---|---|"]
     for v, d in vintages.items():
         s = d["compliance_summary"]
@@ -79,8 +83,10 @@ def review(run_id: str, regime, vintages: dict, synthetic: bool, ledger: Ledger,
         lines.append(f"| {role} | {regime.holder_label(role)} | pending | |")
     report = "\n".join(lines) + "\n"
 
-    ledger.record(dr_type="decision", run_id=run_id, step="compliance-officer.review", actor=actor(spec, llm),
+    ledger.record(dr_type="decision", run_id=run_id, step="compliance-officer.review", actor=actor(spec, llm, path=path),
                   policy_version=policy.id, summary=f"ACO review: {status}; {len(fails)} FAIL, {len(warns)} WARN, {len(attest)} attestations",
-                  output={"status": status, "findings": findings}, rationale=narrative or "Deterministic review.")
+                  output={"status": status, "findings": findings, "judge_path": path,
+                          **({"agent_trace": llm.last_trace} if llm.last_trace else {})},
+                  rationale=narrative or "Deterministic review.")
     return {"status": status, "findings": findings, "fails": fails, "warns": warns,
             "attestations_pending": sorted(a for a, _ in attest), "ledger_ok": ok, "report_md": report}

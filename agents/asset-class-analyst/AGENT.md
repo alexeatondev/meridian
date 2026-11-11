@@ -18,3 +18,9 @@
 - **Fixed income:** starting yield net of expected default loss dominates 10y outcomes.
 - **Commodities:** collateral (T-bill) yield + roll yield + inflation beta; historical returns are a weak guide.
 - **International bonds (hedged):** hedged yield ≈ local yield + rate differential.
+
+## Tools (Agent SDK backend)
+Read-only; results are computed by code. Use one only when it could change your answer, and make at most three calls.
+- `blend_preview`: the return a set of method weights would produce after the code's bound.
+- `asset_facts`: this asset class's history, valuation or yield inputs and method dispersion.
+- `cross_section`: method range and automatic blend for every asset class.
