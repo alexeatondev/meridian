@@ -1,14 +1,14 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.6 · 2026-11-10**
+**Version 0.7 · 2026-11-11**
 
 ## Status (2026-11-10)
 - **Repo:** github.com/alexeatondev/meridian · **App:** https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK, GitHub OIDC, no stored keys) · **Cost:** about $1 spent so far (product owner's Cost Explorer check, 2026-11-10); budget $75/month with alerts and an automatic spend block.
 - **Agent pipeline (Phase 1):** macro regime, 13 asset classes with CMA judge, covariance, 7 construction methods, peer review and Borda vote, CRO, CIO ensemble, board memo; real public data with synthetic only for some non-US valuations (flagged); live LLM judgment in the `agent-run` workflow; runs are ad hoc.
 - **Governance (Phase 2):** deterministic compliance engine, Agentic Compliance Officer (draft only), hash-chained ledger that the database refuses to edit, approvals with reason and segregation of duties, Investment Committee / CCO / Trade route manager permissions, exceptions workflow, ledger search across runs, evidence pack. Not yet: kill switch, autonomy controls, WORM copy.
-- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 115 automated tests (57 in the browser). Not yet: Ask Meridian.
-- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, post-trade preview with IPS check, approval, mock Charles River file (doc 17). Positions, prices and the CIT line are example data.
-- **Docs:** all 17 docs refreshed on 2026-11-10; repository docs now use the Project's numbers; user guide (doc 06) rewritten step by step with 39 screenshots and published as an illustrated page.
+- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 127 automated tests (64 in the browser). Not yet: Ask Meridian.
+- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, post-trade preview with IPS check, approval, mock Charles River file, rebalance, positions upload, fills and booking, bulk changes across product lines and IC-approved glide-path adjustments (doc 17); fund-level regulations with controls and obligations (doc 18). Positions, prices and the CIT line are example data.
+- **Docs:** all 18 docs checked and current on 2026-11-11; repository docs use the Project's numbers; user guide (doc 06) step by step with 54 screenshots, published as an illustrated page.
 
 ## Assessment (2026-11-10)
 | Area | State | Comment |
@@ -33,7 +33,7 @@
 ## Built 2026-11-10 (evening)
 - **Fund-level regulations (doc 18):** tag funds with US and ex-US regulations (ACT 40, ERISA, CIT/OCC 9.18, CFTC 4.5, UCITS, AIFMD, UK COLL, NI 81-102, SFC); controls checked on current holdings and on every trade list (FAIL blocks); obligations tracked with owner, due date and evidence; overdue obligations open an exception; removal and waivers need the CCO permission.
 - **Next steps 1, 2, 4, 5 done:** Approved-proposal trading table and **rebalance** trade lists; **positions upload** and **fills with booking** (positions and cash update); F-4 (US Treasury issuer consolidated) and F-11 (pending adjustment on the risk budget) fixed; **market-holiday calendar** for tranche dates (2026–2028).
-- 125 automated tests (63 in the browser); user guide updated with 50 screenshots.
+- 125 automated tests at the time; user guide updated with 50 screenshots.
 
 ## Built 2026-11-11
 - **Bulk changes across product lines:** glide path (IC-approved, within IPS bands), Strategic table, tilts (security or asset class), exclusions, exits, roll-down and buffer, for all funds, all mutual funds, all CITs or one fund, with an optional vintage range (doc 17, doc 06 §10.9).

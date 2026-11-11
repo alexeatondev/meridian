@@ -245,7 +245,7 @@ Same steps as section 3.2 from your **Positioning** tab; an analyst's adjustment
 
 ### 7.3 Committee decisions
 1. You need the **Investment Committee member** permission (ask your admin). Without it the approval form is replaced by a note saying which permission is needed.
-2. Decide glide-path changes from **Approvals** / **Portfolios & proposals** with the approval steps in section 2.
+2. Decide committee items from **Approvals** with the approval steps in section 2. **Glide-path changes** requested for all mutual funds, all CITs or both are approved or rejected on the Trading screen → **Glide path & bulk changes** → *Waiting for the Investment Committee* (section 10.9); you can't decide a change you requested.
 3. **Fund risk** and **Stress tests**: how much each vintage could lose; **Changes since last run**; **Exceptions** (read and comment).
 
 *Not built yet:* kill switch and autonomy controls in the app; KPI view; fee review.

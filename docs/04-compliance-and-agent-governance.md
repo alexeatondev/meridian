@@ -1,6 +1,6 @@
 # 04 — Compliance & Agent Governance Framework
 
-**Version 0.2 · 2026-11-10 · Owner: CCO (to be assigned; Robert Hayes is a fictional placeholder) · Status: DRAFT for counsel review**
+**Version 0.3 · 2026-11-11 · Owner: CCO (to be assigned; Robert Hayes is a fictional placeholder) · Status: DRAFT for counsel review**
 
 > This framework maps Meridian's controls to common U.S. regulatory obligations. It is not legal advice. Applicability depends on the operating entity's registrations and client types; the CCO and outside counsel must confirm scope, citations and retention periods before adoption.
 
@@ -139,6 +139,7 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 | PC-3 Deterministic rule engine | **Built** |
 | PC-4 Pre-trade checks | **Built (shadow):** IPS rules on post-trade weights of every trade list; FAIL blocks approval (doc 17). Charles River runs its own check |
 | PC-5 Post-trade monitoring | **Partial:** regulation controls run on current holdings (uploaded or booked positions) on the Regulations screen; no daily job yet |
+| GOV / glide-path changes | **Built:** glide-path adjustments for a scope of funds, within IPS bands, need an Investment Committee member other than the requester (policy `approvals.glide_path_change`) |
 | Fund-level regulations | **Built:** US and international regulation tags per fund with controls, obligations, required roles and retention (doc 18) |
 | PC-6 Exceptions | **Built:** auto-opened from WARN/FAIL, owner, due date, remediation, CCO-only time-limited acceptance (≤ 365 days), close with separation of duties |
 | PC-7 Rule testing | **Built** (unit tests on every change) |

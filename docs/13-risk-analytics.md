@@ -1,6 +1,6 @@
 # 13 — Risk Analytics
 
-**Version 0.2 · 2026-11-10 · Audience:** risk analytics, portfolio managers, research, leadership, compliance, audit
+**Version 0.3 · 2026-11-11 · Audience:** risk analytics, portfolio managers, research, leadership, compliance, audit
 **Code:** `src/meridian/analytics/risk.py` · **Settings:** `config/risk.yaml` · **Console:** Fund risk, Factor risk, Stress tests, Risk history, Look-through & search · **Notebook:** `notebooks/04_risk_analytics_workbench.ipynb`
 
 All risk figures are computed by deterministic code. Agents may explain them, but they never calculate them. The console, notebook, board memo and ledger all read the same numbers, so every screen shows the same figure for the same measure.
@@ -95,5 +95,5 @@ Common in institutional risk teams and natural next steps here. None of these ha
 
 ## 9. Related, added since (2026-11-10)
 - **Exceptions:** Risk can raise and work exception cases (doc 06 §8).
-- **Trade preview:** every trade list runs the IPS rules (including the risk budget) on post-trade asset-class weights against the fund's own glide path (doc 17).
-- **Known issue F-4:** look-through lists US Treasury securities under several issuer names; the security master planned in doc 17 fixes it.
+- **Trade preview:** every trade list runs the IPS rules (including the risk budget) on post-trade asset-class weights against the fund's own glide path, plus the controls of any regulation tagged on the fund (docs 17, 18).
+- **F-4 fixed (2026-11-10):** look-through groups US Treasury securities under one issuer, UNITED STATES TREASURY (`normalize_issuers`). Other issuers still use the names in the public holdings files until a vendor security master is connected.

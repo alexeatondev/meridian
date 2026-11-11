@@ -1,6 +1,6 @@
 # 02 — System Architecture
 
-**Version 0.3 · 2026-11-10**
+**Version 0.4 · 2026-11-11**
 
 ## 1. What we take from the paper, and what we change
 
@@ -149,7 +149,7 @@ The pilot runs a deliberately smaller stack than the recommendation above. Detai
 | Hosting | AWS account 950088505912, us-east-2, defined in AWS CDK (`infra/app.py`), stacks `Meridian` and `MeridianCostGuard` |
 | Edge | CloudFront (HTTPS) → Application Load Balancer that only accepts CloudFront's secret origin header |
 | App | FastAPI + server-rendered Meridian Console on ECS Fargate (1 task) |
-| Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger (append-only triggers), governance ledger (exceptions, trading), access log (append-only), exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings |
+| Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger (append-only triggers), governance ledger (exceptions, trading, regulations), access log (append-only), exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings (incl. positions, glide-path adjustments), fund regulations, compliance obligations |
 | Identity | Amazon Cognito (admin-created users; groups = eight workspaces plus three permissions: `investment_committee`, `chief_compliance_officer`, `route_manager`; optional TOTP MFA). Managed in the app's **User access** screen; any access change signs the person out at once |
 | Secrets | AWS Secrets Manager (app); GitHub secrets (Anthropic and FRED keys) |
 | Orchestration | GitHub Actions: `ci`, `deploy`, `manage-users`, `agent-run` (live LLM judgment), `data-refresh` (monthly). Temporal is not used yet |
@@ -173,7 +173,7 @@ agent-run: pulls approved positions from the app ─▶ runs agents (Claude) ─
 - Meta-learner and PC-researcher run in a separate research environment; output is a pull request, never a deploy.
 - Client PII is never sent to agent context (portfolio IDs only).
 
-## 11. Trading and implementation (built 2026-11-10, shadow mode)
+## 11. Trading and implementation (built 2026-11-10/11, shadow mode)
 ```
 Cashflows (Excel/CSV upload · hand entry · API from TA/custodian)
         │
@@ -183,12 +183,18 @@ Allocation engine (meridian.trading, deterministic)
   → exits removed → tilts applied → no-target / excluded skipped → pro rata split → ETF cash buffer → lot rounding
         │
         ▼
-Trade list (draft) ── preview (current vs post-trade) ── IPS engine on post-trade weights ── tranches (optional)
+Trade list (draft) ── preview (current vs post-trade) ── IPS engine + regulation controls on post-trade weights ── tranches
         │ PM approval (checkbox + reason; FAIL blocks)
         ▼
 Charles River import file (mock CSV; one row per order or tranche; destination per security type)
    mutual fund → SS&C (formerly DST) · CIT → State Street · ETF, stock, bond → internal trading desk
+        │
+        ▼
+Fills (file or "mark all filled") ── booked to positions and cash ── positions also loadable from files
 ```
+- **Other trade-list sources:** rebalance to a target table (approved proposal, neutral or strategic), single-security tickets, full exits.
+- **Glide path and bulk changes:** settings carry a scope (all funds, all mutual funds, all CITs, one fund, optional vintage range). Glide-path adjustments are asset-class shifts within the IPS bands, applied to the Neutral table only after Investment Committee approval.
+- **Regulations (doc 18):** `regimes/fund_regulations.yaml` (US and international); `src/meridian/regulations.py` (controls, schedules); `src/meridian/app/regulations.py` + `regulations.html` (tags, obligation tasks, escalation to exceptions).
 - **Model:** `config/trading.yaml` (product lines, funds, roll-down schedules, security master, routes, buffer); `src/meridian/trading/` (model, allocation, tilts, tickets, tranches, Charles River rows); `src/meridian/app/trading.py` + `trading.html` (API and screen).
 - **Records:** every load, setting, route change, table change, trade list, approval, tranche plan, cancel and export is a governance ledger record (`dr_type` "trading").
-- **Not yet:** real positions from custodian/TA files, rebalance trades, Charles River API and returns, derivatives, in-kind, mandates, margin, capital calls (doc 17).
+- **Not yet:** automatic custodian/TA feeds, Charles River API and returns, derivatives, in-kind, mandates, margin, capital calls (doc 17); the agent pipeline does not read glide-path adjustments.

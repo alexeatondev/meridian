@@ -1,6 +1,6 @@
 # 11 — User Interfaces
 
-**Version 0.3 · 2026-11-10**
+**Version 0.4 · 2026-11-11**
 
 Meridian has three interfaces over the same data and the same decision ledger. Each user gets the one that fits how they work.
 
@@ -36,7 +36,7 @@ Design rules applied across every view:
 - The ledger opens only in the Compliance and Audit workspaces; other roles see record IDs.
 
 ## Trading screen (`/trading`, built 2026-11-10)
-A separate page linked from the console side bar, for the implementation workflow in doc 17: **Funds & securities**, **Cashflows**, **Trades**, **Routing & settings**, with an **All funds / Mutual funds / CITs** toggle on every tab. PMs and analysts prepare; PMs approve; route changes need the `route_manager` permission; Risk, Compliance, Audit, Leadership and Admin see it read-only. Step-by-step use with screenshots: doc 06 §10.
+A separate page linked from the console side bar, for the implementation workflow in doc 17: **Funds & securities** (incl. positions upload), **Cashflows**, **Trades** (cashflow trade lists, rebalance, tranches, approval, Charles River file, fills), **Glide path & bulk changes** (scope: all funds, all mutual funds, all CITs or one fund, optional vintage range), **Routing & settings**, with an **All funds / Mutual funds / CITs** toggle on every tab. PMs and analysts prepare; PMs approve; glide-path changes need an Investment Committee member's approval; route changes need the `route_manager` permission; Risk, Compliance, Audit, Leadership and Admin see it read-only. Step-by-step use with screenshots: doc 06 §10.
 
 ## Regulations screen (`/regulations`, built 2026-11-10)
 Funds (tag regulations, controls on current holdings, required people), Obligations (owner, due date, evidence, overdue), Regulation library (US and international) and Change log, with the All / Mutual funds / CITs toggle. Compliance tags; the CCO removes tags and waives obligations; Compliance, Risk, Leadership and PMs work obligations; others read. Doc 06 §12, doc 18.

@@ -1,6 +1,6 @@
 # 17 — Cashflows, Trading & Implementation
 
-**Version 0.4 · 2026-11-10 · Status: decisions recorded (§0); cashflow trading, tilts, single-security tickets, full exits, tranches and the route permission are built and live in the **Trading** screen (`/trading`); remaining items as phased in §5; held items in the backlog (§9).**
+**Version 0.5 · 2026-11-11 · Status: decisions recorded (§0); cashflow trading, tilts, single-security tickets, full exits, tranches and the route permission are built and live in the **Trading** screen (`/trading`); remaining items as phased in §5; held items in the backlog (§9).**
 
 ## 0. Decisions and what is built (2026-11-10)
 **Product-owner decisions**
@@ -101,6 +101,8 @@ Size: **S** about a week, **M** two to three weeks, **L** a month or more (Claud
 **Rough total:** about 6–8 months of build in shadow mode for all 19, done in the phases below. Each phase ends with UAT scripts (doc 16) and automated tests, as now.
 
 ## 5. Proposed phases
+**Status 2026-11-11:** A, B, C and D (file-based) built; E built except custom calculations (13); F not started (waiting on §6 questions 6–8). Built ahead of plan: bulk changes across product lines and IC-approved glide-path adjustments.
+
 | Phase | Items | Why first |
 |---|---|---|
 | **A. Foundations** | Security master, fund and account model, positions, target tables; 15 (universe view), 16 (roll-down schedule), 4 | Everything else needs security-level positions and targets |

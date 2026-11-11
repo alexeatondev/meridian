@@ -1,6 +1,6 @@
 # 05 — Decision Record & Audit Trail Specification
 
-**Version 0.2 · 2026-11-10**
+**Version 0.3 · 2026-11-11**
 
 Purpose: give compliance, audit and leadership complete visibility into **every signal created and every decision made** — what was decided, by which agent or person, from which inputs, under which policy, and who approved it.
 
@@ -96,7 +96,7 @@ Approval DRs add: approver identity, entitlement used, reason text (required), o
 ## 8. As implemented (pilot, 2026-11-10)
 | Spec item | Implementation |
 |---|---|
-| Ledgers | One hash chain per run (agent and system steps, approvals, adjustments) plus a **governance ledger** (`run_id` "governance") for exceptions (`dr_type` "exception") trading (`dr_type` "trading": cashflow and position loads, setting and route changes, target tables, trade lists, rebalances, approvals, tranches, exports, fills) and regulations (`dr_type` "regulation": tags, removals, obligation actions) |
+| Ledgers | One hash chain per run (agent and system steps, approvals, adjustments) plus a **governance ledger** (`run_id` "governance") for exceptions (`dr_type` "exception") trading (`dr_type` "trading": cashflow and position loads, setting and route changes, target tables, trade lists, rebalances, approvals, tranches, exports, fills, bulk Strategic changes, glide-path requests and decisions) and regulations (`dr_type` "regulation": tags, removals, obligation actions) |
 | Access log | Separate append-only table of every user access change (who, what, before, after, reason) |
 | Integrity | SHA-256 chain (`prev_hash`, `record_hash`) verified on every Console page load; database triggers refuse UPDATE, DELETE and TRUNCATE on ledger records and the access log |
 | Not yet | Daily anchoring (Merkle root) and WORM copy (deferred to production: cost); payload storage is inline JSON rather than content-addressed files |

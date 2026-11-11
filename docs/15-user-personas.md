@@ -1,6 +1,6 @@
 # 15 — User Personas
 
-**Version 0.3 · 2026-11-10 · Living document: refine after every round of user testing (doc 16) and as new roles are added.**
+**Version 0.4 · 2026-11-11 · Living document: refine after every round of user testing (doc 16) and as new roles are added.**
 
 Personas describe the people Meridian must serve: what they do for the business, what their days look like, what they cannot do without, and what they need from an agentic portfolio platform. Each ends with what Meridian covers today, the gaps, and the top three tasks used for user testing (doc 16). Names are fictional.
 
@@ -180,7 +180,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Decision queue for items that need the committee.
 - Governance controls: autonomy level per pipeline, pause switch, KPIs (overrides, accuracy, breaches).
 
-**Covered today:** Home with outstanding approvals, blockers and compliance status; board memo; changes since last run; fund risk; stress tests; risk budget; metrics; glide path; approvals with the Investment Committee permission; exceptions; read-only Trading.
+**Covered today:** Home with outstanding approvals, blockers and compliance status; board memo; changes since last run; fund risk; stress tests; risk budget; metrics; glide path; approvals with the Investment Committee permission, including **glide-path changes across all mutual funds, all CITs or both** (Trading → Glide path & bulk changes); exceptions; Regulations (read-only).
 **Gaps:** No kill switch or autonomy controls in the UI; no KPI view (override rate, forecast accuracy, parallel-run comparison); no fee review.
 **UAT top tasks:** (1) read the board memo and state the recommendation, top risk and any dissent; (2) check which vintages need committee approval; (3) see each vintage's worst historical stress loss.
 
@@ -277,6 +277,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 | ~~Cashflow trading, routing, tilts, exclusions, exits, tickets, tranches, Charles River file~~ | PM, Analyst, Compliance | **Built 2026-11-10** (doc 17) |
 | ~~Rebalance trades; positions upload; fills and booking~~ | PM, Analyst, Risk | **Built 2026-11-10** (automatic custodian/TA feeds and Charles River API still to come) |
 | ~~Fund-level regulation tags with controls and tracked obligations~~ | Compliance, PM, Audit | **Built 2026-11-10** (doc 18) |
+| ~~Bulk changes across product lines; IC-approved glide-path adjustments~~ | PM, Analyst, Leadership | **Built 2026-11-11** |
 | Derivatives, in-kind, mandates, margin and leverage, capital calls | PM, Risk, Compliance | Doc 17 Phase F (needs answers to §6 questions 6–8) |
 | Kill switch and autonomy controls; governance KPIs | Leadership, Admin | Phase 2/3 |
 | Risk add-ons: liquidity, expected shortfall, VaR backtest, ex-post vs ex-ante | Risk, Compliance | Doc 13 §8 (awaiting direction) |

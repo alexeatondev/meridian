@@ -1,6 +1,6 @@
 # 14 — Hosting & Operations (AWS)
 
-**Version 0.2 · 2026-11-10 · Audience: platform admin, engineering, audit, compliance**
+**Version 0.3 · 2026-11-11 · Audience: platform admin, engineering, audit, compliance**
 
 How the hosted Meridian app is built, deployed and run, and what to do when something needs attention. Everything here describes what is actually deployed as of 2026-11-10 (last deploy: trading slice 2 and the route permission). Planned changes are listed separately in §12.
 
@@ -36,7 +36,7 @@ Secrets Manager: database credentials, session key, ingest token, Cognito client
 | CloudFront | Default `*.cloudfront.net` certificate, PriceClass 100 | HTTPS without a custom domain |
 | Load balancer | Public; only accepts requests carrying CloudFront's secret origin header | Stops people bypassing CloudFront |
 | ECS Fargate | 1 task; public IP; no NAT gateway | Lowest cost. The database is the only private tier |
-| RDS PostgreSQL | Single-AZ, encrypted, 7-day automated backups, deletion protection on, final snapshot if the stack is removed | Runs, ledger records, positions, change requests, policy overrides |
+| RDS PostgreSQL | Single-AZ, encrypted, 7-day automated backups, deletion protection on, final snapshot if the stack is removed | Runs, ledger and governance records, access log, exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings, fund regulations, compliance obligations |
 | Cognito | No self sign-up; admin-created users only; password ≥ 12 characters with symbols; MFA optional (authenticator app); account recovery by email; user pool retained if the stack is removed | Identity for all human users |
 | Role groups | Workspaces: `portfolio_manager`, `risk`, `analyst`, `manager_selection`, `leadership`, `compliance`, `audit`, `admin`. Permissions: `investment_committee`, `chief_compliance_officer`, `route_manager` | The app's navigation and permissions follow these groups (doc 06, doc 11) |
 
