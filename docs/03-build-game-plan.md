@@ -35,11 +35,15 @@
 - **Next steps 1, 2, 4, 5 done:** Approved-proposal trading table and **rebalance** trade lists; **positions upload** and **fills with booking** (positions and cash update); F-4 (US Treasury issuer consolidated) and F-11 (pending adjustment on the risk budget) fixed; **market-holiday calendar** for tranche dates (2026–2028).
 - 125 automated tests (63 in the browser); user guide updated with 50 screenshots.
 
+## Built 2026-11-11
+- **Bulk changes across product lines:** glide path (IC-approved, within IPS bands), Strategic table, tilts (security or asset class), exclusions, exits, roll-down and buffer, for all funds, all mutual funds, all CITs or one fund, with an optional vintage range (doc 17, doc 06 §10.9).
+
 ## Next steps (not blocked, in order)
 1. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
 2. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).
-3. **Fiscal year ends per fund** for annual and semiannual obligations (doc 18 §5).
-4. **You:** run RISK-6 with the RCTest login; try the Trading (TRD) and Regulations (REG) scripts in doc 16; tag the real funds with their regulations once the CCO confirms them.
+3. **Feed approved glide-path adjustments to the agent pipeline** (it builds one proposal per vintage today, shared by both product lines).
+4. **Fiscal year ends per fund** for annual and semiannual obligations (doc 18 §5).
+5. **You:** run RISK-6 with the RCTest login; try the Trading (TRD) and Regulations (REG) scripts in doc 16; tag the real funds with their regulations once the CCO confirms them.
 
 ## Blocked (and what unblocks each)
 | Item | Blocked by |

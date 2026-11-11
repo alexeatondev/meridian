@@ -57,4 +57,5 @@ Annualized return, volatility, Sharpe and Sortino (excess over T-bills), **beta 
 ## In the hosted app (2026-11-10)
 - Adjustments and risk-budget change requests are made in the Console (**Positioning → Adjust weights → Submit adjustment**; **Risk budget → Submit change request**) and written straight to the ledger. The CLI commands above remain for local use.
 - Security-level tilts (± bp on one holding) for trading are on the Trading screen (doc 17); they apply to cashflow allocations, not to the asset-class proposal.
-- Known gap F-11: the Risk budget tab shows the proposal's tracking error, not the effect of a pending adjustment.
+- F-11 fixed 2026-11-10: the Risk budget tab has a **With adjustment** column.
+- **Glide-path adjustments (2026-11-11):** on the Trading screen, PMs and analysts can request asset-class shifts on the glide path for all funds, all mutual funds, all CITs or one fund (optionally a vintage range), inside the IPS bands. They apply only after an Investment Committee member approves (`approvals.glide_path_change`), and they drive the trading Neutral table. Changes beyond the bands still need an IPS amendment.

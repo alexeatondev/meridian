@@ -157,6 +157,8 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | TRD-14 | PM: Trades → Rebalance to target (Neutral, one fund, reason) → approve → export → **Mark all open orders filled** | `RB-…` list; fills booked; list *Filled and booked*; fund's Positions column shows "Booked from …" | `test_trd_14` |
 | TRD-15 | PM: Funds & securities → upload a positions CSV (one bad security, then a good file) | Refused naming the row; then loaded and shown as "Uploaded file" | `test_approved_table_rebalance_positions_and_fills` |
+| TRD-17 | PM: Glide path & bulk changes → All CITs → shift US large cap +1pp from core bond → Preview → Submit; then as an IC member approve | Preview within IPS bands for 9 funds; request pending; requester can't approve; IC approval puts it in force and the funds show *Glide path adjusted* | `test_trd_17`, `test_bulk_scopes_glide_path_and_strategic` |
+| TRD-18 | PM: All mutual funds → asset-class tilt EM +25 bp; then a 4pp glide-path shift | Tilt applied to 9 funds; 4pp refused ("needs an IPS amendment") | `test_trd_17`, API test |
 | TRD-16 | Rebalance to **Approved proposal** before and after PM + Risk approve a vintage | Refused ("no approved proposal"), then the list follows the approved weights | API test |
 
 ## REG — Regulations & obligations (Nina Alvarez, analyst; Robert Hayes, CCO) · built 2026-11-10 (doc 18)

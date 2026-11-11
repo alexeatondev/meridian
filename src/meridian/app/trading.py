@@ -102,12 +102,60 @@ def _record(s, user_or_actor: dict, step: str, summary: str, output: dict, ratio
 def default_settings() -> dict:
     raw = model().raw
     return {"routes": dict(raw["routes"]), "buffer_bps": float(raw.get("cash_buffer_bps", 0)), "buffer_overrides": {},
-            "excluded": [], "excluded_share": "redistribute", "tilts": [], "exits": [], "history": []}
+            "excluded": [], "excluded_share": "redistribute", "tilts": [], "exits": [], "roll_down": {},
+            "history": []}
 
 
 def get_settings(s) -> dict:
     row = s.get(TradingSetting, "settings")
-    return {**default_settings(), **row.body} if row else default_settings()
+    out = {**default_settings(), **row.body} if row else default_settings()
+    _apply_roll_down(out.get("roll_down", {}))
+    return out
+
+
+def _apply_roll_down(overrides: dict) -> None:
+    """Per-fund glide-path roll-down frequency: the setting if one was saved, else config/trading.yaml."""
+    m = model()
+    base = {}
+    for p in m.raw["products"]:
+        for v in m.policy.vintages:
+            base[f"{p['fund_prefix']}-{v}"] = (p.get("roll_down_overrides") or {}).get(v, p.get("roll_down", "monthly"))
+    for fid, f in m.funds.items():
+        f.roll_down = overrides.get(fid, base.get(fid, f.roll_down))
+
+
+# ---------------------------------------------------------------------------------------------- scopes
+SCOPES = {"*": "All funds", "vehicle:mutual_fund": "All mutual funds", "vehicle:cit": "All CITs"}
+
+
+def scope_label(e: dict) -> str:
+    lab = SCOPES.get(e.get("fund", "*"), e.get("fund", "*"))
+    vf, vt = e.get("vintage_from"), e.get("vintage_to")
+    return lab + (f", vintages {vf or '…'}–{vt or '…'}" if vf or vt else "")
+
+
+def in_scope(e: dict, fund_id: str) -> bool:
+    """Does a setting entry apply to a fund? fund: a fund id, "*", "vehicle:mutual_fund" or "vehicle:cit";
+    optional vintage_from / vintage_to narrow it to a range of vintages."""
+    f = model().funds[fund_id]
+    sc = e.get("fund", "*")
+    if not (sc == "*" or sc == fund_id or (sc.startswith("vehicle:") and sc[8:] == f.vehicle)):
+        return False
+    vf, vt = e.get("vintage_from"), e.get("vintage_to")
+    return (not vf or f.vintage >= int(vf)) and (not vt or f.vintage <= int(vt))
+
+
+def _specificity(e: dict) -> int:
+    sc = e.get("fund", "*")
+    return (0 if sc == "*" else 1 if sc.startswith("vehicle:") else 3) + (1 if e.get("vintage_from") or e.get("vintage_to") else 0)
+
+
+def scope_funds(scope: str, vintage_from=None, vintage_to=None) -> list[str]:
+    m = model()
+    e = {"fund": scope or "*", "vintage_from": vintage_from, "vintage_to": vintage_to}
+    if e["fund"] not in SCOPES and e["fund"] not in m.funds:
+        raise HTTPException(400, f"Unknown scope {scope}")
+    return [fid for fid in m.funds if in_scope(e, fid)]
 
 
 def _put(s, key: str, body: dict) -> None:
@@ -122,7 +170,7 @@ def strategic_table(s, fund_id: str) -> dict:
     row = s.get(TradingSetting, f"strategic:{fund_id}")
     m = model()
     body = row.body if row else {"follows_glide_path": True, "weights": {}, "version": 0, "history": []}
-    weights = m.neutral_table(fund_id) if body.get("follows_glide_path", True) else body.get("weights", {})
+    weights = neutral_table(s, fund_id) if body.get("follows_glide_path", True) else body.get("weights", {})
     return dict(body, effective=weights)
 
 
@@ -131,22 +179,33 @@ def fund_buffer(settings: dict, fund_id: str) -> float:
 
 
 def excluded_for(settings: dict, fund_id: str) -> set[str]:
-    today = date.today().isoformat()
-    return {e["instrument"] for e in settings.get("excluded", [])
-            if e.get("fund") in ("*", fund_id) and (not e.get("until") or e["until"] >= today)}
+    return {e["instrument"] for e in _active(settings.get("excluded", []), fund_id)}
 
 
 def _active(entries: list[dict], fund_id: str) -> list[dict]:
     today = date.today().isoformat()
-    return [e for e in entries if e.get("fund") in ("*", fund_id) and (not e.get("until") or e["until"] >= today)]
+    return [e for e in entries if in_scope(e, fund_id) and (not e.get("until") or e["until"] >= today)]
 
 
-def tilts_for(settings: dict, fund_id: str) -> dict[str, float]:
-    """Tilt in bp per security; a fund-specific tilt replaces an all-funds tilt on the same security."""
-    out: dict[str, float] = {}
-    for e in sorted(_active(settings.get("tilts", []), fund_id), key=lambda e: e.get("fund") != "*"):
-        out[e["instrument"]] = float(e["bps"])
-    return out
+def tilts_for(settings: dict, fund_id: str, table: dict | None = None) -> dict[str, float]:
+    """Tilt in bp per security. A tilt names a security or an asset class; an asset-class tilt is spread over
+    the fund's securities in that class in proportion to their weight in the table. For the same security or
+    asset class the most specific entry wins (one fund > vintage range > all CITs / mutual funds > all funds)."""
+    sec: dict[str, float] = {}
+    ac: dict[str, float] = {}
+    for e in sorted(_active(settings.get("tilts", []), fund_id), key=_specificity):
+        if e.get("asset_class"):
+            ac[e["asset_class"]] = float(e["bps"])
+        else:
+            sec[e["instrument"]] = float(e["bps"])
+    if ac and table:
+        inst = model().instruments
+        for a, bp in ac.items():
+            members = {k: v for k, v in table.items() if inst.get(k, {}).get("asset_class") == a and v > 0}
+            tot = sum(members.values())
+            for k, v in members.items():
+                sec[k] = sec.get(k, 0.0) + bp * v / tot
+    return sec
 
 
 def exits_for(settings: dict, fund_id: str) -> set[str]:
@@ -173,11 +232,40 @@ def approved_asset_weights(s, vintage: int) -> tuple[dict, str | None]:
     return {r.asset: float(r.weight) for r in pick}, f"{last.run_id} (as of {last.as_of})"
 
 
+def glide_state(s) -> dict:
+    row = s.get(TradingSetting, "glidepath")
+    return row.body if row else {"adjustments": [], "requests": []}
+
+
+def glide_deltas(s, fund_id: str) -> dict[str, float]:
+    """Sum of approved glide-path adjustments (asset-class pp) that apply to a fund."""
+    out: dict[str, float] = {}
+    for a in glide_state(s)["adjustments"]:
+        if a.get("status") == "active" and in_scope(a, fund_id):
+            for sh in a["shifts"]:
+                out[sh["asset_class"]] = out.get(sh["asset_class"], 0.0) + sh["pp"] / 100
+                out[sh["from"]] = out.get(sh["from"], 0.0) - sh["pp"] / 100
+    return out
+
+
+def neutral_aw(s, fund_id: str, extra: dict | None = None) -> dict[str, float]:
+    """The fund's glide-path weights: the IPS glide path on its roll-down schedule plus approved adjustments."""
+    aw = model().neutral_asset_weights(fund_id)
+    for d in (glide_deltas(s, fund_id), extra or {}):
+        for a, x in d.items():
+            aw[a] = aw.get(a, 0.0) + x
+    return aw
+
+
+def neutral_table(s, fund_id: str) -> dict[str, float]:
+    return model().table_from_asset_weights(fund_id, neutral_aw(s, fund_id))
+
+
 def tables(s, fund_id: str) -> dict[str, dict]:
     m = model()
     aw, _src = approved_asset_weights(s, m.funds[fund_id].vintage)
     return {"previous_close": m.previous_close_table(fund_id, positions(fund_id)["values"]),
-            "neutral": m.neutral_table(fund_id), "strategic": strategic_table(s, fund_id)["effective"],
+            "neutral": neutral_table(s, fund_id), "strategic": strategic_table(s, fund_id)["effective"],
             "approved": m.table_from_asset_weights(fund_id, aw) if aw else {}}
 
 
@@ -201,7 +289,8 @@ def trading_page(request: Request):
     roles = user["roles"]
     boot = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": roles}, "csrf": user["csrf"],
             "can_prepare": any(r in roles for r in PREPARE_ROLES), "can_approve": any(r in roles for r in APPROVE_ROLES),
-            "can_settings": any(r in roles for r in SETTINGS_ROLES), "can_routes": ROUTE_PERMISSION in roles}
+            "can_settings": any(r in roles for r in SETTINGS_ROLES), "can_routes": ROUTE_PERMISSION in roles,
+            "can_glide": "investment_committee" in roles}
     return HTMLResponse(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")))
 
 
@@ -232,8 +321,10 @@ def state(request: Request):
                               positions_source=p.get("source", ""), positions_as_of=p.get("as_of", ""),
                               regulations=[t["regulation"] for t in regs_by_fund.get(fid, [])],
                               buffer_bps=fund_buffer(settings, fid),
-                              strategic_follows=strategic_table(s, fid).get("follows_glide_path", True)))
-        return {"as_of": m.as_of.isoformat(), "funds": funds, "instruments": list(m.instruments.values()),
+                              strategic_follows=strategic_table(s, fid).get("follows_glide_path", True),
+                              glide_adjusted=bool(glide_deltas(s, fid))))
+        return {"as_of": m.as_of.isoformat(), "funds": funds, "glide": glide_state(s), "scopes": SCOPES,
+                "assets": m.policy.assets, "vintages": m.policy.vintages, "instruments": list(m.instruments.values()),
                 "strategies": STRATEGIES, "vehicles": VEHICLES, "settings": settings,
                 "route_names": m.raw.get("route_names", []), "sources": m.raw.get("cashflow_sources", []),
                 "cashflows": _cashflows(s), "trade_lists": _trade_lists(s),
@@ -253,7 +344,8 @@ def fund_detail(request: Request, fund_id: str):
         t = tables(s, fund_id)
         st = strategic_table(s, fund_id)
         settings = get_settings(s)
-        excl, tilt, exiting = excluded_for(settings, fund_id), tilts_for(settings, fund_id), exits_for(settings, fund_id)
+        excl, exiting = excluded_for(settings, fund_id), exits_for(settings, fund_id)
+        tilt = tilts_for(settings, fund_id, tables(s, fund_id)["neutral"])
     rows = []
     for i in m.fund_instruments(fund_id):
         v = p["values"].get(i["id"], 0.0)
@@ -476,14 +568,30 @@ def set_settings(request: Request, body: dict = Body(...)):
     reason = _reason(body)
     m = model()
 
-    def _entries(key: str, extra) -> list[dict]:
+    def _entries(key: str, extra, allow_asset_class: bool = False) -> list[dict]:
         out = []
         for e in body[key] or []:
-            if e.get("instrument") not in m.instruments or e.get("fund", "*") not in set(m.funds) | {"*"}:
-                raise HTTPException(400, f"Unknown security or fund: {e}")
-            out.append({"instrument": e["instrument"], "fund": e.get("fund", "*"),
-                        "reason": str(e.get("reason", "")).strip() or reason, "until": e.get("until") or "",
-                        "by": e.get("by") or _who(user), "at": e.get("at") or _ts(), **extra(e)})
+            ac = e.get("asset_class") if allow_asset_class else None
+            if ac and ac not in m.policy.assets:
+                raise HTTPException(400, f"Unknown asset class {ac}")
+            if not ac and e.get("instrument") not in m.instruments:
+                raise HTTPException(400, f"Unknown security: {e.get('instrument')}")
+            if e.get("fund", "*") not in set(m.funds) | set(SCOPES):
+                raise HTTPException(400, f"Unknown fund or scope: {e.get('fund')}")
+            vf, vt = e.get("vintage_from") or None, e.get("vintage_to") or None
+            for v in (vf, vt):
+                if v and int(v) not in m.policy.vintages:
+                    raise HTTPException(400, f"Unknown vintage {v}")
+            if vf and vt and int(vf) > int(vt):
+                raise HTTPException(400, "Vintage range is back to front")
+            ent = {"fund": e.get("fund", "*"), "reason": str(e.get("reason", "")).strip() or reason,
+                   "until": e.get("until") or "", "by": e.get("by") or _who(user), "at": e.get("at") or _ts(),
+                   **({"asset_class": ac} if ac else {"instrument": e["instrument"]}), **extra(e)}
+            if vf:
+                ent["vintage_from"] = int(vf)
+            if vt:
+                ent["vintage_to"] = int(vt)
+            out.append(ent)
         return out
 
     with _store().Session.begin() as s:
@@ -499,7 +607,7 @@ def set_settings(request: Request, body: dict = Body(...)):
                 if b == 0 or abs(b) > 500:
                     raise HTTPException(400, "Tilt must be between -500 and +500 bp, and not zero")
                 return {"bps": b}
-            new["tilts"] = _entries("tilts", _bps)
+            new["tilts"] = _entries("tilts", _bps, allow_asset_class=True)
         if "exits" in body:
             new["exits"] = _entries("exits", lambda e: {})
         if "routes" in body:
@@ -520,11 +628,17 @@ def set_settings(request: Request, body: dict = Body(...)):
             new["buffer_overrides"] = ov
         if "excluded" in body:
             new["excluded"] = _entries("excluded", lambda e: {})
+        if "roll_down" in body:
+            from ..trading.model import ROLL_FREQS
+            rd = {k: v for k, v in (body["roll_down"] or {}).items() if v}
+            if set(rd) - set(m.funds) or any(v not in ROLL_FREQS for v in rd.values()):
+                raise HTTPException(400, f"Roll-down must be one of {', '.join(ROLL_FREQS)} for known funds")
+            new["roll_down"] = rd
         if "excluded_share" in body:
             if body["excluded_share"] not in ("redistribute", "cash"):
                 raise HTTPException(400, "excluded_share must be redistribute or cash")
             new["excluded_share"] = body["excluded_share"]
-        for k in ("routes", "buffer_bps", "buffer_overrides", "excluded", "excluded_share", "tilts", "exits"):
+        for k in ("routes", "buffer_bps", "buffer_overrides", "excluded", "excluded_share", "tilts", "exits", "roll_down"):
             if new.get(k) != cur.get(k):
                 changes[k] = {"before": cur.get(k), "after": new.get(k)}
         if not changes:
@@ -534,8 +648,8 @@ def set_settings(request: Request, body: dict = Body(...)):
                                      "(an admin switches it on in User access)")
         if set(changes) - {"routes"} and not any(r in roles for r in SETTINGS_ROLES):
             raise HTTPException(403, "Your permission covers order routes only")
-        if set(changes) & {"tilts", "exits"} and not any(r in roles for r in APPROVE_ROLES):
-            raise HTTPException(403, "Only portfolio managers set tilts and exits")
+        if set(changes) & {"tilts", "exits", "roll_down"} and not any(r in roles for r in APPROVE_ROLES):
+            raise HTTPException(403, "Only portfolio managers set tilts, exits and roll-down schedules")
         new["history"] = (list(cur.get("history", [])) + [{"at": _ts(), "by": _who(user), "reason": reason,
                                                            "changed": sorted(changes)}])[-100:]
         _put(s, "settings", new)
@@ -599,7 +713,7 @@ def _ips_check(fund_id: str, rows: list[dict], ctx) -> dict:
     acw = asset_class_weights(m, rows)
     assets = ctx["assets"]
     w = np.array([acw.get(a, 0.0) for a in assets])
-    fn = m.neutral_asset_weights(fund_id)          # the fund's own glide-path point on its roll-down schedule
+    fn = m.neutral_asset_weights(fund_id)          # the IPS glide path on the fund's roll-down schedule
     n = np.array([fn.get(a, 0.0) for a in assets])
     res = evaluate(w, n, ctx["cov"], m.policy, resolve(), load_universe(), risk_budget=ctx["rb"].get(f.vintage))
     summ = summarize(res)
@@ -682,7 +796,7 @@ def _effective_table(settings: dict, fund_id: str, table: dict) -> tuple[dict, l
         rest = sum(v for k, v in table.items() if k not in gone)
         table = {k: v / rest for k, v in table.items() if k not in gone} if rest > 0 else {}
         notes += [f"{k} is being exited: no cashflow trades; its share goes to the other holdings" for k in gone]
-    table, tn = apply_tilts(table, tilts_for(settings, fund_id))
+    table, tn = apply_tilts(table, tilts_for(settings, fund_id, table))
     return table, notes + tn
 
 
@@ -716,7 +830,7 @@ def ticket(request: Request, body: dict = Body(...)):
                 raise HTTPException(400, f"Not flagged for exit in {fid}: {', '.join(map(str, bad))}")
             tickets = [{"instrument": t["instrument"], "side": "SELL", "all": True} for t in tickets]
         excl = excluded_for(settings, fid) - (exiting if kind == "exit" else set())
-        r = ticket_fund(m, fid, tickets, positions(fid), routes=settings["routes"], table=m.neutral_table(fid),
+        r = ticket_fund(m, fid, tickets, positions(fid), routes=settings["routes"], table=neutral_table(s, fid),
                         excluded=excl, blocked_buys=exiting)
         if r["errors"]:
             raise HTTPException(400, "; ".join(r["errors"]))
@@ -1227,3 +1341,198 @@ async def fills(request: Request, tid: str):
             b["status"] = "filled"
         row.body, row.status = b, b["status"]
     return {"ok": True, **res, "dr_id": dr}
+
+
+# ---------------------------------------------------------------------------------------------- glide path (bulk)
+GLIDE_PERMISSION = "investment_committee"           # approvals.glide_path_change in the policy
+
+
+def _shift_deltas(shifts: list[dict]) -> dict[str, float]:
+    m = model()
+    out: dict[str, float] = {}
+    if not shifts:
+        raise HTTPException(400, "Add at least one shift")
+    for sh in shifts:
+        a, f = sh.get("asset_class"), sh.get("from")
+        try:
+            pp = float(sh.get("pp"))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Each shift needs a number of percentage points") from None
+        if a not in m.policy.assets or f not in m.policy.assets or a == f:
+            raise HTTPException(400, "Each shift moves weight from one asset class to a different one")
+        if pp == 0 or abs(pp) > 10:
+            raise HTTPException(400, "A shift must be between -10 and +10 percentage points, and not zero")
+        out[a] = out.get(a, 0.0) + pp / 100
+        out[f] = out.get(f, 0.0) - pp / 100
+    return out
+
+
+def _clean_shifts(shifts: list[dict]) -> list[dict]:
+    return [{"asset_class": x["asset_class"], "from": x["from"], "pp": float(x["pp"])} for x in shifts]
+
+
+def _band_rules() -> tuple[float, str, float]:
+    p = model().policy
+    rules = {r["id"]: r for r in p.raw.get("rules", [])}
+    a = float(rules.get("POL-BAND-ASSET", {}).get("per_asset_pp", 3.0))
+    g = rules.get("POL-BAND-EQUITY", {})
+    return a / 100, g.get("group", "equity"), float(g.get("pp", 5.0)) / 100
+
+
+def _glide_preview(s, scope: str, vf, vt, deltas: dict) -> list[dict]:
+    """Per fund: current glide path (with approved adjustments), proposed, and the check against the IPS bands."""
+    m = model()
+    band, group, gband = _band_rules()
+    members = set(m.policy.groups.get(group, []))
+    out = []
+    for fid in scope_funds(scope, vf, vt):
+        ips = m.neutral_asset_weights(fid)
+        cur = neutral_aw(s, fid)
+        new = {a: cur.get(a, 0.0) + deltas.get(a, 0.0) for a in m.policy.assets}
+        dev = {a: new[a] - ips.get(a, 0.0) for a in m.policy.assets}
+        gdev = sum(dev[a] for a in members)
+        problems = [f"{a} would be negative ({new[a]:.2%})" for a in m.policy.assets if new[a] < -1e-9]
+        problems += [f"{a} {dev[a] * 100:+.2f}pp from the IPS glide path (band ±{band * 100:.0f}pp)"
+                     for a in m.policy.assets if abs(dev[a]) > band + 1e-9]
+        if abs(gdev) > gband + 1e-9:
+            problems.append(f"{group} {gdev * 100:+.2f}pp from the IPS glide path (band ±{gband * 100:.0f}pp)")
+        out.append({"fund_id": fid, "vehicle": m.funds[fid].vehicle, "vintage": m.funds[fid].vintage,
+                    "roll_down": m.funds[fid].roll_down, "ips": ips, "current": cur, "new": new,
+                    "ok": not problems, "problems": problems})
+    return out
+
+
+@router.post("/api/trading/glide-path/preview")
+def glide_preview(request: Request, body: dict = Body(...)):
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    deltas = _shift_deltas(body.get("shifts") or [])
+    with _store().Session() as s:
+        get_settings(s)
+        rows = _glide_preview(s, body.get("scope", "*"), body.get("vintage_from"), body.get("vintage_to"), deltas)
+    if not rows:
+        raise HTTPException(400, "No funds in that scope")
+    return {"funds": rows, "ok": all(r["ok"] for r in rows)}
+
+
+@router.post("/api/trading/glide-path/requests")
+def glide_request(request: Request, body: dict = Body(...)):
+    """Request a glide-path change for every fund in a scope (or retire an approved one). Needs approval by a
+    holder of the Investment Committee permission who is not the requester."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    reason = _reason(body)
+    kind = body.get("kind", "add")
+    with _store().Session.begin() as s:
+        get_settings(s)
+        gs = json.loads(json.dumps(glide_state(s)))
+        rid = "GP-" + uuid.uuid4().hex[:6].upper()
+        if kind == "retire":
+            adj = next((a for a in gs["adjustments"] if a["id"] == body.get("adjustment_id") and a["status"] == "active"), None)
+            if not adj:
+                raise HTTPException(400, "Choose an active adjustment to retire")
+            req = {"id": rid, "kind": "retire", "adjustment_id": adj["id"], "scope_label": scope_label(adj),
+                   "shifts": adj["shifts"], "funds": adj["funds"]}
+        else:
+            scope, vf, vt = body.get("scope", "*"), body.get("vintage_from") or None, body.get("vintage_to") or None
+            deltas = _shift_deltas(body.get("shifts") or [])
+            prev = _glide_preview(s, scope, vf, vt, deltas)
+            if not prev:
+                raise HTTPException(400, "No funds in that scope")
+            bad = [f"{r['fund_id']}: {'; '.join(r['problems'])}" for r in prev if not r["ok"]]
+            if bad:
+                raise HTTPException(400, "Outside the IPS glide-path bands; that needs an IPS amendment. "
+                                    + " | ".join(bad[:4]) + (" …" if len(bad) > 4 else ""))
+            req = {"id": rid, "kind": "add", "fund": scope, "vintage_from": int(vf) if vf else None,
+                   "vintage_to": int(vt) if vt else None, "scope_label": scope_label({"fund": scope, "vintage_from": vf,
+                                                                                      "vintage_to": vt}),
+                   "shifts": _clean_shifts(body["shifts"]), "funds": [r["fund_id"] for r in prev],
+                   "effective": str(body.get("effective") or date.today().isoformat())[:10]}
+        req.update(status="pending", requested_by=_who(user), requested_at=_ts(), reason=reason)
+        gs["requests"].append(req)
+        _put(s, "glidepath", gs)
+        dr = _record(s, _who(user), "glidepath.request",
+                     f"{rid}: glide-path {'retirement' if kind == 'retire' else 'change'} requested for "
+                     f"{req['scope_label']} ({len(req['funds'])} funds)", req, reason, req["funds"])
+    return {"ok": True, "id": rid, "dr_id": dr, "funds": len(req["funds"])}
+
+
+@router.post("/api/trading/glide-path/requests/{rid}/decide")
+def glide_decide(request: Request, rid: str, body: dict = Body(...)):
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    if GLIDE_PERMISSION not in user["roles"]:
+        raise HTTPException(403, "Glide-path changes are decided by the Investment Committee "
+                                 "(needs the Investment Committee member permission)")
+    reason = _reason(body)
+    decision = body.get("decision")
+    if decision not in ("approve", "reject"):
+        raise HTTPException(400, "Decision must be approve or reject")
+    with _store().Session.begin() as s:
+        gs = json.loads(json.dumps(glide_state(s)))
+        req = next((r for r in gs["requests"] if r["id"] == rid), None)
+        if not req or req["status"] != "pending":
+            raise HTTPException(409, "No pending request with that ID")
+        if req["requested_by"].get("name") == user["name"] and req["requested_by"].get("email", "") == user.get("email", ""):
+            raise HTTPException(403, "Segregation of duties: the requester can't decide their own glide-path change")
+        req.update(status="approved" if decision == "approve" else "rejected", decided_by=_who(user),
+                   decided_at=_ts(), decision_reason=reason)
+        if decision == "approve":
+            if req["kind"] == "add":
+                gs["adjustments"].append({k: req[k] for k in ("fund", "vintage_from", "vintage_to", "shifts", "funds",
+                                                              "effective", "scope_label")}
+                                         | {"id": rid, "status": "active", "requested_by": req["requested_by"],
+                                            "approved_by": _who(user), "approved_at": _ts(), "reason": req["reason"]})
+            else:
+                for a in gs["adjustments"]:
+                    if a["id"] == req["adjustment_id"]:
+                        a.update(status="retired", retired_by=_who(user), retired_at=_ts())
+        _put(s, "glidepath", gs)
+        dr = _record(s, _who(user), f"glidepath.{decision}", f"{rid} {decision}d: {req['scope_label']}",
+                     {"request": rid, "kind": req["kind"], "funds": req["funds"], "shifts": req["shifts"]},
+                     reason, req["funds"])
+    return {"ok": True, "status": req["status"], "dr_id": dr}
+
+
+@router.put("/api/trading/targets/strategic-bulk")
+def strategic_bulk(request: Request, body: dict = Body(...)):
+    """Set the Strategic table for every fund in a scope: follow the glide path, or the glide path plus
+    asset-class shifts (each fund's own securities get the weight in their usual shares)."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *APPROVE_ROLES)
+    reason = _reason(body)
+    m = model()
+    follows = bool(body.get("follows_glide_path"))
+    deltas = {} if follows else _shift_deltas(body.get("shifts") or [])
+    with _store().Session.begin() as s:
+        get_settings(s)
+        fids = scope_funds(body.get("scope", "*"), body.get("vintage_from"), body.get("vintage_to"))
+        if not fids:
+            raise HTTPException(400, "No funds in that scope")
+        done = {}
+        for fid in fids:
+            weights = {}
+            if not follows:
+                aw = neutral_aw(s, fid, deltas)
+                neg = [a for a, v in aw.items() if v < -1e-9]
+                if neg:
+                    raise HTTPException(400, f"{fid}: {', '.join(neg)} would be negative")
+                weights = m.table_from_asset_weights(fid, aw)
+            cur = strategic_table(s, fid)
+            ver = int(cur.get("version", 0)) + 1
+            hist = list(cur.get("history", [])) + [{"at": _ts(), "by": _who(user), "version": ver, "reason": reason,
+                                                     "follows_glide_path": follows, "bulk": True}]
+            _put(s, f"strategic:{fid}", {"follows_glide_path": follows, "weights": weights, "version": ver,
+                                         "shifts": _clean_shifts(body.get("shifts") or []) if not follows else [],
+                                         "history": hist[-50:]})
+            done[fid] = ver
+        lab = scope_label({"fund": body.get("scope", "*"), "vintage_from": body.get("vintage_from"),
+                           "vintage_to": body.get("vintage_to")})
+        dr = _record(s, _who(user), "targets.strategic-bulk",
+                     f"Strategic table for {lab} ({len(fids)} funds): "
+                     + ("follows the glide path" if follows else "glide path plus shifts"),
+                     {"scope": lab, "funds": done, "follows_glide_path": follows,
+                      "shifts": body.get("shifts") or []}, reason, fids)
+    return {"ok": True, "funds": len(done), "dr_id": dr}

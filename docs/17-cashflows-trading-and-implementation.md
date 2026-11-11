@@ -42,6 +42,8 @@
 | Fills and booking | Fills file keyed by the Charles River order or tranche ID (or "mark all filled" in shadow mode); positions and cash update; cashflows settle; list becomes *Filled and booked* |
 | Holidays | Tranche dates may not fall on US market holidays (2026–2028 calendar in `config/trading.yaml`) |
 | Regulation controls | Controls of any regulation tagged on the fund run on every trade list (doc 18) |
+| Bulk changes (2026-11-11) | Every per-fund setting can target all funds, all mutual funds, all CITs or one fund, optionally a vintage range: tilts (security or **asset class**), exclusions, exits, roll-down frequency, buffer, Strategic table (follow glide path or glide path plus asset-class shifts) |
+| Glide-path changes | Asset-class shifts on the glide path for a scope, inside the IPS bands (±3pp per asset class, ±5pp equity), effective only after approval by an Investment Committee member who is not the requester; retirement the same way. Changes the Neutral table and following Strategic tables; the IPS check still uses the IPS glide path. The agent pipeline does not yet read these adjustments (it builds one proposal per vintage for both product lines) |
 
 **Still to build:** 7 derivatives, 13 custom calculations, 14 in-kind, 17 mandates, 18 margin and leverage, 19 capital calls; rebalance trades (closing gaps to target); position files from custodians and TAs; Charles River results coming back; the API connection. Known limits: until files arrive from custodians and transfer agents, positions are example data or what you upload; later tranches use today's prices as estimates.
 

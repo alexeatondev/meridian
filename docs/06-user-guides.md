@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 0.5 · 2026-11-10 · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 0.6 · 2026-11-11 · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository. Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -422,7 +422,38 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 6. Enter a **Reason for these changes** and click **Save settings**. Everything is saved together and recorded.
 7. **Trading change log**: every trading record from the ledger.
 
-### 10.9 Load positions (holdings at last close)
+### 10.9 Change many funds at once: glide path, Strategic table, tilts, exclusions, exits, roll-down, buffer
+Open **Glide path & bulk changes**.
+
+![Apply to: scope and glide-path shifts](img/guide/trd-17-glide-path.png)
+*Image: `trd-17-glide-path.png`*
+
+1. **Apply to:** choose **All funds**, **All mutual funds**, **All CITs** or one fund, and optionally a vintage range (e.g. CITs 2030–2045). The page shows how many funds that is. Enter one reason; it is recorded with every change made on this tab.
+2. **Glide path** (needs Investment Committee approval):
+   - Add one or more shifts: asset class, ± percentage points, funded from another asset class.
+   - Click **Preview**: for each fund, the IPS glide path, the current glide path and the new one, and whether it stays inside the IPS bands (±3pp per asset class, ±5pp equity). Wider changes are refused; they need an IPS amendment.
+
+![Glide-path preview](img/guide/trd-18-glide-preview.png)
+*Image: `trd-18-glide-preview.png`*
+
+   - Click **Submit for Investment Committee approval**. Nothing changes until an Investment Committee member other than you approves it:
+
+![Investment Committee approval](img/guide/trd-19-glide-approve.png)
+*Image: `trd-19-glide-approve.png`*
+
+   - Once approved, the change shows under **In force** and on the Funds list as *Glide path adjusted*; it changes the Neutral table and any Strategic table that follows the glide path. **Request retirement** undoes it, again with committee approval.
+3. **Strategic table** (PM): **Follow the glide path**, or **Glide path plus the shifts above**, for every fund in scope at once (tactical; no committee approval; each fund gets a new version).
+
+![Tilts, exclusions, exits, roll-down and buffer in bulk](img/guide/trd-20-bulk-tilts.png)
+*Image: `trd-20-bulk-tilts.png`*
+
+4. **Tilts** (PM): an **asset class** (spread over each fund's securities in that class) or a **security**, ± bp, optional end date; **Apply tilt**. For the same item the most specific scope wins: one fund, then a vintage range, then all CITs or all mutual funds, then all funds.
+5. **Exclusions and full exits**: a security, exclude or flag for exit, optional end date; **Apply**.
+6. **Roll-down schedule and cash buffer**: set the glide-path roll-down frequency and/or a stricter ETF buffer for every fund in scope; **Apply**.
+
+The **Routing & settings** tab lists every entry with its scope (e.g. "All CITs, vintages 2050–…"), and its add forms also offer All mutual funds and All CITs.
+
+### 10.10 Load positions (holdings at last close)
 ![Load positions](img/guide/trd-13-positions-upload.png)
 *Image: `trd-13-positions-upload.png`*
 
@@ -430,7 +461,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 2. Fill one row per holding: `as_of, fund_id (or account), security_id (or CUSIP), quantity and price, or market_value`; use `CASH` as the security for uninvested cash.
 3. Choose the file and click **Upload positions**. Every fund in the file gets these holdings in place of the example data; any bad row (unknown fund or security, missing value) stops the whole load. The **Positions** column then shows the file and its date.
 
-### 10.10 Rebalance to target
+### 10.11 Rebalance to target
 ![Rebalance to target](img/guide/trd-14-rebalance.png)
 *Image: `trd-14-rebalance.png`*
 
@@ -442,7 +473,7 @@ Open **Trading** from the side bar (or `/trading`). Everything is shadow mode wi
 ![A rebalance blocked by a regulation control](img/guide/trd-15-rebalance-blocked.png)
 *Image: `trd-15-rebalance-blocked.png`*
 
-### 10.11 Record fills and book positions
+### 10.12 Record fills and book positions
 ![Fills and booking](img/guide/trd-16-fills.png)
 *Image: `trd-16-fills.png`*
 

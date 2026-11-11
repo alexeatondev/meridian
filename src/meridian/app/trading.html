@@ -51,9 +51,9 @@ select,input[type=number],input[type=date]{padding:7px 9px;border:1px solid var(
 <main>
 <div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
 <div class="tabs" role="tablist">
-  <button data-tab="funds" class="active">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="trades">Trades</button><button data-tab="settings">Routing &amp; settings</button>
+  <button data-tab="funds" class="active">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="trades">Trades</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="settings">Routing &amp; settings</button>
 </div>
-<section id="funds"></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="settings" hidden></section>
+<section id="funds"></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="bulk" hidden></section><section id="settings" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -86,8 +86,8 @@ async function load(){ S.st = await api('GET','/api/trading/state'); render(); }
 function render(){
   document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
-  for (const t of ['funds','cashflows','trades','settings']) $('#'+t).hidden = t!==S.tab;
-  ({funds:vFunds, cashflows:vCashflows, trades:vTrades, settings:vSettings})[S.tab]();
+  for (const t of ['funds','cashflows','trades','bulk','settings']) $('#'+t).hidden = t!==S.tab;
+  ({funds:vFunds, cashflows:vCashflows, trades:vTrades, bulk:vBulk, settings:vSettings})[S.tab]();
 }
 
 // ------------------------------------------------------------------ Funds & securities
@@ -96,7 +96,7 @@ function vFunds(){
   const nav = fs.reduce((a,f)=>a+f.nav,0);
   let h = `<div class="card"><h2>Funds (${fs.length})</h2><div class="kpis"><div><span class="muted small">Total NAV</span><b>${musd(nav)}</b></div><div><span class="muted small">Positions as of</span><b>${esc(S.st.as_of)}</b></div><div><span class="muted small">Cash buffer (series)</span><b>${S.st.settings.buffer_bps} bp</b></div></div>
   <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th><th>Regulations</th><th>Positions</th></tr></thead><tbody>`;
-  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}</td><td>${(f.regulations||[]).map(r=>chip(r,'ok')).join(' ')||'<span class="small muted">—</span>'}</td><td class="small">${f.positions_source.startsWith('Example')?'<span class="muted">Example</span>':esc(f.positions_source.split(' (')[0])+'<br><span class="muted">'+esc(f.positions_as_of)+'</span>'}</td></tr>`;
+  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}${f.glide_adjusted?' '+chip('Glide path adjusted','perm'):''}</td><td>${(f.regulations||[]).map(r=>chip(r,'ok')).join(' ')||'<span class="small muted">—</span>'}</td><td class="small">${f.positions_source.startsWith('Example')?'<span class="muted">Example</span>':esc(f.positions_source.split(' (')[0])+'<br><span class="muted">'+esc(f.positions_as_of)+'</span>'}</td></tr>`;
   h += `</tbody></table></div>`;
   if (BOOT.can_approve) h += `<div class="card"><h2>Load positions (holdings at last close)</h2><p class="small muted">Excel or CSV from the custodian or transfer agent with <span class="mono">as_of, fund_id (or account), security_id (or CUSIP; CASH for cash), quantity and price, or market_value</span>. It replaces the example holdings of every fund in the file; any bad row stops the load. Fills you record on exported trade lists also update positions.</p>
    <input type="file" id="posFile" accept=".xlsx,.xlsm,.csv"> <button class="btn primary" id="posUpload">Upload positions</button> <a href="/api/trading/positions/template.csv">CSV template</a></div>`;
@@ -250,8 +250,8 @@ function vSettings(){
   const types = Object.keys(st.routes), insts = S.st.instruments;
   const P = S.pend ||= {excluded:(st.excluded||[]).slice(), tilts:(st.tilts||[]).slice(), exits:(st.exits||[]).slice()};
   const instSel = id => `<select id="${id}">${insts.map(i=>`<option value="${i.id}">${esc(i.id)} · ${esc(i.name)}</option>`).join('')}</select>`;
-  const fundSel = id => `<select id="${id}"><option value="*">All funds</option>${S.st.funds.map(f=>`<option>${f.id}</option>`).join('')}</select>`;
-  const entryRows = (key, extra, edit) => P[key].map((e,i)=>`<tr><td>${esc(e.instrument)}</td><td>${e.fund==='*'?'All funds':esc(e.fund)}</td>${extra(e)}<td>${esc(e.reason||'(this change)')}</td><td>${esc(e.until||'—')}</td><td>${esc(e.by?.name||'(you)')}</td><td>${edit?`<button class="btn small" data-del="${key}:${i}">Remove</button>`:''}</td></tr>`).join('');
+  const fundSel = id => `<select id="${id}"><option value="*">All funds</option><option value="vehicle:mutual_fund">All mutual funds</option><option value="vehicle:cit">All CITs</option>${S.st.funds.map(f=>`<option>${f.id}</option>`).join('')}</select>`;
+  const entryRows = (key, extra, edit) => P[key].map((e,i)=>`<tr><td>${esc(e.instrument||('Asset class: '+acName(e.asset_class)))}</td><td>${esc(scopeLabel(e))}</td>${extra(e)}<td>${esc(e.reason||'(this change)')}</td><td>${esc(e.until||'—')}</td><td>${esc(e.by?.name||'(you)')}</td><td>${edit?`<button class="btn small" data-del="${key}:${i}">Remove</button>`:''}</td></tr>`).join('');
   let h = `<div class="card"><h2>Order routing</h2><p class="small muted">Destination by the type of security traded. Charles River receives every order with its destination. Changing a route needs the <b>Trade route manager</b> permission and a reason; every change is recorded in the ledger as <span class="mono">routes.change</span>.</p>
   <table><tr><th>Security type</th><th>Destination</th></tr>${types.map(k=>`<tr><td>${esc(k.replace('_',' '))}</td><td><select data-route="${k}" ${canR?'':'disabled'}>${S.st.route_names.map(n=>`<option ${n===st.routes[k]?'selected':''}>${esc(n)}</option>`).join('')}</select></td></tr>`).join('')}</table>
   <p class="small" id="rtWho">${canR?'':'You do not hold the route permission. '}<span class="muted">Loading who can change routes…</span></p></div>
@@ -286,6 +286,63 @@ function vSettings(){
     if (canPM) Object.assign(body, {tilts:P.tilts, exits:P.exits});
     try{ const r = await api('PUT','/api/trading/settings',body); S.pend=null; await load(); toast('Saved and recorded: '+r.changed.join(', ')) }catch(e){toast(e.message)}
   };
+}
+
+// ------------------------------------------------------------------ Glide path & bulk changes
+const scopeLabel = e => { const lab = ({'*':'All funds','vehicle:mutual_fund':'All mutual funds','vehicle:cit':'All CITs'})[e.fund||'*'] || e.fund; return lab + ((e.vintage_from||e.vintage_to)?`, vintages ${e.vintage_from||'…'}–${e.vintage_to||'…'}`:''); };
+const acName = a => a.replace(/_/g,' ');
+function bkScope(){ return {scope:$('#bkScope').value, vintage_from:+$('#bkFrom').value||null, vintage_to:+$('#bkTo').value||null}; }
+function bkFunds(){ const sc=bkScope(); return S.st.funds.filter(f=>(sc.scope==='*'||sc.scope===f.id||sc.scope==='vehicle:'+f.vehicle)&&(!sc.vintage_from||f.vintage>=sc.vintage_from)&&(!sc.vintage_to||f.vintage<=sc.vintage_to)); }
+function vBulk(){
+  S.shifts ||= [{asset_class:'us_large_cap', from:'us_core_bond', pp:1}];
+  const st=S.st, A=st.assets, V=st.vintages, g=st.glide;
+  const def = S.veh==='all'?'*':'vehicle:'+S.veh;
+  const acOpt = sel => A.map(a=>`<option value="${a}" ${a===sel?'selected':''}>${esc(acName(a))}</option>`).join('');
+  let h = `<div class="card"><h2>Apply to</h2><div class="row">
+   <label>Funds <select id="bkScope"><option value="*">All funds</option><option value="vehicle:mutual_fund">All mutual funds</option><option value="vehicle:cit">All CITs</option>${st.funds.map(f=>`<option value="${f.id}">${f.id}</option>`).join('')}</select></label>
+   <label>Vintages from <select id="bkFrom"><option value="">First</option>${V.map(v=>`<option>${v}</option>`).join('')}</select></label>
+   <label>to <select id="bkTo"><option value="">Last</option>${V.map(v=>`<option>${v}</option>`).join('')}</select></label>
+   <span class="small" id="bkCount"></span></div>
+   <label class="f" for="bkReason">Reason (kept in the ledger for every change on this tab)</label><input type="text" id="bkReason" placeholder="At least 10 characters"></div>
+
+  <div class="card"><h2>Glide path</h2><p class="small muted">Move weight between asset classes on the glide path of every fund in scope. Shifts stay within the IPS glide-path bands (±3pp per asset class, ±5pp equity); anything wider needs an IPS amendment. A change takes effect only after an <b>Investment Committee</b> member other than you approves it. It changes the Neutral table (and a Strategic table that follows the glide path); the IPS check still compares against the IPS glide path.</p>
+   <table id="shTable"><tr><th>Add to</th><th class="n">pp</th><th>Funded from</th><th></th></tr>${S.shifts.map((x,i)=>`<tr><td><select data-sha="${i}">${acOpt(x.asset_class)}</select></td><td class="n"><input type="number" data-shp="${i}" value="${x.pp}" step="0.25" style="width:90px"></td><td><select data-shf="${i}">${acOpt(x.from)}</select></td><td>${S.shifts.length>1?`<button class="btn small" data-shx="${i}">Remove</button>`:''}</td></tr>`).join('')}</table>
+   <div class="row" style="margin-top:8px"><button class="btn" id="shAdd">Add a shift</button><button class="btn" id="gpPrev">Preview</button>${BOOT.can_prepare?'<button class="btn primary" id="gpReq">Submit for Investment Committee approval</button>':''}</div>
+   <div id="gpPreview"></div>
+   <h3>Waiting for the Investment Committee</h3><table><tr><th>Request</th><th>Applies to</th><th>Change</th><th>Requested by</th><th>Reason</th><th></th></tr>${g.requests.filter(r=>r.status==='pending').map(r=>`<tr><td><b>${r.id}</b><br><span class="small muted">${r.kind==='retire'?'Retire '+esc(r.adjustment_id):'New'}</span></td><td>${esc(r.scope_label)} <span class="small muted">(${r.funds.length} funds)</span></td><td class="small">${r.shifts.map(x=>`${esc(acName(x.asset_class))} ${x.pp>0?'+':''}${x.pp}pp from ${esc(acName(x.from))}`).join('<br>')}</td><td>${esc(r.requested_by.name)}</td><td class="small">${esc(r.reason)}</td><td>${BOOT.can_glide?`<button class="btn small primary" data-gpd="${r.id}:approve">Approve</button> <button class="btn small" data-gpd="${r.id}:reject">Reject</button>`:'<span class="small muted">IC decides</span>'}</td></tr>`).join('')||'<tr><td colspan=6 class="muted">None</td></tr>'}</table>
+   <h3>In force</h3><table><tr><th>Adjustment</th><th>Applies to</th><th>Change</th><th>Approved by</th><th></th></tr>${g.adjustments.filter(a=>a.status==='active').map(a=>`<tr><td><b>${a.id}</b><br><span class="small muted">from ${esc(a.effective)}</span></td><td>${esc(a.scope_label)} <span class="small muted">(${a.funds.length} funds)</span></td><td class="small">${a.shifts.map(x=>`${esc(acName(x.asset_class))} ${x.pp>0?'+':''}${x.pp}pp from ${esc(acName(x.from))}`).join('<br>')}</td><td>${esc(a.approved_by.name)}<br><span class="small muted">requested by ${esc(a.requested_by.name)}</span></td><td>${BOOT.can_prepare?`<button class="btn small" data-gpr="${a.id}">Request retirement</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">None: every fund follows the IPS glide path</td></tr>'}</table></div>`;
+  if (BOOT.can_approve) h += `<div class="card"><h2>Strategic table</h2><p class="small muted">Set the Strategic table of every fund in scope at once: follow the glide path, or the glide path plus the shifts above (tactical, no committee approval; the IPS check runs on every trade list).</p>
+   <div class="row"><button class="btn" id="stbFollow">Follow the glide path</button><button class="btn primary" id="stbShift">Glide path plus the shifts above</button></div></div>
+  <div class="card"><h2>Tilts</h2><p class="small muted">Tilt toward or away from an asset class (spread over each fund's securities in that class) or a security. For the same item, the most specific scope wins: one fund, then a vintage range, then all CITs or mutual funds, then all funds.</p>
+   <div class="row"><select id="bkTiKind"><option value="asset_class">Asset class</option><option value="instrument">Security</option></select><select id="bkTiItem"></select><input type="number" id="bkTiBps" placeholder="± bp" step="5" style="width:90px"><input type="date" id="bkTiUntil" title="Until (optional)"><button class="btn primary" id="bkTiGo">Apply tilt</button></div></div>
+  <div class="card"><h2>Exclusions and full exits</h2><div class="row"><select id="bkExInst">${st.instruments.map(i=>`<option value="${i.id}">${esc(i.id)} · ${esc(i.name)}</option>`).join('')}</select><select id="bkExKind"><option value="excluded">Exclude from trading</option><option value="exits">Flag for full exit</option></select><input type="date" id="bkExUntil" title="Until (optional)"><button class="btn primary" id="bkExGo">Apply</button></div><p class="small muted">A security not held by a fund's product line has no effect there.</p></div>
+  <div class="card"><h2>Roll-down schedule and cash buffer</h2><div class="row"><label>Glide-path roll-down <select id="bkRoll"><option value="">No change</option><option>monthly</option><option>quarterly</option><option>semiannual</option><option>annual</option></select></label><label>ETF cash buffer <input type="number" id="bkBuf" placeholder="No change" min="0" max="500" step="5" style="width:110px"> bp</label><button class="btn primary" id="bkRbGo">Apply</button></div><p class="small muted">The buffer can only be set stricter than the series buffer (${st.settings.buffer_bps} bp).</p></div>`;
+  $('#bulk').innerHTML = h;
+  $('#bkScope').value = S.bk?.scope || def; if (S.bk){ $('#bkFrom').value=S.bk.vintage_from||''; $('#bkTo').value=S.bk.vintage_to||''; $('#bkReason').value=S.bk.reason||''; }
+  const count = ()=>{ const n=bkFunds(); $('#bkCount').innerHTML=`Applies to <b>${n.length}</b> funds`; S.bk={...bkScope(), reason:$('#bkReason').value}; };
+  ['#bkScope','#bkFrom','#bkTo'].forEach(q=>$(q).onchange=count); $('#bkReason').oninput=count; count();
+  const sync = ()=>{ document.querySelectorAll('[data-sha]').forEach(e=>S.shifts[+e.dataset.sha].asset_class=e.value); document.querySelectorAll('[data-shf]').forEach(e=>S.shifts[+e.dataset.shf].from=e.value); document.querySelectorAll('[data-shp]').forEach(e=>S.shifts[+e.dataset.shp].pp=+e.value); };
+  $('#shAdd').onclick=()=>{sync(); S.shifts.push({asset_class:A[0], from:A[1], pp:0.5}); vBulk()};
+  document.querySelectorAll('[data-shx]').forEach(b=>b.onclick=()=>{sync(); S.shifts.splice(+b.dataset.shx,1); vBulk()});
+  const reason = ()=>$('#bkReason').value;
+  $('#gpPrev').onclick=async()=>{ sync(); try{ const r=await api('POST','/api/trading/glide-path/preview',{...bkScope(), shifts:S.shifts}); renderPreview(r) }catch(e){toast(e.message)} };
+  if ($('#gpReq')) $('#gpReq').onclick=async()=>{ sync(); try{ const r=await api('POST','/api/trading/glide-path/requests',{...bkScope(), shifts:S.shifts, reason:reason()}); await load(); toast(`${r.id}: glide-path change for ${r.funds} funds sent to the Investment Committee`) }catch(e){toast(e.message)} };
+  document.querySelectorAll('[data-gpd]').forEach(b=>b.onclick=async()=>{ const [id,d]=b.dataset.gpd.split(':'); try{ await api('POST',`/api/trading/glide-path/requests/${id}/decide`,{decision:d, reason:reason()}); await load(); toast(`${id} ${d}d and recorded`) }catch(e){toast(e.message)} });
+  document.querySelectorAll('[data-gpr]').forEach(b=>b.onclick=async()=>{ try{ const r=await api('POST','/api/trading/glide-path/requests',{kind:'retire', adjustment_id:b.dataset.gpr, reason:reason()}); await load(); toast(`${r.id}: retirement sent to the Investment Committee`) }catch(e){toast(e.message)} });
+  if (!BOOT.can_approve) return;
+  const stb = async follows => { sync(); try{ const r=await api('PUT','/api/trading/targets/strategic-bulk',{...bkScope(), follows_glide_path:follows, shifts:follows?[]:S.shifts, reason:reason()}); await load(); toast(`Strategic table set for ${r.funds} funds and recorded`) }catch(e){toast(e.message)} };
+  $('#stbFollow').onclick=()=>stb(true); $('#stbShift').onclick=()=>stb(false);
+  const fillItems=()=>{ $('#bkTiItem').innerHTML = $('#bkTiKind').value==='asset_class' ? A.map(a=>`<option value="${a}">${esc(acName(a))}</option>`).join('') : st.instruments.map(i=>`<option value="${i.id}">${esc(i.id)}</option>`).join(''); };
+  $('#bkTiKind').onchange=fillItems; fillItems();
+  const scoped = extra => { const sc=bkScope(); return {fund:sc.scope, ...(sc.vintage_from?{vintage_from:sc.vintage_from}:{}), ...(sc.vintage_to?{vintage_to:sc.vintage_to}:{}), ...extra}; };
+  const save = async (body, msg) => { try{ const r=await api('PUT','/api/trading/settings',{...body, reason:reason()}); S.pend=null; await load(); toast(msg+' Saved and recorded: '+r.changed.join(', ')) }catch(e){toast(e.message)} };
+  $('#bkTiGo').onclick=()=>{ const bps=+$('#bkTiBps').value; if(!bps) return toast('Enter the tilt in basis points, e.g. 50 or -25'); const k=$('#bkTiKind').value; save({tilts:[...st.settings.tilts, scoped({[k]:$('#bkTiItem').value, bps, until:$('#bkTiUntil').value})]}, `Tilt applied to ${bkFunds().length} funds.`) };
+  $('#bkExGo').onclick=()=>{ const k=$('#bkExKind').value; save({[k]:[...(st.settings[k]||[]), scoped({instrument:$('#bkExInst').value, until:$('#bkExUntil').value})]}, `Applied to ${bkFunds().length} funds.`) };
+  $('#bkRbGo').onclick=()=>{ const fs=bkFunds(), body={}; if($('#bkRoll').value) body.roll_down={...(st.settings.roll_down||{}), ...Object.fromEntries(fs.map(f=>[f.id,$('#bkRoll').value]))}; if($('#bkBuf').value!=='') body.buffer_overrides={...(st.settings.buffer_overrides||{}), ...Object.fromEntries(fs.map(f=>[f.id,+$('#bkBuf').value]))}; if(!Object.keys(body).length) return toast('Choose a roll-down schedule or a buffer'); save(body, `Applied to ${fs.length} funds.`) };
+}
+function renderPreview(r){
+  const A=S.st.assets, changed=A.filter(a=>r.funds.some(f=>Math.abs(f.new[a]-f.current[a])>1e-9));
+  $('#gpPreview').innerHTML = `<h3>Preview: ${r.funds.length} funds ${r.ok?chip('Within IPS bands','ok'):chip('Outside IPS bands','crit')}</h3><table><tr><th>Fund</th><th>Roll-down</th>${changed.map(a=>`<th class="n">${esc(acName(a))}<br><span class="small muted">IPS → now → new</span></th>`).join('')}<th>Check</th></tr>${r.funds.map(f=>`<tr><td>${f.fund_id}</td><td>${f.roll_down}</td>${changed.map(a=>`<td class="n small">${pct(f.ips[a])} → ${pct(f.current[a])} → <b>${pct(f.new[a])}</b></td>`).join('')}<td>${f.ok?chip('OK','ok'):`<span class="small neg">${f.problems.map(esc).join('<br>')}</span>`}</td></tr>`).join('')}</table>`;
 }
 
 // ------------------------------------------------------------------ Tranches (trade bucket)

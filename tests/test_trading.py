@@ -338,3 +338,62 @@ def test_route_managers_list(client):
     login(client, "Maya Chen", "portfolio_manager")
     j = client.get("/api/trading/route-managers").json()
     assert j["permission"] == "route_manager" and isinstance(j["holders"], list)
+
+
+def test_bulk_scopes_glide_path_and_strategic(client):
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    # asset-class tilt on all CITs, 2050+ only; exclusion for all mutual funds; roll-down for all CITs
+    r = client.put("/api/trading/settings", headers=hp, json={
+        "tilts": [{"asset_class": "emerging_eq", "fund": "vehicle:cit", "vintage_from": 2050, "bps": 50}],
+        "excluded": [{"instrument": "PDBC", "fund": "vehicle:mutual_fund"}],
+        "roll_down": {"MTRT-2030": "annual", "MTRT-2035": "annual"}, "reason": R})
+    assert r.status_code == 200, r.text
+    assert client.put("/api/trading/settings", headers=hp, json={
+        "tilts": [{"asset_class": "nope", "fund": "*", "bps": 10}], "reason": R}).status_code == 400
+    assert client.put("/api/trading/settings", headers=hp, json={
+        "tilts": [{"asset_class": "emerging_eq", "fund": "vehicle:cit", "vintage_from": 2060, "vintage_to": 2040, "bps": 10}],
+        "reason": R}).status_code == 400
+    row = lambda fid, k: {x["instrument"]: x for x in client.get(f"/api/trading/funds/{fid}").json()["rows"]}[k]
+    assert row("MTRT-2050", "MER-EM-CIT")["tilt_bps"] == pytest.approx(50)
+    assert row("MTRT-2040", "MER-EM-CIT")["tilt_bps"] == 0 and row("MTRS-2050", "MER-EM-MF")["tilt_bps"] == 0
+    assert row("MTRS-2050", "PDBC")["excluded"] and not row("MTRT-2050", "PDBC")["excluded"]
+    st = client.get("/api/trading/state").json()
+    rd = {f["id"]: f["roll_down"] for f in st["funds"]}
+    assert rd["MTRT-2030"] == "annual" and rd["MTRT-2040"] == "semiannual"
+
+    # glide path: preview, refusal outside the IPS band, request, segregation of duties, IC approval
+    shifts = [{"asset_class": "us_large_cap", "from": "us_core_bond", "pp": 1.5}]
+    pv = client.post("/api/trading/glide-path/preview", headers=hp, json={"scope": "vehicle:cit", "shifts": shifts}).json()
+    assert len(pv["funds"]) == 9 and pv["ok"]
+    wide = client.post("/api/trading/glide-path/requests", headers=hp, json={
+        "scope": "*", "shifts": [{"asset_class": "us_large_cap", "from": "us_core_bond", "pp": 4}], "reason": R})
+    assert wide.status_code == 400 and "IPS amendment" in wide.json()["detail"]
+    req = client.post("/api/trading/glide-path/requests", headers=hp, json={"scope": "vehicle:cit", "vintage_to": 2045,
+                                                                            "shifts": shifts, "reason": R}).json()
+    assert req["funds"] == 4
+    before = row("MTRT-2040", "MER-USLC-CIT")["t_neutral"]
+    assert client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=hp,
+                       json={"decision": "approve", "reason": R}).status_code == 403          # no IC permission
+    hm = login(client, "Maya Chen", "portfolio_manager", "investment_committee", email="maya@example.com")
+    assert client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=hm,
+                       json={"decision": "approve", "reason": R}).status_code == 403          # own request
+    he = login(client, "Elena Rossi", "leadership", "investment_committee", email="elena@example.com")
+    ok = client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=he, json={"decision": "approve", "reason": R})
+    assert ok.status_code == 200 and ok.json()["status"] == "approved"
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    after = row("MTRT-2040", "MER-USLC-CIT")["t_neutral"]
+    assert after == pytest.approx(before + 0.015, abs=1e-6)
+    st = client.get("/api/trading/state").json()
+    adj = {f["id"]: f["glide_adjusted"] for f in st["funds"]}
+    assert adj["MTRT-2040"] and not adj["MTRT-2050"] and not adj["MTRS-2040"]
+
+    # strategic table in bulk: all mutual funds = glide path plus a shift
+    sb = client.put("/api/trading/targets/strategic-bulk", headers=hp, json={
+        "scope": "vehicle:mutual_fund", "follows_glide_path": False,
+        "shifts": [{"asset_class": "emerging_eq", "from": "intl_developed_eq", "pp": 1}], "reason": R})
+    assert sb.status_code == 200 and sb.json()["funds"] == 9
+    r50 = row("MTRS-2050", "MER-EM-MF")
+    assert r50["t_strategic"] == pytest.approx(r50["t_neutral"] + 0.01, abs=1e-6)
+    from meridian.app.main import store
+    steps = [x["step"] for x in store().ledger("governance") if x["dr_type"] == "trading"]
+    assert {"glidepath.request", "glidepath.approve", "targets.strategic-bulk", "settings.change"} <= set(steps)
