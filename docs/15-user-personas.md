@@ -1,8 +1,8 @@
-# 14 — User Personas
+# 15 — User Personas
 
-**Version 0.2 · 2026-11-09 · Living document: refine after every round of user testing (doc 15) and as new roles are added.**
+**Version 0.3 · 2026-11-10 · Living document: refine after every round of user testing (doc 16) and as new roles are added.**
 
-Personas describe the people Meridian must serve: what they do for the business, what their days look like, what they cannot do without, and what they need from an agentic portfolio platform. Each ends with what Meridian covers today, the gaps, and the top three tasks used for user testing (doc 15). Names are fictional.
+Personas describe the people Meridian must serve: what they do for the business, what their days look like, what they cannot do without, and what they need from an agentic portfolio platform. Each ends with what Meridian covers today, the gaps, and the top three tasks used for user testing (doc 16). Names are fictional.
 
 Sources are listed at the end. Role descriptions draw on current job descriptions at large multi-asset and target-date managers, SEC examination priorities, the DOL's target-date guidance for ERISA fiduciaries, the IIA Global Internal Audit Standards and model-risk guidance (SR 11-7).
 
@@ -66,8 +66,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - A one-click committee summary (board memo) that matches what was approved.
 - Confidence the agents stay inside the IPS: hard limits enforced in code, not by the model.
 
-**Covered today:** Positioning with drill-down, proposals per vintage, adjustments with instant recompute, risk budget, fund risk, look-through, approvals with reason and checklist, board memo.
-**Gaps:** No "diff vs last run" view; no "Why?" link from a number to its decision record; no scenario/what-if on the proposal itself (risk team's scenario builder covers factor shocks only); no performance or attribution.
+**Covered today:** Positioning with drill-down, proposals per vintage with **Why?** evidence, adjustments with instant recompute, **changes since last run**, risk budget, fund risk, look-through, approvals with reason and checklist, exceptions, board memo. **Trading (2026-11-10):** cashflow intake, three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, current vs post-trade preview with IPS check, approval and the Charles River import file (shadow mode, example positions).
+**Gaps:** No rebalance trades that close gaps to target; no what-if on the proposal itself (the scenario builder covers factor shocks only); no performance or attribution; positions are example data until custodian/TA files are connected; Charles River results don't come back yet.
 **UAT top tasks:** (1) review and approve a vintage's proposal; (2) adjust a weight and see risk and compliance update; (3) explain the largest change using the memo and dissent.
 
 ---
@@ -96,8 +96,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Model transparency: definitions, data sources and known limitations on the screen.
 - A recorded escalation or sign-off on each risk review.
 
-**Covered today:** Fund risk, factor risk with 18-month history, stress tests (12 historical, 7 hypothetical, scenario builder), risk history with point-in-time storage, look-through and ticker search, candidate risk, risk budget with proximity colors, second-approver role.
-**Gaps:** No liquidity metrics (days to liquidate, 22e-4 buckets), no expected shortfall or VaR backtesting, no ex-post vs ex-ante comparison (see doc 12 §8, add-ons awaiting direction); no recorded "risk review" sign-off separate from approvals; no CSV export from the Console screens.
+**Covered today:** Fund risk, factor risk with 18-month history, stress tests (12 historical, 7 hypothetical, scenario builder), risk history with point-in-time storage, look-through and ticker search, candidate risk, risk budget with proximity colors, second-approver role, exceptions (raise and work cases), read-only Trading with post-trade preview.
+**Gaps:** No liquidity metrics (days to liquidate, 22e-4 buckets), no expected shortfall or VaR backtesting, no ex-post vs ex-ante comparison (doc 13 §8, awaiting direction); no recorded "risk review" sign-off separate from approvals; no CSV export from most Console screens; Treasury issuer names split in look-through (F-4).
 **UAT top tasks:** (1) find the vintage closest to its tracking-error budget and explain why; (2) run a "rates +100bp, equities −20%" scenario and read the loss by vintage; (3) co-approve an adjusted proposal as Risk.
 
 ---
@@ -124,8 +124,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Ability to propose a change (method, weight, bound) as a change request with evidence.
 - Notebook access to reproduce and extend any Console number.
 
-**Covered today:** CMA tab, agent votes, positioning, factor risk, look-through; research notebook (CMA lab) and risk notebook.
-**Gaps:** No forecast-vs-realized history; no in-app change-request flow for methods (change requests exist only for risk budgets); no allocation-sensitivity view in the Console.
+**Covered today:** CMA tab with **Why?**, agent votes, positioning and adjustments, changes since last run, factor risk, look-through; research notebook (CMA lab) and risk notebook; can load cashflows and prepare trade lists in Trading.
+**Gaps:** No forecast-vs-realized history; no in-app change-request flow for methods; no allocation-sensitivity view in the Console.
 **UAT top tasks:** (1) find the asset class where the CMA judge moved furthest from the auto-blend and read why; (2) see which PC methods the agents ranked highest; (3) propose a weight adjustment as analyst for PM/Risk approval.
 
 ---
@@ -152,8 +152,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Due diligence workflow with agent extraction and source links (roadmap Phase 5).
 - Manager scorecards and monitoring alerts.
 
-**Covered today:** Funds & vintages, underlying funds, look-through and search (with proxy fund and holdings date), positioning.
-**Gaps:** Due diligence workflow, scorecards, watch list and alerts are not built (Phase 5); no fee view; no overlap analysis between building blocks.
+**Covered today:** Funds & vintages, underlying funds with return and holdings proxies, look-through and search (with holdings date), positioning; Trading fund pages list held securities and candidates not yet held.
+**Gaps:** Due diligence workflow, scorecards, watch list and alerts (Phase 5); no fee view; no overlap analysis between building blocks.
 **UAT top tasks:** (1) find which building blocks hold a given issuer and how much each vintage owns; (2) open an underlying fund and read its holdings and data date; (3) compare the underlying fund mix of two vintages.
 
 ---
@@ -180,7 +180,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Decision queue for items that need the committee.
 - Governance controls: autonomy level per pipeline, pause switch, KPIs (overrides, accuracy, breaches).
 
-**Covered today:** Home with outstanding approvals, blockers and compliance status; board memo; fund risk; stress tests; risk budget; metrics; glide path; approvals.
+**Covered today:** Home with outstanding approvals, blockers and compliance status; board memo; changes since last run; fund risk; stress tests; risk budget; metrics; glide path; approvals with the Investment Committee permission; exceptions; read-only Trading.
 **Gaps:** No kill switch or autonomy controls in the UI; no KPI view (override rate, forecast accuracy, parallel-run comparison); no fee review.
 **UAT top tasks:** (1) read the board memo and state the recommendation, top risk and any dissent; (2) check which vintages need committee approval; (3) see each vintage's worst historical stress loss.
 
@@ -209,8 +209,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - One-click evidence export by decision, portfolio, rule or date range.
 - The Agentic Compliance Officer's draft review, clearly marked as draft and never a sign-off.
 
-**Covered today:** Compliance tab with rule results per vintage, compliance report (ACO draft), decision ledger, look-through for issuer exposure, risk budget, attestation status; ledger is now append-only in the database.
-**Gaps:** No exception workflow (owner, deadline, resolution); no approval-quality audit view; evidence export exists in the API but has no button in the Console; no annual-review support; no marketing-review routing.
+**Covered today:** Compliance tab with rule results and **Why?**; **exception workflow** (owner, due date, notes, remediation, CCO time-limited acceptance, close with separation of duties); ledger search across runs with CSV; evidence-pack download; compliance report (ACO draft); look-through for issuer exposure; trading records (type `trading`, route changes `routes.change`) in the ledger; read-only access review and access log.
+**Gaps:** No approval-quality audit view; no annual-review package; no marketing-review routing; the CCO is still a placeholder (production blocker).
 **UAT top tasks:** (1) find any WARN or FAIL and read the rule, value and limit; (2) open the decision ledger and trace one approval to the proposal it approved; (3) read the ACO report and list the production blockers.
 
 ---
@@ -237,8 +237,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Evidence pack export with integrity instructions.
 - Replay of what an approver saw.
 
-**Covered today:** Decision ledger, compliance tab and report, ledger hash-chain verification in the side bar; append-only enforcement in the database.
-**Gaps:** No ledger search across runs or date ranges; no replay; no evidence export button; no WORM copy (deferred to production because it adds cost).
+**Covered today:** Decision ledger with hash-chain verification, **search across runs and CSV**, **evidence-pack download**, exceptions, compliance tab and report, read-only access review and log; append-only enforcement in the database for ledger and access log.
+**Gaps:** No replay of an approver's screen; no WORM copy (deferred to production because it adds cost).
 **UAT top tasks:** (1) confirm the ledger verifies and find the approvals for one vintage; (2) identify who approved and their stated reason; (3) confirm a user can't approve the same vintage in two roles (segregation of duties).
 
 ---
@@ -261,20 +261,22 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Access review report (who has which roles).
 - Health and cost dashboard.
 
-**Covered today:** User management, deploys and runs through GitHub Actions; cost guard; runbooks (doc 13). Admins get the read-only Audit view in the Console.
-**Built 2026-11-10:** User access screen: add, edit, permissions on/off, disable/enable, delete, access review with CSV, append-only access log, immediate sign-out on access changes.
+**Covered today:** User access screen (add, edit, permissions on/off including Investment Committee, CCO and Trade route manager, disable/enable, delete, access review with CSV, append-only access log, immediate sign-out on access changes); deploys and runs through GitHub Actions; cost guard; runbooks (doc 14).
 **Gaps:** No agent registry or model inventory; no alarms (deferred for cost).
 **UAT top tasks:** (1) add a user with specific roles and confirm what they see; (2) disable a user and confirm sign-in is blocked; (3) find the deploy that changed the app last and what it changed.
 
 ---
 
-## Gap summary (for prioritization, not yet scheduled)
+## Gap summary (for prioritization)
 
 | Gap | Roles that need it | Roadmap fit |
 |---|---|---|
 | ~~"Why?" link from any number to its decision record; diff vs last run~~ | PM, Leadership, Compliance, Audit | **Built 2026-11-10** |
 | ~~Evidence-pack export button; ledger search across runs~~ | Compliance, Audit | **Built 2026-11-10** |
 | ~~Exception workflow (owner, deadline, resolution)~~ | Compliance, Risk | **Built 2026-11-10** |
+| ~~Cashflow trading, routing, tilts, exclusions, exits, tickets, tranches, Charles River file~~ | PM, Analyst, Compliance | **Built 2026-11-10** (doc 17) |
+| Rebalance trades; real positions from custodians/TAs; Charles River results back | PM, Analyst, Risk | Doc 17 |
+| Derivatives, in-kind, mandates, margin and leverage, capital calls | PM, Risk, Compliance | Doc 17 Phase F (needs answers to §6 questions 6–8) |
 | Kill switch and autonomy controls; governance KPIs | Leadership, Admin | Phase 2/3 |
 | Risk add-ons: liquidity, expected shortfall, VaR backtest, ex-post vs ex-ante | Risk, Compliance | Doc 13 §8 (awaiting direction) |
 | Performance and attribution | PM, Leadership, Manager Selection | Not yet planned |

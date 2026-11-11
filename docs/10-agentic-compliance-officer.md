@@ -1,6 +1,6 @@
-# 09 — Agentic Compliance Officer (ACO)
+# 10 — Agentic Compliance Officer (ACO)
 
-**Version 0.1 · 2026-11-06**
+**Version 0.2 · 2026-11-10**
 
 ## Why it exists
 Meridian is being built by a solo product owner with no compliance staff. The ACO plays the compliance-analyst role on every run so the compliance function exists in the product from day one.
@@ -23,3 +23,6 @@ When an LLM is configured, it also writes a narrative. The rule results stay det
 
 ## Path to production
 Before real money: appoint a human CCO (an outsourced/fractional CCO is common for small advisers). The CCO reviews regimes, the IPS and the controls in doc 04, and then signs the attestations.
+
+## Status (2026-11-10)
+The CCO role is held by a fictional placeholder (Robert Hayes) in `config/entity_profile.yaml` so the permission flow can be tested. A placeholder never fills the role: it stays a production blocker on every compliance report and on the Leadership home page. The `chief_compliance_officer` permission must only be given to the real, named CCO.

@@ -1,6 +1,6 @@
-# 10 — User Interfaces
+# 11 — User Interfaces
 
-**Version 0.2 · 2026-11-09**
+**Version 0.3 · 2026-11-10**
 
 Meridian has three interfaces over the same data and the same decision ledger. Each user gets the one that fits how they work.
 
@@ -20,11 +20,11 @@ Meridian has three interfaces over the same data and the same decision ledger. E
 | Leadership (`leadership`) | Home · Funds & vintages · Board memo · Changes since last run · Fund risk · Stress tests · Risk budget · Metrics · Glide path · Approvals · Exceptions | Approvals outstanding, production blockers, compliance status | Approve glide-path changes |
 | Compliance (`compliance`) | Home · Compliance · Exceptions · Risk budget · Look-through & search · Compliance report · Decision ledger | FAILs, warnings, attestations, blockers | Attest; approve exceptions |
 | Audit (`audit`) | Home · Decision ledger · Exceptions · Compliance · Compliance report | Ledger integrity, actors, retention | Read-only |
-| Admin (`admin`) | **User access** screen (`/admin`), plus the read-only Audit view of the console | — | Add, edit, disable and delete users; switch permissions on/off; access review and access log (doc 13 §5). Deploys happen in GitHub Actions |
+| Admin (`admin`) | **User access** screen (`/admin`), plus the read-only Audit view of the console | — | Add, edit, disable and delete users; switch permissions on/off; access review and access log (doc 14 §5). Deploys happen in GitHub Actions |
 
 A person with several roles picks the workspace from the role selector in the side bar; only their own roles are listed.
 
-**Permissions** (switched on or off per person, doc 13 §5) sit on top of workspaces: `investment_committee` lets a Leadership user record committee decisions, and `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes. Without the permission the approval form is replaced by a note saying which permission is needed; the server refuses the decision either way.
+**Permissions** (switched on or off per person in User access, doc 14 §5) sit on top of workspaces: `investment_committee` lets a Leadership user record committee decisions; `chief_compliance_officer` lets a Compliance user accept exceptions and approve policy changes (only the named CCO); `route_manager` lets a person change order routes on the Trading screen. Without the permission the approval form is replaced by a note saying which permission is needed; the server refuses the decision either way.
 
 Design rules applied across every view:
 - **"Why?" is always one click away.** Every proposal shows its rationale, ensemble, invalidation conditions and dissent; **Why?** buttons on proposals, compliance results and CMAs list the decision records behind them (people's decisions highlighted), with a jump to the full record for Compliance and Audit.
@@ -35,12 +35,18 @@ Design rules applied across every view:
 - **Synthetic-data and compliance status banners** appear on every page.
 - The ledger opens only in the Compliance and Audit workspaces; other roles see record IDs.
 
+## Trading screen (`/trading`, built 2026-11-10)
+A separate page linked from the console side bar, for the implementation workflow in doc 17: **Funds & securities**, **Cashflows**, **Trades**, **Routing & settings**, with an **All funds / Mutual funds / CITs** toggle on every tab. PMs and analysts prepare; PMs approve; route changes need the `route_manager` permission; Risk, Compliance, Audit, Leadership and Admin see it read-only. Step-by-step use with screenshots: doc 06 §10.
+
+## User access screen (`/admin`)
+Users, Access review (CSV) and Access log tabs. Admins edit; Audit and Compliance read. Doc 06 §11, doc 14 §5.
+
 ## Hosted app vs local console
-**Hosted (built, 2026-11-09).** The FastAPI app serves the Console at https://d3maw6l4k5cc0v.cloudfront.net. People sign in with Amazon Cognito (doc 06, "Signing in"); their Cognito groups decide which workspaces they see. Approvals, weight adjustments and risk-budget requests write directly to the ledger in the app's database, and the run picker lists every run published by the `agent-run` workflow. Sessions last 8 hours. Exports for the next run: `/api/export/positions.csv`, `/api/export/risk-history.csv`, `/api/export/policy-overrides`. Hosting and operations: doc 13.
+**Hosted (built, 2026-11-09).** The FastAPI app serves the Console at https://d3maw6l4k5cc0v.cloudfront.net. People sign in with Amazon Cognito (doc 06, "Signing in"); their Cognito groups decide which workspaces they see. Approvals, weight adjustments and risk-budget requests write directly to the ledger in the app's database, and the run picker lists every run published by the `agent-run` workflow. Sessions last 8 hours. Exports for the next run: `/api/export/positions.csv`, `/api/export/risk-history.csv`, `/api/export/policy-overrides`. Hosting and operations: doc 14.
 
 **Local (for development and offline review).** `meridian ui` generates one self-contained page per run, with a role picker to preview every workspace. Approvals made there produce a `meridian approve` command that writes the decision to the local ledger.
 
-See doc 11 for positioning, risk budgets, metrics and adjustments, and doc 12 for the risk analytics tabs.
+See doc 12 for positioning, risk budgets, metrics and adjustments, and doc 13 for the risk analytics tabs.
 
 ## Notebooks (`notebooks/`)
 | Notebook | Audience | Contents |

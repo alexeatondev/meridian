@@ -1,6 +1,6 @@
 # 01 — Product Charter & Product Requirements (PRD)
 
-**Version 0.1 · 2026-11-06 · Owner: Dev (Product Owner)**
+**Version 0.2 · 2026-11-10 · Owner: Dev (Product Owner)**
 
 ## 1. Problem
 Institutional portfolio management is bandwidth-bound, not data-bound (paper §1). A CIO oversees ~10–15 departments; committees meet monthly or quarterly; teams typically run one portfolio-construction method because comparing many is too slow; and the rationale behind decisions is scattered across decks, emails and memory — making audit and compliance review expensive.
@@ -97,3 +97,19 @@ Shift the investment team's role from analytical execution to **policy design, j
 
 ## 9. Risks (summary — see doc 04)
 Lookahead bias in LLM backtests; LLM monoculture; automation complacency ("rubber-stamping"); agent overreach / scope creep; data licensing limits on LLM use; prompt injection via web data; misleading marketing of AI capability ("AI-washing").
+
+## 10. Status against goals (2026-11-10)
+| Goal / epic | Status | Where |
+|---|---|---|
+| G1 / E4 SAA pipeline | **Built** on public data; live LLM judgment via the `agent-run` workflow; runs are ad hoc | docs 02, 03 |
+| G2 / E8 Portfolio hierarchy | **Partial:** fund → building block → security look-through (iShares proxies); fund → account → security positions for trading (example data) | docs 13, 17 |
+| G3 / E9 Asset-class analytics | **Partial:** equity and fixed-income risk, durations, factors, stress; derivatives not yet | docs 13, 17 |
+| G4 / E10 Manager selection | **Not built** (Phase 5); candidate list on Trading fund pages | doc 17 |
+| G5 / E11 Implementation | **Partial (shadow):** cashflow trade lists, tickets, exits, tranches, tilts, exclusions, routing, IPS pre-trade check, approval, Charles River import file (mock). Rebalance trades, real positions and Charles River results back not yet | doc 17 |
+| G6 / E5 Decision lineage | **Built:** hash-chained ledger, append-only in the database, **Why?** panels, search across runs, evidence pack. WORM copy deferred to production (cost) | docs 05, 14 |
+| E6 Compliance engine | **Built** for IPS rules; exception workflow built; mandates not yet | docs 04, 10 |
+| E7 Approvals and autonomy | **Partial:** reasoned approvals with segregation of duties, Investment Committee and CCO permissions; kill switch and autonomy controls not in the app | docs 06, 11 |
+| G7 / E12 Role workspaces | **Built:** eight workspaces, three permissions, User access screen; Ask Meridian not built | docs 06, 11 |
+| E13–E15 Learning, PC researcher, agent teams | Not started (Phase 7) | doc 03 |
+
+Users and personas: see doc 15 (fictional roster for testing). Requirements added on 2026-11-10 for cashflows and trading are in doc 17.

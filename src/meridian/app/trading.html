@@ -344,6 +344,6 @@ function bindTicket(d){
 document.querySelectorAll('#veh button').forEach(b=>b.onclick=()=>{S.veh=b.dataset.v;sessionStorage.setItem('tr_veh',S.veh);render()});
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.pend=null;S.tab=b.dataset.tab;sessionStorage.setItem('tr_tab',S.tab);render()});
 S.tl = sessionStorage.getItem('tr_tl');
-$('#who').textContent = BOOT.user.name + ' · ' + BOOT.user.roles.filter(r=>!['investment_committee','chief_compliance_officer'].includes(r)).join(', ');
+$('#who').textContent = BOOT.user.name + ' · ' + BOOT.user.roles.filter(r=>!['investment_committee','chief_compliance_officer','route_manager'].includes(r)).join(', ');
 load().catch(e=>toast(e.message));
 </script></body></html>

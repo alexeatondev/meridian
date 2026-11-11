@@ -1,19 +1,19 @@
-# 15 — User Acceptance Test (UAT) Scripts
+# 16 — User Acceptance Test (UAT) Scripts
 
-**Version 0.1 · 2026-11-09 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
+**Version 0.3 · 2026-11-10 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
 
-One script per role, built from the personas (doc 14). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
+One script per role, built from the personas (doc 15). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
 
 ## How to run
 
-**By hand (hosted app).** Sign in at https://d3maw6l4k5cc0v.cloudfront.net with the account for the role (doc 13 §5). Mark each step Pass / Fail / Comment. Record anything confusing, slow or missing, even when the step passes: that feedback is the main output of UAT.
+**By hand (hosted app).** Sign in at https://d3maw6l4k5cc0v.cloudfront.net with the account for the role (doc 14 §5). Mark each step Pass / Fail / Comment. Record anything confusing, slow or missing, even when the step passes: that feedback is the main output of UAT.
 
 | Test account | Roles | Use for |
 |---|---|---|
 | Alex Eaton (full access) | All eight | PM, Research, Manager Selection, Leadership scripts (switch workspace in the side bar) |
 | RCTest User | Risk, Compliance | Risk and Compliance scripts; second approver for segregation-of-duties steps |
 
-Approvals made in the hosted app are permanent ledger records (it is shadow mode, so no money moves). Use reasons that start with "UAT:" so they're easy to find later. To test as the fictional people in the roster (doc 14), an admin can invite extra logins using plus-addresses of an inbox you own (e.g. `you+maya@…`), which most email providers deliver to the same inbox.
+Approvals made in the hosted app are permanent ledger records (it is shadow mode, so no money moves). Use reasons that start with "UAT:" so they're easy to find later. To test as the fictional people in the roster (doc 15), an admin can invite extra logins using plus-addresses of an inbox you own (e.g. `you+maya@…`), which most email providers deliver to the same inbox.
 
 **Automated (local or GitHub, no AWS cost).** The browser tests in `tests/e2e/` start the app on the test machine with development sign-in, a throw-away database and one offline pipeline run, then drive Chromium through every script below.
 - Locally: `pip install -e ".[dev,app,e2e]"`, `python -m playwright install chromium`, then `MERIDIAN_OFFLINE=1 pytest tests/e2e -v` (add `--headed --slowmo 300` to watch).
@@ -109,7 +109,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | ACC-1 | Open the app signed out | Sent to sign-in | `test_access_01` |
 | ACC-2 | Sign in with no role | "Your account has no Meridian role yet" | `test_access_02` |
 | ACC-3 | As Audit, change the address to `…/runs/latest#pm` | Still only the Audit workspace | `test_access_03` |
-| ADM-2 | Add a user with the manage-users workflow; confirm their tabs; disable them; confirm sign-in is blocked | As described in doc 13 §5 | Manual only (needs AWS) |
+| ADM-2 | Add a user with the manage-users workflow; confirm their tabs; disable them; confirm sign-in is blocked | As described in doc 14 §5 | Manual only (needs AWS) |
 | ADM-3 | manage-users → `grant` `investment_committee` to a Leadership user, then `revoke` it | Run summary shows the user's groups after each change; takes effect at next sign-in | Manual only (needs AWS) |
 | ADM-10 | Sign in with only the Admin role | Lands on **User access** (`/admin`) | `test_adm_10` |
 | ADM-11 | Add user → tick Investment Committee without Leadership, then add Leadership; reason; send invitation. Edit → switch the permission off | Warning shown until Leadership is ticked; user listed as *Invited* with the permission; after switching off, the permission is gone; Access log shows create and set_access with reasons | `test_adm_11` |
@@ -133,6 +133,27 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | OVS-6 | Risk tries to accept an exception; CCO accepts for 400 days, then 90 days | Risk refused; 400 days refused (max 365); 90 days accepted; ledger search shows `exception.open` and `exception.accept` in the governance ledger | `test_ovs_06` |
 | OVS-7 | Audit → Decision ledger → **Download evidence pack**; **Search all runs** → Download CSV; PM tries search | Evidence downloads; search returns matches with CSV; PM refused | `test_ovs_07` |
 | OVS-8 | Round 1 fixes: workspace label, Underlying funds proxies, report note, ledger header | "Leadership"; Returns proxy and Holdings proxy columns; note explaining record counts; no "verified verified" | `test_ovs_08` |
+
+## TRD — Trading (Maya Chen as PM, Priya Raman as analyst) · built 2026-11-10 (doc 17)
+
+| # | Step | Expected result | Auto test |
+|---|---|---|---|
+| TRD-1 | Console side bar → **Trading**; switch All funds / Mutual funds / CITs | 18 funds, then 9 `MTRS-…` mutual funds, then 9 `MTRT-…` CITs | `test_trd_01` |
+| TRD-2 | Open MTRS-2040 | Held securities; "Held · no target" (legacy fund); "Not held · candidate" (IEFA); three target columns | `test_trd_01` |
+| TRD-3 | Cashflows → download the Excel template, fill two rows, upload; then add one by hand | Rows loaded and listed as New; a bad fund id stops the whole file with the row number | `test_end_to_end_cashflows_to_charles_river_file` |
+| TRD-4 | CITs only → Trades → Generate (Previous night close) | Only CIT funds; CIT orders routed to State Street, ETFs and bonds to the internal desk; IPS PASS | `test_trd_02` |
+| TRD-5 | Current vs post-trade | Current, trade, post-trade and target per security; cash before/after; buffer held | `test_trd_02` |
+| TRD-6 | Approve without the box, then with box and reason; download the Charles River file | Refused, then approved; CSV with one row per order and its destination; list shows *Exported* | `test_trd_02` |
+| TRD-7 | Routing & settings without the Trade route manager permission; then with it: change a route with a 5-character reason, then a proper reason | Route boxes locked and "You do not hold the route permission"; with it: refused, then saved; the trading change log shows `routes.change`; the tab names who holds the permission | `test_trd_03` |
+| TRD-8 | As an analyst | Can load cashflows and generate trade lists; can't approve, change settings or target tables | `test_trd_03`, `test_settings_and_strategic_table_are_controlled_and_logged` |
+| TRD-9 | PM: MTRS-2050 → Set custom weights (total ≠ 100%, then = 100%) with a reason; generate with Strategic | Refused until 100%; version 1 saved; trade list uses the custom table | `test_settings_and_strategic_table_are_controlled_and_logged` |
+| TRD-10 | PM: Routing & settings → add a +50 bp tilt on a security for one fund and flag a legacy holding for exit; save with a reason | Saved and recorded; the fund page shows "Tilt +50 bp" and "Exiting"; the next cashflow trade list notes the tilt and skips the exiting security | `test_trd_04`, `test_tickets_exits_tilts_and_tranches_api` |
+| TRD-11 | Fund page → Trade individual securities: buy the candidate ETF (IEFA); then try a buy larger than the fund's cash | Draft ticket `TK-…` routed to the internal desk; the oversize buy is refused ("Cash would go negative") | `test_trd_04`, API test |
+| TRD-12 | Fund page → Create exit trade list | Draft `EX-…` selling the whole flagged position; post-trade position is zero | `test_trd_04`, API test |
+| TRD-13 | On a draft list → Tranches: two dates at 25% and 70%, apply; then 25% and 75%; save. Try a fund-level and a security-level series in one cashflow list | Refused at 95%; saved at 100%; bucket by date, "1 of 2", quantities add back; the Charles River file has one row per tranche with its date | `test_trd_04`, `test_tranche_checks_and_split`, API test |
+| ADM-17 | User access → edit a person → switch **Trade route manager** on, then off | Listed on the person, in the access review and in the access log with who changed it and when | Manual (same switch as ADM-11) |
+
+**Usefulness questions:** Does pro rata by each table match how the desk allocates today? Is the Charles River file missing any field your import needs? Is the ETF buffer applied the way you meant (§0 of doc 17)?
 
 ---
 
@@ -160,3 +181,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 0b (automated) | 2026-11-09 | Browser tests | All + permissions | 38 pass | F-1 fixed; placeholder CCO verified as still a blocker |
 | 1 (manual, hosted) | 2026-11-10 | Claude, in Alex Eaton's signed-in session | PM-1–5, RISK-1–5 and 7, RES-1–3, MGR-1–3, LEAD-1–3 and 5, COMP-1–4, AUD-1–3, ADM-2, ADM-10–13 | All run steps passed. Not run: RISK-6 (needs a second person), ACC-1–3 and ADM-14–15 (need other logins; covered by automated tests) | Found F-4 to F-9, F-11. Approvals, one adjustment and a disabled test login (aeaton3252+uat@gmail.com) are in the live ledger and access log, all marked "UAT (run by Claude for Alex)" |
 | 2 (automated) | 2026-11-10 | Browser + API tests | All + OVS | 99 pass | Found F-10; F-5 to F-10 fixed |
+| 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |

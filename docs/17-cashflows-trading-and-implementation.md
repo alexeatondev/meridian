@@ -1,4 +1,4 @@
-# 16 — Cashflows, Trading & Implementation
+# 17 — Cashflows, Trading & Implementation
 
 **Version 0.3 · 2026-11-10 · Status: decisions recorded (§0); cashflow trading, tilts, single-security tickets, full exits, tranches and the route permission are built and live in the **Trading** screen (`/trading`); remaining items as phased in §5; held items in the backlog (§9).**
 
@@ -47,7 +47,7 @@ So every item below is new build. The good news: the parts that make it safe alr
 
 ## 2. Boundaries (proposed)
 - **Meridian proposes orders. It never executes.** Orders go to Charles River (CRD) for its own pre-trade compliance and execution, or to the transfer agent, custodian or internal desk, depending on the route.
-- **Two compliance checks.** Meridian's engine runs before an order leaves (IPS, mandate, buffer, include/exclude). CRD runs its own rule set again. A CRD compliance failure comes back to Meridian as an exception (doc 10, Exceptions).
+- **Two compliance checks.** Meridian's engine runs before an order leaves (IPS, mandate, buffer, include/exclude). CRD runs its own rule set again. A CRD compliance failure comes back to Meridian as an exception (doc 11, Exceptions).
 - **Human approval before release.** A trade list is approved like a proposal (PM, plus Risk when material). Release to a route is a separate, recorded step.
 - **Shadow first.** Until production (doc 03 Phase 8), orders are generated, checked and exported as files, not sent. Live connectivity is a production item.
 - **Every number is a decision record.** Cashflow, allocation strategy used, targets, tilts, exclusions, buffer, tranches, route and release are all written to the ledger, so audit can rebuild any trade from its inputs.
@@ -89,7 +89,7 @@ Size: **S** about a week, **M** two to three weeks, **L** a month or more (Claud
 | 18 | Margin and leverage | Track initial and variation margin for futures and cleared swaps, collateral and gross/net leverage per fund; limits in the compliance engine. Cash needed for margin counts against the buffer | 7 | M |
 | 19 | Capital calls | Commitment ledger per fund and vehicle: committed, called, unfunded, expected call schedule. Calls appear as forecast outflows; the allocation engine raises cash ahead of the due date | 1 | M |
 
-**Rough total:** about 6–8 months of build in shadow mode for all 19, done in the phases below. Each phase ends with UAT scripts (doc 15) and automated tests, as now.
+**Rough total:** about 6–8 months of build in shadow mode for all 19, done in the phases below. Each phase ends with UAT scripts (doc 16) and automated tests, as now.
 
 ## 5. Proposed phases
 | Phase | Items | Why first |
@@ -124,7 +124,7 @@ Size: **S** about a week, **M** two to three weeks, **L** a month or more (Claud
 - **ERISA plans and CITs:** prohibited-transaction checks for crossing and in-kind flows involving plan assets.
 
 ## 8. Open UAT findings carried forward (not lost)
-These stay open and are tracked in doc 15 (findings log) and doc 03 (backlog):
+These stay open and are tracked in doc 16 (findings log) and doc 03 (backlog):
 - **F-3** run data is not filtered by entitlement (informational, for the entitlements design).
 - **F-4** issuer names not normalized in look-through. The security master in Phase A fixes this as a side effect.
 - **F-11** Risk budget doesn't show pending adjustments. The trade preview (item 8) is the natural place to resolve it.

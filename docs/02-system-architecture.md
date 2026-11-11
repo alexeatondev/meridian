@@ -1,6 +1,6 @@
 # 02 — System Architecture
 
-**Version 0.2 · 2026-11-09**
+**Version 0.3 · 2026-11-10**
 
 ## 1. What we take from the paper, and what we change
 
@@ -141,21 +141,21 @@ Every agent run emits: JSON outputs (validated against schema), markdown narrati
 | Secrets & access | Cloud KMS/Vault, SSO (Okta/Entra), RBAC/ABAC | |
 | Hosting | Your cloud tenant (AWS/Azure/GCP), private networking | Data residency |
 
-## 9a. As deployed (pilot, 2026-11-09)
-The pilot runs a deliberately smaller stack than the recommendation above. Details, runbooks and planned hardening are in doc 13.
+## 9a. As deployed (pilot, updated 2026-11-10)
+The pilot runs a deliberately smaller stack than the recommendation above. Details, runbooks and planned hardening are in doc 14.
 
 | Concern | Pilot implementation |
 |---|---|
 | Hosting | AWS account 950088505912, us-east-2, defined in AWS CDK (`infra/app.py`), stacks `Meridian` and `MeridianCostGuard` |
 | Edge | CloudFront (HTTPS) → Application Load Balancer that only accepts CloudFront's secret origin header |
 | App | FastAPI + server-rendered Meridian Console on ECS Fargate (1 task) |
-| Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger, positions, change requests, policy overrides |
-| Identity | Amazon Cognito (admin-created users, role groups mapped to app roles, optional TOTP MFA) |
+| Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger (append-only triggers), governance ledger (exceptions, trading), access log (append-only), exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings |
+| Identity | Amazon Cognito (admin-created users; groups = eight workspaces plus three permissions: `investment_committee`, `chief_compliance_officer`, `route_manager`; optional TOTP MFA). Managed in the app's **User access** screen; any access change signs the person out at once |
 | Secrets | AWS Secrets Manager (app); GitHub secrets (Anthropic and FRED keys) |
 | Orchestration | GitHub Actions: `ci`, `deploy`, `manage-users`, `agent-run` (live LLM judgment), `data-refresh` (monthly). Temporal is not used yet |
 | CI/CD auth | GitHub OIDC → IAM role `meridian-github-deploy`; no long-lived keys |
 | Cost control | AWS Budgets: $75/month, email alerts, automatic deny policy on deploy roles at 100% |
-| Ledger & WORM | Hash-chained records in Postgres; WORM evidence store not yet built (doc 13 §12) |
+| Ledger & WORM | Hash-chained records in Postgres; WORM evidence store not yet built (doc 14 §12) |
 | Observability | CloudWatch Logs (30 days); no alarms yet |
 
 ```
@@ -172,3 +172,23 @@ agent-run: pulls approved positions from the app ─▶ runs agents (Claude) ─
 - Agents cannot modify policy, other agents, or ledger records. Only the orchestrator writes.
 - Meta-learner and PC-researcher run in a separate research environment; output is a pull request, never a deploy.
 - Client PII is never sent to agent context (portfolio IDs only).
+
+## 11. Trading and implementation (built 2026-11-10, shadow mode)
+```
+Cashflows (Excel/CSV upload · hand entry · API from TA/custodian)
+        │
+        ▼
+Allocation engine (meridian.trading, deterministic)
+  table: previous close | neutral (glide path on the fund's roll-down) | strategic (custom or follows glide path)
+  → exits removed → tilts applied → no-target / excluded skipped → pro rata split → ETF cash buffer → lot rounding
+        │
+        ▼
+Trade list (draft) ── preview (current vs post-trade) ── IPS engine on post-trade weights ── tranches (optional)
+        │ PM approval (checkbox + reason; FAIL blocks)
+        ▼
+Charles River import file (mock CSV; one row per order or tranche; destination per security type)
+   mutual fund → SS&C (formerly DST) · CIT → State Street · ETF, stock, bond → internal trading desk
+```
+- **Model:** `config/trading.yaml` (product lines, funds, roll-down schedules, security master, routes, buffer); `src/meridian/trading/` (model, allocation, tilts, tickets, tranches, Charles River rows); `src/meridian/app/trading.py` + `trading.html` (API and screen).
+- **Records:** every load, setting, route change, table change, trade list, approval, tranche plan, cancel and export is a governance ledger record (`dr_type` "trading").
+- **Not yet:** real positions from custodian/TA files, rebalance trades, Charles River API and returns, derivatives, in-kind, mandates, margin, capital calls (doc 17).

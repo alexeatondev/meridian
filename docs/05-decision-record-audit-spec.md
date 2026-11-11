@@ -1,6 +1,6 @@
 # 05 — Decision Record & Audit Trail Specification
 
-**Version 0.1 · 2026-11-06**
+**Version 0.2 · 2026-11-10**
 
 Purpose: give compliance, audit and leadership complete visibility into **every signal created and every decision made** — what was decided, by which agent or person, from which inputs, under which policy, and who approved it.
 
@@ -92,3 +92,17 @@ Approval DRs add: approver identity, entitlement used, reason text (required), o
 - Retention period set by Compliance per entity type (doc 04 REC-3).
 - Access: Audit and Compliance read-all; others scoped by portfolio entitlement.
 - Legal hold flag suspends any lifecycle actions.
+
+## 8. As implemented (pilot, 2026-11-10)
+| Spec item | Implementation |
+|---|---|
+| Ledgers | One hash chain per run (agent and system steps, approvals, adjustments) plus a **governance ledger** (`run_id` "governance") for exceptions (`dr_type` "exception") and trading (`dr_type` "trading": cashflow loads, setting and route changes, target tables, trade lists, approvals, tranches, exports) |
+| Access log | Separate append-only table of every user access change (who, what, before, after, reason) |
+| Integrity | SHA-256 chain (`prev_hash`, `record_hash`) verified on every Console page load; database triggers refuse UPDATE, DELETE and TRUNCATE on ledger records and the access log |
+| Not yet | Daily anchoring (Merkle root) and WORM copy (deferred to production: cost); payload storage is inline JSON rather than content-addressed files |
+| "Why?" | Built for proposals, compliance results, capital market assumptions and risk: lists every record behind the item |
+| Diff views | Built: **Changes since last run** |
+| Replay, Ask Meridian, signal library | Not built |
+| Evidence pack | JSON per run (`/api/runs/<run>/evidence`, **Download evidence pack** button) with integrity result; PDF summary and Merkle proofs not yet |
+| Search | **Search all runs**: words, type, step, vintage, actor, dates; CSV download |
+| Approval records | Approver name and email, role, decision, reason, checkbox confirmation; time-on-screen not yet recorded |

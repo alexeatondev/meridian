@@ -47,7 +47,7 @@ A sample is committed in `examples/sample-run/`.
 | `docs/` | Product, architecture, compliance, user guides, interfaces, hosting & operations |
 
 ## Hosted app
-Live at https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK in `infra/`). Users are invited by an admin; deploys, user changes and agent runs go through GitHub Actions with OIDC (no stored AWS keys). See `docs/13-hosting-and-operations.md`.
+Live at https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK in `infra/`). Users are invited by an admin; deploys, user changes and agent runs go through GitHub Actions with OIDC (no stored AWS keys). See `docs/14-hosting-and-operations.md`.
 
 ## Status (2026-11-09)
 Pilot running on **real public data** (synthetic only for non-US valuations, flagged) in **shadow mode**: no money moves. Hosted multi-user app live with role-based sign-in; first live-LLM run published. Not investment advice. Production is blocked until the required human roles (incl. a human CCO) are filled, the regime packs are reviewed by counsel, and the hardening in doc 13 §12 (least-privilege roles, MFA, WORM records) is done.

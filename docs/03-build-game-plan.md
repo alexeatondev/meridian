@@ -1,31 +1,74 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.5 · 2026-11-10**
+**Version 0.6 · 2026-11-10**
 
-## Status (2026-11-09)
-- Repo live: github.com/alexeatondev/meridian
-- Done: entity-regime selection, policy-as-code + IPS for the target-date pilot, plug-and-play data layer (direct + Snowflake), CMA judge, 7 PC agents, peer review and Borda vote, CRO, CIO ensemble, board memo, deterministic compliance engine, Agentic Compliance Officer, hash-chained ledger, tests, CI (offline on the committed data cache).
-- Real public data end to end (Yahoo, FRED via API, US Treasury, cited manual inputs, iShares holdings); synthetic only for non-US valuations (flagged). Live LLM judgment via the `agent-run` workflow. Key rotation reminder scheduled for 2026-12-02.
-- Console and notebooks: role-adaptive Meridian Console; positioning with drill-down, risk budgets and governed changes, portfolio metrics, PM/analyst weight adjustments; Jupyter workbenches (PM, research, compliance/audit, risk analytics).
-- Risk analytics (doc 12): fund-level risk, risk breakdown, weight-vs-risk, 10-factor model with 18-month history, historical and hypothetical stress tests with a scenario builder, risk time series, iShares look-through and ticker search.
-- **Hosted app live (2026-11-09):** https://d3maw6l4k5cc0v.cloudfront.net on AWS (us-east-2, CDK). GitHub → AWS sign-in via OIDC works (no stored keys); first deploy succeeded; first live-LLM run (`run_tds_20261031_48d07c`) published to the app; two users (full-access product owner, risk/compliance test user) signed in. Cost guard: $75/month budget with email alerts and an automatic spend block at 100%. Runbooks in doc 13 (Hosting & Operations).
-- Account history: Free → Paid plan (2026-11-06); organization advanced features activated (2026-11-09) to lift the free-plan SCP; AWS support case updated as resolved.
+## Status (2026-11-10)
+- **Repo:** github.com/alexeatondev/meridian · **App:** https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK, GitHub OIDC, no stored keys) · **Cost:** about $1 spent so far (product owner's Cost Explorer check, 2026-11-10); budget $75/month with alerts and an automatic spend block.
+- **Agent pipeline (Phase 1):** macro regime, 13 asset classes with CMA judge, covariance, 7 construction methods, peer review and Borda vote, CRO, CIO ensemble, board memo; real public data with synthetic only for some non-US valuations (flagged); live LLM judgment in the `agent-run` workflow; runs are ad hoc.
+- **Governance (Phase 2):** deterministic compliance engine, Agentic Compliance Officer (draft only), hash-chained ledger that the database refuses to edit, approvals with reason and segregation of duties, Investment Committee / CCO / Trade route manager permissions, exceptions workflow, ledger search across runs, evidence pack. Not yet: kill switch, autonomy controls, WORM copy.
+- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 115 automated tests (57 in the browser). Not yet: Ask Meridian.
+- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, post-trade preview with IPS check, approval, mock Charles River file (doc 17). Positions, prices and the CIT line are example data.
+- **Docs:** all 17 docs refreshed on 2026-11-10; repository docs now use the Project's numbers; user guide (doc 06) rewritten step by step with 39 screenshots and published as an illustrated page.
 
-## Built since (2026-11-10)
-- Investment Committee and CCO as per-user permissions; fictional roster with a placeholder CCO that stays a production blocker.
-- **User access** screen: add, edit, permissions on/off, disable, delete, access review (CSV), append-only access log, immediate sign-out on access changes.
-- Shared persona gaps closed: **Why?** panels, **Changes since last run**, **Exceptions** workflow (governance-ledger backed), **ledger search across runs** with CSV, **evidence pack** download.
-- UAT round 1 run by hand in the hosted app (doc 15); findings F-4 to F-11 logged, F-5 to F-10 fixed. 99 automated tests.
+## Assessment (2026-11-10)
+| Area | State | Comment |
+|---|---|---|
+| Phase 0 Foundations | Done | |
+| Phase 1 SAA MVP | Mostly done | 7 of 20 construction methods and 13 of the paper's 18 asset classes; enough for the pilot |
+| Phase 2 Governance | Mostly done | Kill switch, autonomy controls and WORM records missing; WORM deferred for cost |
+| Phase 3 Workspaces | Mostly done | UAT run by Claude on the product owner's login; real people in each role have not tested; Ask Meridian not built |
+| Phase 4 Multi-asset hierarchy | Partial | Look-through via public proxies; security-level positions exist only as example data |
+| Phase 5 Manager selection | Not started | |
+| Phase 6 Implementation | About half, shadow only | Built ahead of Phases 4–5 at the product owner's request |
+| Phase 7 Learning agents | Not started | |
+| Phase 8 Production readiness | Not started | Needs named people (CCO, IC sponsor, model-risk owner), counsel review, security hardening, WORM, parallel run ≥ 2 quarters |
 
-## Next steps (2026-11-10)
-1. You: review UAT round 1 (doc 15); optionally run RISK-6 with the RCTest login (a true second-person co-approval).
-2. Next functionality: the additional features you are about to describe.
-3. Open UAT findings: F-4 (issuer name normalization in look-through), F-11 (show pending adjustments on Risk budget).
+**Main risks right now**
+1. **Trading runs on example data.** Until real positions and cashflows arrive from SS&C and State Street, every trade list is a demonstration; exported trades also don't change holdings (no booking or fills yet).
+2. **The trading targets aren't linked to the approved agent proposal.** Neutral follows the glide path and Strategic is a separate table; an approved tactical proposal doesn't yet feed trading. This is the main seam between the agent pipeline and implementation.
+3. **One person holds every role.** Segregation of duties is enforced in code but has only been exercised with test logins.
+4. **Security hardening is held** (admin deploy role, no MFA). Acceptable with test users only.
+5. **No human CCO or counsel review.** Blocks production, not development.
+
+## Next steps (not blocked, in order)
+1. **Link approved proposals to trading and add rebalance trades:** approved weights become a selectable trading table; a rebalance closes gaps to target (as decided: only on a rebalance or an explicit decision).
+2. **Position book and trade lifecycle:** upload positions (Excel/CSV, same pattern as cashflows) to replace example holdings; mark exported orders pending, then filled or cancelled from a returned file; positions update.
+3. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
+4. **Fix open findings:** F-4 (normalize issuer names, starting with US Treasury), F-11 (show pending adjustments on the risk budget).
+5. **Market-holiday calendar** for tranche dates.
+6. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view.
+7. **You:** run RISK-6 with the RCTest login; try the Trading screen with the doc 16 TRD scripts.
+
+## Blocked (and what unblocks each)
+| Item | Blocked by |
+|---|---|
+| Derivatives (17 #7) and margin and leverage (#18) | Your answer to doc 17 §6 Q6 (instruments in scope; 18f-4 limited-user status); CCO view on 18f-4 and §18 |
+| Redemptions in kind (#14) | In-kind policy per fund, custodian/TA delivery format, liquidity program (22e-4); CCO |
+| Mandates (#17) | Example domestic and international mandate documents (Q8) |
+| Capital calls (#19) | Which vehicles make calls and how notices arrive (Q7) |
+| Trade-list approval thresholds (PM alone vs PM + Risk) | Your answer to Q9 |
+| Real positions and cashflows | Sample files or API access from SS&C (mutual funds) and State Street (CITs), plus their data terms |
+| Real Charles River file, API, results back, official positions (IBOR) | **Held by you** (doc 17 §9); then Charles River version, hosting and import specification from your Charles River admins |
+| Who holds the route permission; second approver for route changes | **Held by you** (doc 17 §9) |
+| Security hardening (deploy-role split, MFA, approvals by user ID) | **Held by you** until more users join (doc 14 §12) |
+| WORM copy, daily ledger anchor, longer backups, CloudWatch alarms | **Deferred to production by you** (adds AWS cost) |
+| Scheduled monthly run; next ad hoc run | **Held by you** (cost) |
+| Portfolio-level entitlements (F-3) | Your decision on who may see which funds |
+| Risk add-ons (doc 13 §8) | Your direction |
+| Vendor data (holdings, factor models, prices) and AI-use licensing | Vendor contracts |
+| Production go-live | Named human CCO, IC sponsor and model-risk owner; counsel review of regimes and the IPS (including whether it governs the CITs and whether `bank_cit` applies); written policies (doc 04 §6); independent validation; parallel run ≥ 2 quarters |
+
+## Open UAT findings (remediate later; do not drop)
+| ID | Finding | Plan |
+|---|---|---|
+| F-3 | Run data not filtered by entitlement | Entitlements design |
+| F-4 | Issuer names not normalized in look-through | Next step 4 (US Treasury first); fully by a vendor security master |
+| F-11 | Risk budget doesn't show pending adjustments | Next step 4 |
 
 ## Backlog (held by the product owner; keep visible)
 | Item | Status | Why it matters |
 |---|---|---|
-| Security hardening: split the GitHub deploy role, require a GitHub environment, require MFA for approvers and admins, record approvals against the Cognito user ID/email (doc 13 §12) | **Held** until later in the build; must be done before anyone beyond test users signs in | Least privilege; unambiguous identity for audit |
+| Security hardening: split the GitHub deploy role, require a GitHub environment, require MFA for approvers and admins, record approvals against the Cognito user ID/email (doc 14 §12) | **Held** until later in the build; must be done before anyone beyond test users signs in | Least privilege; unambiguous identity for audit |
 | WORM evidence copy (S3 Object Lock), daily ledger anchor, longer database backups | **Deferred to production** (adds AWS cost) | Books and records (doc 04 REC-2/REC-3) |
 | Scheduled monthly agent run with notifications | **Held**: runs stay ad hoc during development | Operating loop |
 | Next ad hoc run (as of 2026-11-30) | **Held** | Gives "Changes since last run" real data |
@@ -95,7 +138,7 @@ meridian/
 **You need to do (step by step)**
 1. **Pick where code lives.** Done: github.com/alexeatondev/meridian.
 2. **Bring your CCO/compliance counsel in now.** Share docs 04 and 05 with them. Ask them to confirm which regimes apply (doc 04 §2) and the retention schedule.
-3. **Provide a pilot IPS.** Done (generated IPS, `policies/ips/`).
+3. **Provide a pilot IPS.** Done (generated IPS, doc 07).
 4. **Data access.** For the pilot Meridian uses free public data. For production, confirm which vendors you license (Bloomberg, FactSet, MSCI, eVestment, custodian feeds) and ask each vendor whether their license permits use in LLM/AI workflows — many contracts restrict this.
 5. **Cloud & keys.** Done: AWS account on the Paid plan with organization advanced features; app deployed via GitHub OIDC (no AWS keys); Anthropic and FRED keys stored as GitHub secrets. Never paste keys into chat.
 6. **Name a model-risk owner and an IC sponsor.** They approve change requests and autonomy levels.
@@ -117,5 +160,5 @@ meridian/
 | Over-trust by users | Mandatory reasoned approvals; periodic "challenge" reviews; display dissent prominently |
 | Scope creep across asset classes | Strict phase gates; each asset class added via template + tests |
 | Proxy data differs from the real building-block funds | Proxies labeled everywhere; vendor/custodian holdings and characteristics plug into the same datasets |
-| Hosted app runs with broad cloud permissions and no WORM records yet | Hardening plan in doc 13 §12, done before parallel-run output is treated as books and records |
-| AWS spend exceeds budget | Cost guard: alerts at 80%/forecast, automatic spend block at 100% (doc 13 §7) |
+| Hosted app runs with broad cloud permissions and no WORM records yet | Hardening plan in doc 14 §12, done before parallel-run output is treated as books and records |
+| AWS spend exceeds budget | Cost guard: alerts at 80%/forecast, automatic spend block at 100% (doc 14 §7) |

@@ -1,0 +1,140 @@
+"""Regenerates the user-guide screenshots (docs/img) from the local test app with fictional users.
+Run: MERIDIAN_OFFLINE=1 pytest tests/e2e/shots_userguide.py   (not collected by default: file name has no test_ prefix)"""
+import pathlib
+
+from conftest import open_tab, switch_workspace
+
+OUT = pathlib.Path(__file__).resolve().parents[2] / "docs" / "img"
+R = "Guide: example reason for the user guide"
+
+
+def test_screenshots(page, sign_in, app_url):
+    page.set_viewport_size({"width": 1280, "height": 860})
+
+    def shot(name, full=False):
+        page.wait_for_timeout(500)
+        page.screenshot(path=str(OUT / f"{name}.png"), full_page=full)
+
+    def tryclick(sel):
+        try:
+            page.click(sel, timeout=3000)
+            return True
+        except Exception:  # noqa: BLE001
+            return False
+
+    p = sign_in("Maya Chen", "portfolio_manager", "risk", "analyst", "manager_selection", "leadership",
+                "compliance", "audit", "route_manager")
+    shot("01-home")
+    open_tab(p, "Portfolios & proposals")
+    p.click("[data-vt='2050']")
+    shot("02-proposal")
+    if tryclick("button[data-why=proposal]"):
+        shot("03-why")
+        p.keyboard.press("Escape")
+        tryclick("#whyClose")
+        tryclick(".modal .close")
+    p.reload()
+    p.wait_for_selector("#nav button")
+    open_tab(p, "Portfolios & proposals")
+    p.click("[data-vt='2050']")
+    p.evaluate("document.querySelector('[data-decide=approve]')?.scrollIntoView({block:'center'})")
+    shot("04-approve")
+    open_tab(p, "Positioning")
+    p.click("[data-vt='2045']")
+    p.evaluate("document.querySelector('#adjSubmit')?.scrollIntoView({block:'center'})")
+    shot("05-adjust")
+    open_tab(p, "Changes since last run")
+    shot("06-changes")
+    open_tab(p, "Exceptions")
+    shot("07-exceptions")
+    switch_workspace(p, "risk")
+    open_tab(p, "Fund risk")
+    shot("08-fund-risk")
+    open_tab(p, "Stress tests")
+    shot("09-stress")
+    open_tab(p, "Risk budget")
+    shot("10-risk-budget")
+    open_tab(p, "Look-through & search")
+    shot("11-look-through")
+    switch_workspace(p, "research")
+    open_tab(p, "Capital market assumptions")
+    p.click("[data-cma='us_large_cap']")
+    shot("12-cma")
+    switch_workspace(p, "lead")
+    open_tab(p, "Board memo")
+    shot("13-board-memo")
+    switch_workspace(p, "compliance")
+    open_tab(p, "Compliance")
+    shot("14-compliance")
+    open_tab(p, "Decision ledger")
+    tryclick("#lsBox summary")
+    shot("15-ledger")
+
+    # Trading
+    p.goto(app_url + "/trading")
+    p.wait_for_selector("[data-fund]")
+    shot("20-trading-funds")
+    p.click("[data-fund='MTRS-2050']")
+    p.wait_for_selector("#tkGo")
+    shot("21-fund-detail", full=True)
+    p.click(".tabs button:text-is('Cashflows')")
+    for fund, typ, amt in (("MTRS-2050", "subscription", "12500000"), ("MTRS-2030", "redemption", "8000000"),
+                           ("MTRT-2050", "subscription", "6000000")):
+        p.select_option("#cfFund", fund)
+        p.select_option("#cfType", typ)
+        p.fill("#cfAmt", amt)
+        p.click("#cfAdd")
+        p.wait_for_timeout(700)
+    shot("22-cashflows")
+    p.click(".tabs button:text-is('Routing & settings')")
+    p.select_option("#tiInst", "MER-EM-MF")
+    p.select_option("#tiFund", "MTRS-2050")
+    p.fill("#tiBps", "50")
+    p.click("#tiAdd")
+    p.select_option("#exitInst", "MER-LISC-MF")
+    p.click("#exitAdd")
+    p.fill("#setReason", R)
+    p.click("#setSave")
+    p.wait_for_timeout(1200)
+    shot("23-routing", full=True)
+    p.click(".tabs button:text-is('Trades')")
+    p.select_option("#tgStrat", "neutral")
+    shot("24-generate")
+    p.click("#tgGo")
+    p.wait_for_selector("#tlDetail .card")
+    shot("25-orders", full=True)
+    p.click("#tlv button:text-is('Current vs post-trade')")
+    shot("26-preview")
+    p.click("#tlv button:has-text('Tranches')")
+    p.fill("[data-sp='0']", "40")
+    p.fill("[data-sp='1']", "60")
+    p.click("#trApply")
+    p.click("#trSave")
+    p.wait_for_timeout(1200)
+    shot("27-tranches", full=True)
+    p.click("#tlv button:text-is('Orders')")
+    p.check("#taChk")
+    p.fill("#taReason", R)
+    p.evaluate("document.querySelector('#taGo').scrollIntoView({block:'center'})")
+    shot("28-approve-trades")
+    p.click("#taGo")
+    p.wait_for_selector("#taCrd")
+    p.evaluate("document.querySelector('#taCrd').scrollIntoView({block:'center'})")
+    shot("29-charles-river")
+
+    # User access (admin)
+    p.context.clear_cookies()
+    p.goto(app_url + "/login")
+    p.fill("input[name=name]", "Sam Patel")
+    p.fill("input[name=email]", "sam.patel@example.com")
+    p.check("input[name=roles][value=admin]")
+    p.click("button[type=submit]")
+    p.wait_for_url("**/admin")
+    p.wait_for_selector("#users table")
+    p.click("#add")
+    p.fill("#fEmail", "daniel.okafor@example.com")
+    p.fill("#fName", "Daniel Okafor")
+    p.check("#panel input[name=ws][value=risk]")
+    p.click("#panel label.opt:has(input[value=route_manager]) .switch span")
+    p.fill("#fReason", "Guide: risk manager who may change order routes")
+    shot("30-user-access")

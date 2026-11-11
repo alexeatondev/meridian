@@ -1,6 +1,6 @@
-# 07 — Operating-Entity Profiles (select one or many)
+# 08 — Operating-Entity Profiles (select one or many)
 
-**Version 0.1 · 2026-11-06**
+**Version 0.2 · 2026-11-10**
 
 Meridian can be run by an SEC-registered adviser, a broker-dealer, an adviser to 1940 Act funds, a private fund adviser, an ERISA fiduciary, a bank sponsoring a CIT, an asset owner/OCIO, or several at once. You don't need different builds. You choose one or more **entity types** and the system reconfigures itself.
 
@@ -27,3 +27,6 @@ Or edit `config/entity_profile.yaml` → `selected_entities`. A per-run override
 `sec_ria` · `broker_dealer` · `registered_fund` · `private_fund` · `erisa_plan` · `bank_cit` · `pension_endowment_ocio` · `cftc_derivatives` (add-on). Definitions: `regimes/regimes.yaml`.
 
 Every pack carries `counsel_review: required`. The citations are a design aid. A qualified human compliance officer or counsel must confirm them before production use.
+
+## Pilot selection and the CIT product line (2026-11-10)
+Selected today: `sec_ria`, `registered_fund`, `erisa_plan`, `cftc_derivatives`. Since the pilot now has target-date **CITs** next to the mutual funds (doc 17), the `bank_cit` pack (trustee bank, OCC/state bank rules, ERISA plan-asset rules for the trust) is likely needed too. Selecting it is a compliance decision for the CCO and counsel; it is not switched on.

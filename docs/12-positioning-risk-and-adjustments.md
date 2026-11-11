@@ -1,6 +1,6 @@
-# 11 — Positioning, Risk Budgets, Metrics & Adjustments
+# 12 — Positioning, Risk Budgets, Metrics & Adjustments
 
-**Version 0.1 · 2026-11-06**
+**Version 0.2 · 2026-11-10**
 
 ## Exposure taxonomy (look-through)
 Every building-block fund is decomposed into leaves (`config/taxonomy.yaml`), giving a drill-down tree and alternative groupings:
@@ -53,3 +53,8 @@ Annualized return, volatility, Sharpe and Sortino (excess over T-bills), **beta 
 | Positioning | PM, Risk, Research/Analyst, Manager Selection | Tree or pivot view with all comparison columns; adjustment editor for PMs and analysts |
 | Risk budget | PM, Risk, Leadership, Compliance | Budget vs used by vintage, contributors, change requests |
 | Metrics | PM, Risk, Research, Leadership | Metrics table across vintages; proposed vs glide path vs market |
+
+## In the hosted app (2026-11-10)
+- Adjustments and risk-budget change requests are made in the Console (**Positioning → Adjust weights → Submit adjustment**; **Risk budget → Submit change request**) and written straight to the ledger. The CLI commands above remain for local use.
+- Security-level tilts (± bp on one holding) for trading are on the Trading screen (doc 17); they apply to cashflow allocations, not to the asset-class proposal.
+- Known gap F-11: the Risk budget tab shows the proposal's tracking error, not the effect of a pending adjustment.

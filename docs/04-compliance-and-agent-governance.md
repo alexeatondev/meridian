@@ -1,6 +1,6 @@
 # 04 — Compliance & Agent Governance Framework
 
-**Version 0.1 · 2026-11-06 · Owner: CCO (to be assigned) · Status: DRAFT for counsel review**
+**Version 0.2 · 2026-11-10 · Owner: CCO (to be assigned; Robert Hayes is a fictional placeholder) · Status: DRAFT for counsel review**
 
 > This framework maps Meridian's controls to common U.S. regulatory obligations. It is not legal advice. Applicability depends on the operating entity's registrations and client types; the CCO and outside counsel must confirm scope, citations and retention periods before adoption.
 
@@ -126,3 +126,33 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 7. Information Security & Incident Response addendum (Reg S-P)
 8. Marketing Review Procedure addendum (AI claims, hypothetical performance)
 9. Business Continuity: Meridian unavailable → manual fallback
+
+## 7. Control implementation status (pilot, 2026-11-10)
+| Control | Status in the pilot |
+|---|---|
+| GOV-1 AI Governance Committee | Not formed (needs named people) |
+| GOV-2 Named owner per agent | Not built (no agent registry) |
+| GOV-3 Autonomy level per pipeline | Fixed at L3 shadow; no in-app control |
+| GOV-4 Kill switch | Not built |
+| PC-1 Policy-as-code | **Built** (`policies/target_date_series.yaml`, `ips-mtrs@1.0.0`) |
+| PC-2 Dual sign-off on policy changes | **Partial:** risk-budget changes need requester + second approver; CCO permission exists for policy approvals |
+| PC-3 Deterministic rule engine | **Built** |
+| PC-4 Pre-trade checks | **Built (shadow):** IPS rules on post-trade weights of every trade list; FAIL blocks approval (doc 17). Charles River runs its own check |
+| PC-5 Post-trade monitoring | Not built (needs real positions) |
+| PC-6 Exceptions | **Built:** auto-opened from WARN/FAIL, owner, due date, remediation, CCO-only time-limited acceptance (≤ 365 days), close with separation of duties |
+| PC-7 Rule testing | **Built** (unit tests on every change) |
+| SUP-1/2 Approval matrix, reasoned approvals | **Built:** checkbox + reason; segregation of duties across roles; Investment Committee and CCO permissions |
+| SUP-3 Dissent visibility | **Built** |
+| SUP-4 Scope limits | Partial (agents run in GitHub Actions with no write access to the app except publishing a run) |
+| SUP-5 Challenge reviews | Not built |
+| MRM-1 Inventory, MRM-3 validation | Not built (Phase 7/8) |
+| MRM-4 Change control | **Built** via git, CI tests and deploy workflow |
+| REC-1 Decision records | **Built**, including trading and access changes |
+| REC-2 Immutability | **Partial:** hash chain + database append-only triggers; WORM copy deferred to production (cost) |
+| REC-3 Retention | 6 years applied by the pipeline; backups 7 days; CCO to confirm |
+| REC-5 Exam readiness | **Partial:** ledger search across runs, CSV, evidence pack per run |
+| SEC-1 PII exclusion | By design (no client data in the pilot) |
+| SEC-3 Least privilege | **Partial:** role-based app access; the GitHub deploy role still has admin (hardening held, doc 14 §12) |
+| Trading (§3.8) | Route changes need the Trade route manager permission and are logged; best execution, allocation fairness, cross trades (17a-7), 18f-4 and 22e-4 items open (doc 17 §7) |
+
+Production blockers from this framework: a named human CCO, counsel review of regimes and citations, WORM records, MFA for approvers, and the written policies in §6.

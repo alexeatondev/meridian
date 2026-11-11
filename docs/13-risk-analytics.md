@@ -1,6 +1,6 @@
-# 12 — Risk Analytics
+# 13 — Risk Analytics
 
-**Audience:** risk analytics, portfolio managers, research, leadership, compliance, audit
+**Version 0.2 · 2026-11-10 · Audience:** risk analytics, portfolio managers, research, leadership, compliance, audit
 **Code:** `src/meridian/analytics/risk.py` · **Settings:** `config/risk.yaml` · **Console:** Fund risk, Factor risk, Stress tests, Risk history, Look-through & search · **Notebook:** `notebooks/04_risk_analytics_workbench.ipynb`
 
 All risk figures are computed by deterministic code. Agents may explain them, but they never calculate them. The console, notebook, board memo and ledger all read the same numbers, so every screen shows the same figure for the same measure.
@@ -92,3 +92,8 @@ Common in institutional risk teams and natural next steps here. None of these ha
 10. **Limit monitoring with alerts:** daily proximity alerts for VaR, active risk and duration bands, sent by email or Slack, with acknowledgment logged in the ledger.
 11. **Reverse stress test:** the smallest combined shock that breaches a loss threshold (for example −20% for the 2030 vintage).
 12. **Glide-path risk across the lifecycle:** risk and stress losses plotted against years to target, and a sequence-of-returns risk view near retirement.
+
+## 9. Related, added since (2026-11-10)
+- **Exceptions:** Risk can raise and work exception cases (doc 06 §8).
+- **Trade preview:** every trade list runs the IPS rules (including the risk budget) on post-trade asset-class weights against the fund's own glide path (doc 17).
+- **Known issue F-4:** look-through lists US Treasury securities under several issuer names; the security master planned in doc 17 fixes it.

@@ -1,6 +1,6 @@
-# 08 — Data Integration (plug-and-play providers)
+# 09 — Data Integration (plug-and-play providers)
 
-**Version 0.2 · 2026-11-06**
+**Version 0.3 · 2026-11-10**
 
 ## Current setup: free public data
 | Source | Provides | Notes |
@@ -66,3 +66,12 @@ Each run writes the exact data it used to `runs/<run_id>/snapshot/`, with SHA-25
 | Bloomberg direct | Implemented against BLPAPI HistoricalDataRequest. Needs a Terminal/B-PIPE session to test |
 | FactSet direct | Implemented against the Prices API. Confirm endpoint/fields for your subscription |
 | S&P / Moody's / Fitch direct | Generic REST adapter. Endpoint and field mapping are configured per contract. **Snowflake delivery is the recommended path** |
+
+## Cashflows and positions for trading (2026-11-10)
+| Data | Source today | Planned |
+|---|---|---|
+| Daily cashflows | Excel/CSV upload, hand entry, or the API (`POST /api/trading/cashflows` with the ingest token) | Transfer-agent files (SS&C for mutual funds) and custodian files (State Street for CITs), by file drop or API |
+| Positions and cash at last close | Example positions generated from the glide path (`config/trading.yaml`) | Custodian and TA position files, or Charles River if it is the official book of positions (open question, doc 17 §9) |
+| Prices | Example prices in `config/trading.yaml` | Vendor or custodian prices |
+| Security master | `config/trading.yaml` (funds, ETFs, a T-bill, candidates) | Vendor or Charles River security master; fixes issuer naming (F-4) |
+| Orders out | Charles River import file (mock layout) | Charles River API; results and fills back |

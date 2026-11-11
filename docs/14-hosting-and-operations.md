@@ -1,8 +1,8 @@
-# 13 — Hosting & Operations (AWS)
+# 14 — Hosting & Operations (AWS)
 
-**Version 0.1 · 2026-11-09 · Audience: platform admin, engineering, audit, compliance**
+**Version 0.2 · 2026-11-10 · Audience: platform admin, engineering, audit, compliance**
 
-How the hosted Meridian app is built, deployed and run, and what to do when something needs attention. Everything here describes what is actually deployed as of 2026-11-09. Planned changes are listed separately in §12.
+How the hosted Meridian app is built, deployed and run, and what to do when something needs attention. Everything here describes what is actually deployed as of 2026-11-10 (last deploy: trading slice 2 and the route permission). Planned changes are listed separately in §12.
 
 ## 1. What is running
 
@@ -38,7 +38,7 @@ Secrets Manager: database credentials, session key, ingest token, Cognito client
 | ECS Fargate | 1 task; public IP; no NAT gateway | Lowest cost. The database is the only private tier |
 | RDS PostgreSQL | Single-AZ, encrypted, 7-day automated backups, deletion protection on, final snapshot if the stack is removed | Runs, ledger records, positions, change requests, policy overrides |
 | Cognito | No self sign-up; admin-created users only; password ≥ 12 characters with symbols; MFA optional (authenticator app); account recovery by email; user pool retained if the stack is removed | Identity for all human users |
-| Role groups | Workspaces: `portfolio_manager`, `risk`, `analyst`, `manager_selection`, `leadership`, `compliance`, `audit`, `admin`. Permissions: `investment_committee`, `chief_compliance_officer` | The app's navigation and permissions follow these groups (doc 06, doc 10) |
+| Role groups | Workspaces: `portfolio_manager`, `risk`, `analyst`, `manager_selection`, `leadership`, `compliance`, `audit`, `admin`. Permissions: `investment_committee`, `chief_compliance_officer`, `route_manager` | The app's navigation and permissions follow these groups (doc 06, doc 11) |
 
 ## 3. How GitHub talks to AWS (no stored keys)
 
@@ -60,7 +60,7 @@ Workflows that use the role:
 | `manage-users` | Manual | Reads the `Meridian` stack outputs; creates, re-roles or disables Cognito users (fallback for the User access screen) |
 | `agent-run` | Manual | Reads stack outputs and the ingest token; pulls approved positions, risk history and policy overrides from the app; runs the pipeline with live LLM judgment; publishes the run to the app |
 
-`ci`, `data-refresh` (3rd of each month, 13:17 UTC) and `uat` (manual browser tests, doc 15) do not touch AWS.
+`ci`, `data-refresh` (3rd of each month, 13:17 UTC) and `uat` (manual browser tests, doc 16) do not touch AWS.
 
 ## 4. Deploying
 
@@ -91,19 +91,22 @@ Rules the server enforces: every change needs a reason (≥ 10 characters); an a
 |---|---|
 | `email` | The person's email; it is also their username |
 | `name` | Full name shown in the app and recorded on decisions |
-| `roles` | Comma-separated workspace roles from §2 and/or permissions: `investment_committee`, `chief_compliance_officer` |
+| `roles` | Comma-separated workspace roles from §2 and/or permissions: `investment_committee`, `chief_compliance_officer`, `route_manager` |
 | `action` | `add` (create and email a temporary password), `set-roles` (replace all roles), `grant` / `revoke` (switch the listed roles or permissions on / off, leaving the rest), `disable` (block sign-in; history is kept) |
 
-**Permissions** are switched on or off per person: `investment_committee` lets a Leadership user record committee decisions (glide-path and autonomy changes); `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes and must only go to the named CCO. `route_manager` (Trade route manager) lets a person change where orders are routed on the Trading screen; every change is recorded (doc 16). Example: `grant` with roles `investment_committee`. Changes apply at the user's next sign-in. Neither permission gives screens on its own.
+**Permissions** are switched on or off per person: `investment_committee` lets a Leadership user record committee decisions (glide-path and autonomy changes); `chief_compliance_officer` lets a Compliance user approve exceptions and policy changes and must only go to the named CCO. `route_manager` (Trade route manager) lets a person change where orders are routed on the Trading screen; every change is recorded (doc 17). Example: `grant` with roles `investment_committee`. Changes apply at the user's next sign-in. Neither permission gives screens on its own.
 
 Cognito emails the temporary password; the person sets their own password at first sign-in (doc 06, "Signing in"). Nobody else ever sees it.
 
-**Current users (2026-11-09):**
+**Current users (2026-11-10):**
 
 | User | Roles | Purpose |
 |---|---|---|
 | Alex Eaton (aeaton3252@gmail.com) | All eight | Product owner; full-access testing |
 | RCTest User (aeaton52@hotmail.com) | `risk`, `compliance` | Second person for segregation-of-duties testing |
+| UAT Committee Tester (aeaton3252+uat@gmail.com) | Disabled | Created and disabled during UAT round 1 (doc 16) |
+
+Nobody holds `route_manager` yet; who should hold it is held by the product owner (doc 17 §9).
 
 Segregation of duties: the app records each approval against the signed-in user and refuses a second decision on the same vintage by the same person in a different role; a requester can't approve their own risk-budget change. A real deployment should not give one person every role.
 
@@ -128,7 +131,7 @@ Stack `MeridianCostGuard` (in us-east-2; AWS Budgets is a global service).
 | What the block denies | Creating or scaling up billable resources: EC2 instances/volumes/NAT/EIPs, RDS create/start/modify, ECS create/update service and tasks, load balancers, Lambda, EKS, SageMaker, Redshift, ElastiCache, OpenSearch, CloudFront distributions, Lightsail, Bedrock invocation, Auto Scaling. Deploys fail while it is attached |
 | What it does not do | Stop running resources. The app keeps running and keeps costing money |
 | Reset | AWS removes the policy automatically at the start of the next month |
-| Expected run-rate | About $60–65/month at list prices (Fargate ~$18, load balancer ~$17, RDS ~$14, public IPv4 ~$11, other ~$3); to be confirmed from Cost Explorer |
+| Expected run-rate | About $60–65/month at list prices (Fargate ~$18, load balancer ~$17, RDS ~$14, public IPv4 ~$11, other ~$3); to be confirmed from Cost Explorer. Product owner's Cost Explorer check on 2026-11-10: about $1 spent so far |
 
 **Lifting the block early** (e.g., to deploy a fix): deploys are blocked, so do this in the AWS console, where your own access is not affected. Go to Billing and Cost Management → Budgets → `meridian-cost-guard`, raise the amount if needed, then Actions → select the action → Reverse. CLI equivalent: `aws budgets execute-budget-action --account-id 950088505912 --budget-name meridian-cost-guard --action-id <id> --execution-type REVERSE_BUDGET_ACTION`. After the reversal, AWS does not re-evaluate the action until next month, so update `infra/cdk.json` to match the new amount on the next deploy.
 
