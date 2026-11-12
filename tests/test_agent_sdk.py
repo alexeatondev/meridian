@@ -169,3 +169,29 @@ def test_tools_are_read_only_and_bounded():
     with pytest.raises(ValueError):
         mt["rescore_regime"].fn({"overrides": {"nope": 1}})
     json.dumps(T.cma_schema(m)), json.dumps(T.cio_schema(["a", "b"]))        # schemas are plain JSON
+
+
+def test_model_selection_precedence(monkeypatch, tmp_path):
+    from meridian.agents import runtime as R
+    cfg = tmp_path / "models.yaml"
+    cfg.write_text("default: model-default\nagents:\n  cio: model-cio\n")
+    monkeypatch.setattr(R, "MODELS_PATH", cfg)
+    monkeypatch.delenv("MERIDIAN_MODEL", raising=False)
+    cio, macro = R.load_agent("cio"), R.load_agent("macro-regime")
+    b = R.LLMBackend()
+    assert b.model == "model-default" and b.model_for(macro) == "model-default" and b.model_for(cio) == "model-cio"
+    monkeypatch.setenv("MERIDIAN_MODEL", "")                       # the workflow passes an empty value for "config default"
+    assert R.LLMBackend().model == "model-default"
+    monkeypatch.setenv("MERIDIAN_MODEL", "model-run")              # the workflow's dropdown
+    b = R.LLMBackend()
+    assert b.model_for(macro) == "model-run" and b.model_for(cio) == "model-cio"
+    monkeypatch.setenv("MERIDIAN_MODEL_CIO", "model-env")
+    assert b.model_for(cio) == "model-env"
+    monkeypatch.setattr(R, "MODELS_PATH", tmp_path / "missing.yaml")
+    monkeypatch.delenv("MERIDIAN_MODEL")
+    assert R.LLMBackend().model == R.FALLBACK_MODEL == "claude-haiku-5-5"
+
+
+def test_shipped_default_is_cheapest_model():
+    from meridian.agents.runtime import model_config
+    assert model_config() == {"default": "claude-haiku-5-5", "agents": {}}

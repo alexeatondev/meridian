@@ -25,7 +25,7 @@ import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
-from .runtime import AgentSpec, LLMBackend, _new_usage
+from .runtime import AgentSpec, LLMBackend, _new_usage, default_model
 
 SERVER = "meridian"
 # Conservative fallback rates (USD per million tokens) used only if the SDK reports no cost for a session.
@@ -60,7 +60,7 @@ class AgentSDKBackend(LLMBackend):
     path_name = "agent"
 
     def __init__(self):
-        self.model = os.getenv("MERIDIAN_MODEL", "claude-opus-5-5")
+        self.model = default_model()
         self.enabled = bool(os.getenv("ANTHROPIC_API_KEY")) and os.getenv("MERIDIAN_LLM", "on") != "off"
         self.usage = {**_new_usage(), "backend": "claude-agent-sdk", "cost_usd": 0.0, "tool_calls": 0, "turns": 0,
                       "budget_usd": _f("MERIDIAN_RUN_BUDGET_USD", 3.0), "skipped_over_budget": 0}

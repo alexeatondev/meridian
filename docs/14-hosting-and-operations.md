@@ -117,7 +117,7 @@ Actions → agent-run → Run workflow with:
 | Input | Meaning |
 |---|---|
 | `as_of` | Month-end date |
-| `model` | Model ID |
+| `model` | Dropdown: `config default` (the `default` in `config/models.yaml`, currently `claude-haiku-5-5`, the cheapest), or `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5` for this run only |
 | `backend` | `sdk` (default): Claude Agent SDK agents with read-only tools. `messages`: single-shot calls, the original and cheapest path |
 | `budget_usd` | Spend cap for the run on the `sdk` backend (default 3.00). When it is used up, remaining judgments use the deterministic policy |
 | `publish` | Untick for a test run: nothing is sent to the app, but the run bundle is still attached to the workflow |

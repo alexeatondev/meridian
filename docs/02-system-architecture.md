@@ -115,7 +115,9 @@ The ledger records code-only steps as `system` actors with `implemented_by: dete
 | cio | `ensemble_detail`, `candidate_detail`, `dissent` |
 | compliance-officer | `rule_results`, `judgment_paths`, `ledger_search` |
 
-**Limits on the SDK backend (`src/meridian/agents/sdk_backend.py`):** no built-in tools (no shell, files or web), no project or user settings loaded, an empty working directory, `MERIDIAN_RUN_BUDGET_USD` (default 3.00) for the whole run, `MERIDIAN_AGENT_BUDGET_USD` (0.25) and `MERIDIAN_AGENT_MAX_TURNS` (8) per session. When the run budget is used up, or three sessions fail in a row, the remaining judgments use the deterministic policy and the ledger says so. Each agent record carries an `agent_trace` (turns, tool calls with inputs, cost, session ID), and the run's `llm.usage` record carries total cost against the budget. A model per agent can be set with `MERIDIAN_MODEL_<SLUG>` (for example `MERIDIAN_MODEL_CIO`).
+**Limits on the SDK backend (`src/meridian/agents/sdk_backend.py`):** no built-in tools (no shell, files or web), no project or user settings loaded, an empty working directory, `MERIDIAN_RUN_BUDGET_USD` (default 3.00) for the whole run, `MERIDIAN_AGENT_BUDGET_USD` (0.25) and `MERIDIAN_AGENT_MAX_TURNS` (8) per session. When the run budget is used up, or three sessions fail in a row, the remaining judgments use the deterministic policy and the ledger says so. Each agent record carries an `agent_trace` (turns, tool calls with inputs, cost, session ID), and the run's `llm.usage` record carries total cost against the budget.
+
+**Choosing the model (`config/models.yaml`):** `default` is the standing model (currently `claude-haiku-5-5`, the cheapest). The `agent-run` workflow's `model` dropdown overrides it for one run. An entry under `agents` (for example `cio: claude-sonnet-5-5`) pins one agent to a model whatever the run's choice. Precedence, highest first: `MERIDIAN_MODEL_<SLUG>` env, `agents.<slug>` in the file, `MERIDIAN_MODEL` env (the dropdown), `default` in the file. The model each judgment used is on its ledger record.
 
 ## 5. Agent roster (v1.0)
 
