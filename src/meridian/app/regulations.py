@@ -120,7 +120,8 @@ def page(request: Request):
     boot = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": roles}, "csrf": user["csrf"],
             "can_tag": any(r in roles for r in TAG_ROLES), "can_remove": REMOVE_PERMISSION in roles,
             "can_work": any(r in roles for r in WORK_ROLES), "is_cco": REMOVE_PERMISSION in roles}
-    return HTMLResponse(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")))
+    from .shell import wrap
+    return HTMLResponse(wrap(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")), user, "regulations"))
 
 
 def _escalate_overdue(s, tasks: list[ComplianceTask]) -> None:

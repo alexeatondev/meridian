@@ -5,7 +5,7 @@ R = "UAT: browser test reason"
 
 
 def _toast(page, text):
-    expect(page.locator("#toast")).to_contain_text(text, timeout=8000)
+    expect(page.locator("#mtoasts")).to_contain_text(text, timeout=8000)
 
 
 def test_reg_01_tag_fund_and_work_obligation(sign_in, app_url):

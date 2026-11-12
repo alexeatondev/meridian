@@ -30,6 +30,8 @@ label.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(
 select,input,textarea,button{font:inherit;color:inherit}
 select,input,textarea{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface)}
 nav{display:flex;flex-direction:column;gap:2px}
+.navh{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:12px 0 4px 10px}.navh:first-child{margin-top:0}
+#nav button[data-n]::after{content:attr(data-n);display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:11px;font-weight:700;text-align:center;margin-left:4px}
 nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:8px;color:var(--text-2)}
 nav button:hover{background:var(--surface-2)} nav button.active{background:var(--info-bg);color:var(--info);font-weight:600}
 nav button:focus-visible{outline:2px solid var(--accent)}
@@ -132,11 +134,13 @@ const ROLES = {
 const TABS = {products:'Funds & vintages',positioning:'Positioning',riskbudget:'Risk budget',metrics:'Metrics',home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
   riskSummary:'Fund risk',factors:'Factor risk',stress:'Stress tests',riskHistory:'Risk history',exposures:'Look-through & search',
   risk:'Candidate risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger',changes:'Changes since last run',exceptions:'Exceptions'};
+const NAV_GROUPS = [['Overview',['home','changes','memo']],['Portfolio',['products','positioning','portfolios','glide','funds','cma','agents']],
+  ['Risk',['riskSummary','riskbudget','metrics','factors','stress','riskHistory','exposures','risk']],['Governance',['approvals','exceptions','compliance','report','ledger']]];
 const allowedRoles = () => LIVE ? LIVE.console_roles : Object.keys(ROLES);
 let state = {role: (()=>{const h=location.hash.slice(1);const ok=allowedRoles();return ok.includes(h)?h:ok[0]})(), tab:null, vintage:2050, ledgerFilter:'', ledgerSel:null, approvals:[]};
 try{const t=sessionStorage.getItem('mer_tab');if(t){state.tab=t;sessionStorage.removeItem('mer_tab')}const x=sessionStorage.getItem('mer_exc');if(x){state.excOpenInit=x;sessionStorage.removeItem('mer_exc')}}catch(e){}
 
-function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2600)}
+function toast(m,type){if(window.MUI) MUI.toast(m,type); else {const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',5000)}}
 function chip(status){const s=String(status||'');const c=s.startsWith('PASS')||s==='CLEAR'||s==='APPROVE'||s==='APPLIED'||s==='applied'?'good':(s==='WARN'||s==='CONDITIONAL'||s==='ATTEST'||s.includes('pending'))?'warn':(s==='FAIL'||s==='BLOCKED'||s==='REJECT'||s==='rejected')?'crit':'';return `<span class="chip ${c}">${esc(s)}</span>`}
 function overallStatus(){const all=VINT.map(v=>R.vintages[v].compliance_summary.overall);return all.includes('FAIL')?'FAIL':all.some(s=>s==='WARN')?'WARN':all.every(s=>s==='PASS')?'PASS':'PASS (attestations pending)'}
 function cioRec(v){return L.find(r=>r.step==='cio.ensemble'&&r.portfolio_scope.includes('MTRS-'+v))}
@@ -145,12 +149,14 @@ function drById(id){return L.find(r=>r.dr_id===id)}
 // --------------------------------------------------------------- shell
 function renderShell(){
   const sel=$('#role'); sel.innerHTML=Object.entries(ROLES).filter(([k])=>allowedRoles().includes(k)).map(([k,r])=>`<option value="${k}" ${k===state.role?'selected':''}>${r.label}</option>`).join('');
-  if(LIVE){ $('#roleHelp').innerHTML=`<b>${esc(LIVE.user.name)}</b>${LIVE.user.email?'<br>'+esc(LIVE.user.email):''}<br>${(LIVE.user.roles||[]).some(r=>['admin','audit','compliance'].includes(r))?`<a href="/admin">User access</a> · `:''}${(LIVE.user.roles||[]).some(r=>['portfolio_manager','analyst','risk','compliance','audit','admin','leadership'].includes(r))?`<a href="/trading">Trading</a> · `:''}${(LIVE.user.roles||[]).some(r=>['portfolio_manager','analyst','risk','compliance','audit','admin','leadership'].includes(r))?`<a href="/regulations">Regulations</a> · `:''}<a href="/logout">Sign out</a>`;
+  if(LIVE){ $('#roleHelp').textContent = allowedRoles().length>1 ? 'You have more than one role. Switch workspace to see each view.' : '';
     $('#runPick').innerHTML=`<label class="lbl" for="runSel">Run</label><select id="runSel">${LIVE.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===LIVE.run_id?'selected':''}>${esc(r.as_of)} · ${esc(r.id.slice(-6))}</option>`).join('')}</select>`;
     const rs=$('#runSel'); rs.onchange=()=>{location.href='/runs/'+encodeURIComponent(rs.value)+location.hash}; }
   sel.onchange=()=>{state.role=sel.value;state.tab=null;try{location.hash=state.role}catch(e){};render()};
   const role=ROLES[state.role]; if(!state.tab||!role.tabs.includes(state.tab)) state.tab=role.tabs[0];
-  $('#nav').innerHTML=role.tabs.map(t=>`<button class="${t===state.tab?'active':''}" data-t="${t}">${TABS[t]}</button>`).join('');
+  const openExc=(LIVE&&LIVE.exceptions||[]).filter(c=>['open','in_progress'].includes(c.status)).length;
+  const badge=t=>t==='exceptions'&&openExc?` data-n="${openExc}" aria-label="${TABS[t]}, ${openExc} open"`:'';
+  $('#nav').innerHTML=NAV_GROUPS.map(([g,ts])=>{const mine=ts.filter(t=>role.tabs.includes(t)); return mine.length?`<div class="navh">${g}</div>`+mine.map(t=>`<button class="${t===state.tab?'active':''}" data-t="${t}"${badge(t)}>${TABS[t]}</button>`).join(''):''}).join('');
   document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.t;render()});
   $('#topbar').innerHTML=`<h1>Target Retirement Series</h1>
     <span class="chip info">Run ${esc(R.run_id)}</span><span class="chip">As of ${esc(R.as_of)}</span>
@@ -859,13 +865,13 @@ function bindExceptions(){
     <button class="btn primary" id="enGo">Raise</button> <button class="btn" id="enCancel">Cancel</button></div>`;
     $('#enCancel').onclick=()=>$('#excForm').innerHTML='';
     $('#enGo').onclick=()=>api('/api/exceptions',{title:$('#enTitle').value,vintage:$('#enV').value||null,severity:$('#enSev').value,owner:$('#enOwner').value,due:$('#enDue').value,rule_id:$('#enRule').value,details:$('#enDet').value,reason:$('#enWhy').value,run_id:LIVE.run_id})
-      .then(c=>{toast(`${c.id} raised and recorded in the ledger.`);sessionStorage.setItem('mer_tab','exceptions');setTimeout(()=>location.reload(),700)}).catch(e=>toast(e.message))};
+      .then(c=>{toast(`${c.id} raised and recorded in the ledger.`);sessionStorage.setItem('mer_tab','exceptions');setTimeout(()=>location.reload(),700)}).catch(e=>toast(e.message,'error'))};
   document.querySelectorAll('[data-excact]').forEach(b=>b.onclick=()=>{const a=b.dataset.excact, body={action:a,reason:($('#excNote')||{}).value||''};
     if(a==='assign'){body.owner=$('#excOwner').value;body.due=$('#excDue').value}
     if(a==='accept'){body.until=$('#excUntil').value}
     b.disabled=true; api(`/api/exceptions/${encodeURIComponent(state.excOpen)}/actions`,body)
       .then(c=>{toast(`${c.id}: ${a} recorded (status ${c.status.replace('_',' ')}).`);sessionStorage.setItem('mer_tab','exceptions');sessionStorage.setItem('mer_exc',c.id);setTimeout(()=>location.reload(),700)})
-      .catch(e=>{b.disabled=false;toast(e.message)})});
+      .catch(e=>{b.disabled=false;toast(e.message,'error')})});
 }
 
 // --------------------------------------------------------------- Ledger search across runs
@@ -884,7 +890,7 @@ function bindSearch(){const g=$('#lsGo'); if(!g) return;
     try{const r=await fetch('/api/ledger/search?'+qs,{credentials:'same-origin'});const j=await r.json();if(!r.ok)throw new Error(j.detail);
       s.out=`<p class="small">${j.matches} of ${j.total_records} records match${j.matches>j.results.length?` (showing first ${j.results.length})`:''}.</p><div class="scroll" style="max-height:420px"><table class="small"><tr><th>Run</th><th>Type</th><th>Step</th><th>Actor</th><th>Scope</th><th>When</th><th>Summary</th></tr>${j.results.map(h=>`<tr><td class="mono">${esc(h.run_id==='governance'?'governance':h.run_id.slice(-6))}</td><td>${esc(h.dr_type)}</td><td class="mono">${esc(h.step)}</td><td>${esc(h.actor)}</td><td>${esc(h.scope)}</td><td class="mono">${esc((h.created_at||'').slice(0,16).replace('T',' '))}</td><td>${esc(h.summary)}</td></tr>`).join('')}</table></div>`;
       $('#lsOut').innerHTML=s.out; qs.set('format','csv'); $('#lsCsv').innerHTML=`<a class="btn" href="/api/ledger/search?${qs}" download>Download CSV</a>`;
-    }catch(e){toast(e.message)}};
+    }catch(e){toast(e.message,'error')}};
 }
 
 function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();bindExceptions();bindSearch();bindRisk();glideChart();activeChart();riskCharts()}
@@ -903,7 +909,7 @@ function bind(){
     if(reason.length<10){toast('Please give a reason (at least 10 characters).');return}
     if(b.dataset.decide==='approve'&&R.vintages[state.vintage].compliance_summary.FAIL>0){toast('Blocked: a hard limit FAILED. Approval is not possible.');return}
     if(LIVE){ b.disabled=true; api(`/api/runs/${encodeURIComponent(LIVE.run_id)}/approvals`,{vintage:state.vintage,role:ROLES[state.role].approverRole,decision:b.dataset.decide,reason})
-      .then(()=>{toast('Decision recorded in the ledger.');setTimeout(()=>location.reload(),600)}).catch(e=>{b.disabled=false;toast(e.message)}); return; }
+      .then(()=>{toast('Decision recorded in the ledger.');setTimeout(()=>location.reload(),600)}).catch(e=>{b.disabled=false;toast(e.message,'error')}); return; }
     state.approvals.push({vintage:state.vintage,role:ROLES[state.role].approverRole,decision:b.dataset.decide,reason});toast('Decision recorded in this session.');render()});
   document.querySelectorAll('.caret[data-node]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();const n=b.dataset.node;state.collapsed[n]=!state.collapsed[n];render()});
   const vs=$('#viewSel'); if(vs) vs.onchange=()=>{state.view=vs.value;render()};
@@ -920,7 +926,7 @@ function bind(){
     const specs=state.adj.map(a=>`${a.node}=${a.mode==='absolute'?(a.value*100).toFixed(4)+'%':(a.value>=0?'+':'')+(a.value*100).toFixed(4)+'pp'}${a.funded?' from '+a.funded:''}`);
     as.disabled=true; api(`/api/runs/${encodeURIComponent(LIVE.run_id)}/adjustments`,{vintage:state.vintage,specs,reason})
       .then(r=>{toast(`Recorded: TE ${pct(r.te,2)} (${(r.risk_budget_used*100).toFixed(0)}% of budget), compliance ${r.compliance_summary.overall}`);state.adj=[];setTimeout(()=>location.reload(),900)})
-      .catch(e=>{as.disabled=false;toast(e.message)})};
+      .catch(e=>{as.disabled=false;toast(e.message,'error')})};
   const rbTe=$('#rbTe'), rbV=$('#rbV');
   const rbPreview=()=>{if(!rbTe)return;const b=parseFloat(rbTe.value)/100;const vv=rbV.value;const list=vv==='default'?VINT.filter(x=>!(D.risk_budget_policy.vintages||{})[x]):[+vv];
     $('#rbPrev').innerHTML=b>D.risk_budget_policy.hard_max+1e-9?'<span class="chip crit">Above IPS hard limit — needs an IPS amendment</span>':list.map(x=>`${x}: ${(R.vintages[x].risk.te/b*100).toFixed(0)}% used`).join(' · ')};
@@ -928,7 +934,7 @@ function bind(){
   const rg=$('#rbGo'); if(rg) rg.onclick=()=>{const r=$('#rbReason').value.trim();if(r.length<10){toast('Please give a reason (10+ characters).');return}
     const role=state.role==='pm'?'portfolio_manager':'risk';
     if(LIVE){ rg.disabled=true; api('/api/risk-budget/requests',{vintage:rbV.value,te:parseFloat(rbTe.value)/100,reason:r})
-      .then(cr=>{toast(`Change request ${cr.id} submitted; needs ${cr.required_approvals.join(' + ')}`);setTimeout(()=>location.reload(),900)}).catch(e=>{rg.disabled=false;toast(e.message)}); return; }
+      .then(cr=>{toast(`Change request ${cr.id} submitted; needs ${cr.required_approvals.join(' + ')}`);setTimeout(()=>location.reload(),900)}).catch(e=>{rg.disabled=false;toast(e.message,'error')}); return; }
     const c=$('#rbCmd');c.style.display='block';
     c.textContent=`meridian risk-budget set --vintage ${rbV.value} --te ${parseFloat(rbTe.value).toFixed(2)}% --name "YOUR NAME" --role ${role} --reason "${r.replace(/"/g,"'")}"`};
   document.querySelectorAll('[data-cr]').forEach(b=>b.onclick=()=>{
@@ -936,7 +942,7 @@ function bind(){
     document.body.appendChild(ta); $('#crCancel').onclick=()=>ta.remove();
     $('#crOk').onclick=()=>{const rs=$('#crReason').value.trim(); if(rs.length<10){toast('Please give a reason (10+ characters).');return}
       api(`/api/risk-budget/requests/${encodeURIComponent(b.dataset.cr)}/decisions`,{role:b.dataset.crrole,decision:b.dataset.crdec,reason:rs})
-        .then(cr=>{toast(`${cr.id}: ${cr.status}`);setTimeout(()=>location.reload(),800)}).catch(e=>toast(e.message))}});
+        .then(cr=>{toast(`${cr.id}: ${cr.status}`);setTimeout(()=>location.reload(),800)}).catch(e=>toast(e.message,'error'))}});
   const cc=$('#copyCmd'); if(cc) cc.onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('#cmd').textContent).then(()=>toast('Copied'),()=>toast('Select the text to copy'))};
 }
 window.addEventListener('resize',()=>{glideChart();activeChart();riskCharts()});

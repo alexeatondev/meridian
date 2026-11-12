@@ -1,14 +1,14 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.7 · 2026-11-11**
+**Version 0.8 · 2026-11-11 (UX update)**
 
 ## Status (2026-11-10)
 - **Repo:** github.com/alexeatondev/meridian · **App:** https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK, GitHub OIDC, no stored keys) · **Cost:** about $1 spent so far (product owner's Cost Explorer check, 2026-11-10); budget $75/month with alerts and an automatic spend block.
 - **Agent pipeline (Phase 1):** macro regime, 13 asset classes with CMA judge, covariance, 7 construction methods, peer review and Borda vote, CRO, CIO ensemble, board memo; real public data with synthetic only for some non-US valuations (flagged); live LLM judgment in the `agent-run` workflow; runs are ad hoc.
 - **Governance (Phase 2):** deterministic compliance engine, Agentic Compliance Officer (draft only), hash-chained ledger that the database refuses to edit, approvals with reason and segregation of duties, Investment Committee / CCO / Trade route manager permissions, exceptions workflow, ledger search across runs, evidence pack. Not yet: kill switch, autonomy controls, WORM copy.
-- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 127 automated tests (64 in the browser). Not yet: Ask Meridian.
+- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 135 automated tests (65 in the browser). One shared app shell on every screen (app bar, My work inbox, in-app Help, in-page confirmations, persistent error messages, keyboard and screen-reader support; doc 11). Not yet: Ask Meridian.
 - **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, post-trade preview with IPS check, approval, mock Charles River file, rebalance, positions upload, fills and booking, bulk changes across product lines and IC-approved glide-path adjustments (doc 17); fund-level regulations with controls and obligations (doc 18). Positions, prices and the CIT line are example data.
-- **Docs:** all 18 docs checked and current on 2026-11-11; repository docs use the Project's numbers; user guide (doc 06) step by step with 54 screenshots, published as an illustrated page.
+- **Docs:** all 18 docs checked and current on 2026-11-11; repository docs use the Project's numbers; user guide (doc 06) step by step with 58 screenshots, published as an illustrated page and served in the app under **Help**.
 
 ## Assessment (2026-11-10)
 | Area | State | Comment |
@@ -37,6 +37,12 @@
 
 ## Built 2026-11-11
 - **Bulk changes across product lines:** glide path (IC-approved, within IPS bands), Strategic table, tilts (security or asset class), exclusions, exits, roll-down and buffer, for all funds, all mutual funds, all CITs or one fund, with an optional vintage range (doc 17, doc 06 §10.9).
+
+## Built 2026-11-11 (UX update)
+- **One shell for every screen:** app bar with role-filtered navigation (Console, Trading, Regulations, User access), **My work** inbox across modules (trade lists to approve or fill, IC glide-path decisions, obligations due or overdue, exceptions owned), **Help** (the user guide in the app, opened at the current screen's section, with search), user and sign-out. Duplicate per-page links removed.
+- **Feedback and safety:** in-page confirmation dialogs replace browser prompts (cancel cashflow, cancel trade list, delete account with typed email); error messages stay until dismissed; live character counters on reason fields; busy state prevents double submission; session-expiry dialog.
+- **Navigation and accessibility:** console tabs grouped under Overview, Portfolio, Risk and Governance with an open-exceptions count; skip link, focus outlines, ARIA tablists with arrow keys, live regions, dark mode and reduced motion respected.
+- Docs 06 (§1 rewritten, v0.7), 11 (v0.5), 16 (UX-1 to UX-8) updated; 5 new screenshots.
 
 ## Next steps (not blocked, in order)
 1. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
@@ -80,6 +86,7 @@
 | Scheduled monthly agent run with notifications | **Held**: runs stay ad hoc during development | Operating loop |
 | Next ad hoc run (as of 2026-11-30) | **Held** | Gives "Changes since last run" real data |
 | CloudWatch alarms; Node 20 action updates; remaining least-privilege steps | Backlog | Operations |
+| **Friendly web address** (e.g. `meridian.<your-domain>` instead of `d3maw6l4k5cc0v.cloudfront.net`). A `*.cloudfront.net` name can't be chosen; it needs a domain you own (about $15/year), an ACM certificate in us-east-1 (the organization SCP blocks the deploy role there, so you'd request it in the console or allow it), a DNS record (Route 53 about $0.50/month), the CloudFront alternate name, and new Cognito callback URLs (doc 14 §12) | **Held until production** (raised 2026-11-11) | Easier to remember and share; looks like the firm's own system |
 | Risk add-ons (doc 13 §8); vendor data; second product type; human CCO | Awaiting your direction | Product scope |
 | **Question for the CCO and counsel:** does the IPS (doc 07) also govern the target-date CITs, or do they need their own investment policy under the declaration of trust? | Open (raised 2026-11-10) | Every CIT trade is checked against the mutual-fund IPS today |
 | **Question for the CCO and counsel:** should the firm-level `bank_cit` entity pack (doc 08) be switched on for the CITs? | Open (raised 2026-11-10) | Adds bank-trustee obligations, roles and retention |

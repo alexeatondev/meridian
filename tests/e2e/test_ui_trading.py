@@ -8,7 +8,7 @@ R = "UAT: browser test reason"
 
 
 def _toast(page, text):
-    expect(page.locator("#toast")).to_contain_text(text, timeout=8000)
+    expect(page.locator("#mtoasts")).to_contain_text(text, timeout=8000)
 
 
 def test_trd_01_vehicle_toggle_and_universe(sign_in, app_url):

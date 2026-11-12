@@ -2,7 +2,7 @@
 
 
 def expect_toast(p, text: str):
-    p.wait_for_function("t => document.querySelector('#toast').innerText.includes(t)", arg=text, timeout=15000)
+    p.wait_for_function("t => document.querySelector('#mtoasts').innerText.includes(t)", arg=text, timeout=15000)
 
 R = "UAT: new committee member per IC minute 2026-11"
 
@@ -93,7 +93,7 @@ def test_adm_13_access_review_matrix(page, app_url):
 
 def test_adm_14_audit_sees_read_only_screen(sign_in, app_url):
     p = sign_in("Grace Liu", "audit")
-    assert "User access" in p.inner_text("#roleHelp")
+    assert "User access" in p.inner_text(".mbar nav")
     p.goto(app_url + "/admin")
     p.wait_for_selector("#users table")
     assert "Read-only" in p.inner_text("#users") and p.query_selector("#add") is None
@@ -102,6 +102,6 @@ def test_adm_14_audit_sees_read_only_screen(sign_in, app_url):
 
 def test_adm_15_pm_cannot_open_user_access(sign_in, app_url):
     p = sign_in("Maya Chen", "portfolio_manager")
-    assert "User access" not in p.inner_text("#roleHelp")
+    assert "User access" not in p.inner_text(".mbar nav")
     r = p.request.get(app_url + "/admin")
     assert r.status == 403

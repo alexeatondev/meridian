@@ -30,7 +30,7 @@ def browser_context_args(browser_context_args):
 
 def shot(page, name: str, el: str | None = None, full: bool = False):
     page.wait_for_timeout(450)
-    page.evaluate("document.querySelectorAll('#toast,.toast').forEach(t=>t.style.display='none')")
+    page.evaluate("document.querySelectorAll('#toast,.toast,#mtoasts').forEach(t=>t.style.display='none')")
     path = OUT / f"{name}.png"
     if el:
         page.locator(el).first.screenshot(path=str(path))
@@ -339,3 +339,33 @@ def test_bulk_changes(page, app_url):
     p.click(".tabs button:text-is('Glide path & bulk changes')")
     p.locator("#bkTiGo").scroll_into_view_if_needed()
     shot(p, "trd-20-bulk-tilts")
+
+
+def test_navigation_and_feedback(page, app_url):
+    """App bar, My work, Help, in-page dialogs and messages (UX update 2026-11-11)."""
+    go(page, app_url, "Maya Chen", "portfolio_manager", "route_manager")
+    page.goto(app_url + "/trading")
+    page.wait_for_selector(".mbar")
+    page.wait_for_function("document.getElementById('mworkN').textContent !== '·'")
+    page.click("#mwork")
+    page.wait_for_selector("#mworkPop")
+    shot(page, "nav-01-my-work")
+    page.locator("#mworkPop a.mi", has_text="Approve").first.click()
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(600)
+    shot(page, "nav-02-from-my-work")
+    if page.locator("#taCancel").count():
+        page.click("#taCancel")
+        page.wait_for_selector("dialog.mdlg[open]")
+        page.fill("dialog.mdlg textarea", "Duplicate of an earlier list")
+        shot(page, "nav-03-dialog")
+        page.keyboard.press("Escape")
+    # an error message stays until dismissed; a success message clears itself
+    page.evaluate("document.getElementById('mtoasts').style.display='';MUI.toast('Reason must be at least 10 characters','error'); MUI.toast('Saved and recorded in the ledger')")
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(OUT / "nav-04-messages.png"), clip={"x": 900, "y": 700, "width": 540, "height": 200})
+    SHOTS.append("nav-04-messages")
+    page.goto(app_url + "/help#10-trading-doc-17")
+    page.wait_for_timeout(600)
+    page.fill("#hq", "fills")
+    shot(page, "nav-05-help")

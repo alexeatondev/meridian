@@ -8,8 +8,8 @@ PM_TABS = ["Home", "Funds & vintages", "Positioning", "Portfolios & proposals", 
 def test_pm_01_sees_only_pm_workspace(sign_in):
     p = sign_in("Maya Chen", "portfolio_manager")
     assert [o.get_attribute("value") for o in p.query_selector_all("#role option")] == ["pm"]
-    assert tabs(p) == PM_TABS
-    assert "Maya Chen" in p.inner_text("#roleHelp")
+    assert sorted(tabs(p)) == sorted(PM_TABS)  # grouped sidebar: order follows the section headings
+    assert "Maya Chen" in p.inner_text(".mbar") and p.text_content("#nav .navh") == "Overview"
     assert "Proposals awaiting you" in p.inner_text("#view")
 
 

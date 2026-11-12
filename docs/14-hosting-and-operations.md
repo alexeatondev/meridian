@@ -1,6 +1,6 @@
 # 14 — Hosting & Operations (AWS)
 
-**Version 0.3 · 2026-11-11 · Audience: platform admin, engineering, audit, compliance**
+**Version 0.4 · 2026-11-11 · Audience: platform admin, engineering, audit, compliance**
 
 How the hosted Meridian app is built, deployed and run, and what to do when something needs attention. Everything here describes what is actually deployed as of 2026-11-10 (last deploy: trading slice 2 and the route permission). Planned changes are listed separately in §12.
 
@@ -75,7 +75,7 @@ A full deploy takes about 10–15 minutes; an image-only change is faster.
 
 ## 5. Managing users
 
-**In the app (recommended): User access screen** at `/admin` (admins land there; others with Admin, Audit or Compliance roles reach it from **User access** in the console side bar).
+**In the app (recommended): User access screen** at `/admin` (admins land there; others with Admin, Audit or Compliance roles reach it from **User access** in the app bar).
 
 | Tab | What it does | Who |
 |---|---|---|
@@ -195,3 +195,4 @@ Keys are never pasted into chat or committed. Secret values are entered by the p
 | CloudWatch alarms (5xx, unhealthy target, database storage/CPU) emailed to the admin | Today an outage would go unnoticed |
 | Schedule `agent-run` after the monthly data refresh, with a notification (held: runs stay ad hoc during development) | Operating loop |
 | Update GitHub Actions still on Node 20 | Deprecation warnings |
+| **Custom domain (held until production).** Register or pick a domain; request an ACM certificate for it in us-east-1 (CloudFront only uses us-east-1 certificates; the organization SCP denies the deploy role there, so request it in the console or add a narrow SCP exception); add it as an alternate domain name on the CloudFront distribution in the CDK stack; create the DNS alias (Route 53 hosted zone about $0.50/month, or your registrar's DNS); add the new address to the Cognito app client's callback and sign-out URLs; update docs and UAT links | A memorable address such as `meridian.<firm>.com`. A `*.cloudfront.net` name is assigned by AWS and can't be chosen |

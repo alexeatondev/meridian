@@ -291,7 +291,8 @@ def trading_page(request: Request):
             "can_prepare": any(r in roles for r in PREPARE_ROLES), "can_approve": any(r in roles for r in APPROVE_ROLES),
             "can_settings": any(r in roles for r in SETTINGS_ROLES), "can_routes": ROUTE_PERMISSION in roles,
             "can_glide": "investment_committee" in roles}
-    return HTMLResponse(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")))
+    from .shell import wrap
+    return HTMLResponse(wrap(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")), user, "trading"))
 
 
 def _cashflows(s) -> list[dict]:
