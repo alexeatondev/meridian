@@ -150,7 +150,8 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 | MRM-1 Inventory, MRM-3 validation | Not built (Phase 7/8) |
 | MRM-4 Change control | **Built** via git, CI tests and deploy workflow |
 | REC-1 Decision records | **Built**, including trading and access changes. Since 2026-11-11 steps computed by code are recorded as `system` actors with no model name, fallbacks are recorded as `offline-deterministic`, and agent records carry a trace of turns, tool calls and cost |
-| MKT-1 No AI-washing | **Partial:** the board memo and doc 02 §4a state which steps a model performs (24 judgments per run) and which are code. Earlier docs and ledger records overstated the model's role; external statements still need Compliance pre-approval |
+| SUP-3 Dissent visibility (agents) | Since 2026-11-12 ballots are cast by the construction agents after reading the peer reviews; bottom flags, reviews and the risk officer's flags are on the Agent votes screen and in the ledger |
+| MKT-1 No AI-washing | **Partial:** the board memo and doc 02 §4a state which steps agents perform (50 sessions per run) and that all numbers are code. Earlier docs and ledger records overstated the model's role; external statements still need Compliance pre-approval |
 | REC-2 Immutability | **Partial:** hash chain + database append-only triggers; WORM copy deferred to production (cost) |
 | REC-3 Retention | 6 years applied by the pipeline; backups 7 days; CCO to confirm |
 | REC-5 Exam readiness | **Partial:** ledger search across runs, CSV, evidence pack per run |

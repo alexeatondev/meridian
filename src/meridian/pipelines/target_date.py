@@ -118,17 +118,36 @@ def lens_score(lens: str, c: dict) -> float:
     return 0.0
 
 
-def borda_vote(cands: dict, top_k: int = 3) -> tuple[dict, list]:
+def borda_vote(cands: dict, top_k: int = 3, agent_ballots: dict | None = None) -> tuple[dict, list]:
+    """Modified Borda count. A voter with a validated agent ballot uses it; any other voter is voted for by
+    its family's rule-based lens."""
     points = {k: 0 for k in cands}
     ballots = []
     for voter, cv in cands.items():
-        others = [k for k in cands if k != voter]
-        ranked = sorted(others, key=lambda k: lens_score(cv["family"], cands[k]), reverse=True)
-        for i, k in enumerate(ranked[:top_k]):
+        ab = (agent_ballots or {}).get(voter)
+        if ab:
+            top, bottom, source = ab["top"][:top_k], ab["bottom_flag"], ab.get("source", "agent")
+        else:
+            others = [k for k in cands if k != voter]
+            ranked = sorted(others, key=lambda k: lens_score(cv["family"], cands[k]), reverse=True)
+            top, bottom, source = ranked[:top_k], ranked[-1], "lens"
+        for i, k in enumerate(top):
             points[k] += top_k - i
-        points[ranked[-1]] -= 2
-        ballots.append({"voter": voter, "lens": cv["family"], "top": ranked[:top_k], "bottom_flag": ranked[-1]})
+        points[bottom] -= 2
+        ballots.append({"voter": voter, "lens": cv["family"], "top": top, "bottom_flag": bottom, "source": source,
+                        **({"rationale": ab["rationale"]} if ab and ab.get("rationale") else {})})
     return points, ballots
+
+
+def metric_composite(cand: dict) -> dict:
+    """Quantitative score per candidate, 0-1 (Sharpe 30%, TE 25%, drawdown 20%, effective N 15%, compliance 10%)."""
+    keys = list(cand)
+    m = (0.30 * _norm(np.array([cand[k]["sharpe"] for k in keys])) +
+         0.25 * _norm(-np.array([cand[k]["te"] for k in keys])) +
+         0.20 * _norm(np.array([cand[k]["backtest"]["max_drawdown"] for k in keys])) +
+         0.15 * _norm(np.array([cand[k]["eff_n"] for k in keys])) +
+         0.10 * np.array([1.0 if cand[k]["compliance"]["FAIL"] == 0 else 0.0 for k in keys]))
+    return dict(zip(keys, (float(x) for x in m)))
 
 
 def _with_trace(output: dict, llm) -> dict:
@@ -278,6 +297,10 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     vint_out = {}
     cio_spec, cro_spec = load_agent("cio", ["ensemble-methods"]), load_agent("cro")
     pc_spec = load_agent("pc-agent", ["peer-review"])
+    names = {a: universe[a]["name"] for a in assets}
+    ctx = {}
+
+    # 5a. candidates and the code-computed risk report, for every vintage ------------------------
     for v in policy.vintages:
         ytt = v - as_of_frac
         n = policy.neutral_weights(ytt)
@@ -298,15 +321,22 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         cand["adversarial_diversifier"] = {"family": "adversarial", "w": w, "status": status}
         centroid = np.mean([c["w"] for k, c in cand.items() if k != "adversarial_diversifier"], axis=0)
 
-        # CRO risk report (neutral assessor; does not vote)
-        for k, c in cand.items():
-            wv = c["w"]
-            bt = A.historical_backtest(wv, rets)
+        # risk report numbers (code). The risk officer agent comments on them later and does not vote.
+        def measure(wv, n=n, rb=rb, centroid=centroid):
             comp = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
-            c.update(exp_ret=float(mu @ wv), vol=A.port_vol(wv, cov), te=A.tracking_error(wv, n, cov),
-                     eff_n=A.effective_n(wv), backtest=bt, compliance=summarize(comp),
-                     dist_centroid=float(np.abs(wv - centroid).sum()))
-            c["sharpe"] = (c["exp_ret"] - rf) / c["vol"]
+            m = dict(w=np.asarray(wv, float), exp_ret=float(mu @ wv), vol=A.port_vol(wv, cov), te=A.tracking_error(wv, n, cov),
+                     eff_n=A.effective_n(wv), backtest=A.historical_backtest(wv, rets), compliance=summarize(comp),
+                     dist_centroid=float(np.abs(wv - centroid).sum()), rules=[r.to_dict() for r in comp])
+            m["sharpe"] = (m["exp_ret"] - rf) / m["vol"]
+            return m
+
+        def preview(wv, measure=measure):
+            m = measure(wv)
+            return {"expected_return": m["exp_ret"], "volatility": m["vol"], "tracking_error": m["te"], "sharpe": m["sharpe"],
+                    "compliance": m["compliance"]}
+
+        for k, c in cand.items():
+            c.update(measure(c["w"]))
             L.record(dr_type="signal", run_id=run_id, step=f"pc-{k}.proposal", actor=method_actor(f"pc-{k}", design_agent=pc_spec.slug),
                      policy_version=pv, inputs=cma_drs[:1] + [cov_dr], portfolio_scope=[f"MTRS-{v}"],
                      summary=f"{v}: {k} E[r] {c['exp_ret']:.2%}, vol {c['vol']:.2%}, TE {c['te']:.2%}; compliance {c['compliance']['overall']}",
@@ -315,24 +345,47 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                           policy_version=pv, portfolio_scope=[f"MTRS-{v}"],
                           summary=f"{v}: risk report on {len(cand)} candidates",
                           output={k: {x: (c[x] if x != "backtest" else c[x]) for x in ("exp_ret", "vol", "te", "eff_n", "backtest", "compliance")} for k, c in cand.items()})
+        ctx[v] = {"ytt": ytt, "n": n, "rb": rb, "neq": neq, "cand": cand, "cro_dr": cro_dr, "measure": measure, "preview": preview,
+                  "composite": metric_composite(cand)}
 
-        # peer review & modified Borda vote, blended with metric composite
-        points, ballots = borda_vote(cand)
+    # 5b. strategy review by the agents, once for the series (paper §3.5) -------------------------
+    from .deliberation import deliberate
+
+    def reevaluate(v, k, wv):
+        """Recompute one candidate after a revision; the compliance engine decides whether it stands."""
+        ctx[v]["cand"][k].update(ctx[v]["measure"](wv))
+        return ctx[v]["cand"][k]["compliance"]
+
+    delib = deliberate(llm, L, run_id, pv, mv, ctx, assets, names, {"pc": pc_spec, "cro": cro_spec},
+                       cma_drs[:1] + [cov_dr, macro_dr], reevaluate)
+    for k, rv in delib["revisions"].items():
+        if rv["applied"]:
+            for v in ctx:
+                c = ctx[v]["cand"][k]
+                L.record(dr_type="signal", run_id=run_id, step=f"pc-{k}.proposal-revised", actor=method_actor(f"pc-{k}", design_agent=pc_spec.slug),
+                         policy_version=pv, inputs=cma_drs[:1] + [cov_dr], portfolio_scope=[f"MTRS-{v}"],
+                         summary=f"{v}: {k} revised ({rv['note']}): E[r] {c['exp_ret']:.2%}, vol {c['vol']:.2%}, TE {c['te']:.2%}; compliance {c['compliance']['overall']}",
+                         output={"weights": dict(zip(assets, np.round(c["w"], 4))), "revision": {x: rv[x] for x in ("tilt_scale", "blend_with", "blend_weight")}})
+
+    # 5c. vote tally, ensembles and the CIO, per vintage ------------------------------------------
+    for v in policy.vintages:
+        d_ = ctx[v]
+        ytt, n, rb, neq, cand, cro_dr = d_["ytt"], d_["n"], d_["rb"], d_["neq"], d_["cand"], d_["cro_dr"]
+        # modified Borda vote (agent ballots where valid, else the family lens), blended with the metric composite
+        points, ballots = borda_vote(cand, agent_ballots=delib["ballots"])
         keys = list(cand)
-        metric = (0.30 * _norm(np.array([cand[k]["sharpe"] for k in keys])) +
-                  0.25 * _norm(-np.array([cand[k]["te"] for k in keys])) +
-                  0.20 * _norm(np.array([cand[k]["backtest"]["max_drawdown"] for k in keys])) +
-                  0.15 * _norm(np.array([cand[k]["eff_n"] for k in keys])) +
-                  0.10 * np.array([1.0 if cand[k]["compliance"]["FAIL"] == 0 else 0.0 for k in keys]))
+        metric = np.array([metric_composite(cand)[k] for k in keys])
         vote_w = 0.4 if mv["regime"] in ("late_cycle", "recession") else 0.5
         composite = vote_w * _norm(np.array([points[k] for k in keys], float)) + (1 - vote_w) * metric
         ranking = sorted(zip(keys, composite, [points[k] for k in keys]), key=lambda x: -x[1])
         dissent = [{"candidate": b_["bottom_flag"], "flagged_by": b_["voter"], "lens": b_["lens"]} for b_ in ballots]
+        n_agent = sum(b_["source"] != "lens" for b_ in ballots)
         vote_dr = L.record(dr_type="decision", run_id=run_id, step="pc-review.borda-vote", actor=SYSTEM,
                            policy_version=pv, inputs=[cro_dr], portfolio_scope=[f"MTRS-{v}"],
-                           summary=f"{v}: top = {ranking[0][0]}; vote weight {vote_w}",
+                           summary=f"{v}: top = {ranking[0][0]}; vote weight {vote_w}; {n_agent} of {len(ballots)} ballots cast by agents",
                            output={"ranking": [{"method": k, "composite": round(float(s), 3), "votes": p} for k, s, p in ranking],
-                                   "ballots": ballots, "seed": "deterministic-lens"}, dissent=dissent)
+                                   "ballots": ballots, "seed": "deterministic-lens" if not n_agent else f"review assignments seed {delib['seed']}"},
+                           dissent=dissent)
 
         # CIO agent: ensemble selection
         eligible = [k for k in keys if cand[k]["compliance"]["FAIL"] == 0]
@@ -355,10 +408,12 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
             ens_eval[k] = {"exp_ret": float(mu @ wv), "vol": A.port_vol(wv, cov), "te": A.tracking_error(wv, n, cov),
                            "eff_n": A.effective_n(wv), "compliance": summarize(comp_e)}
         llm_c = llm.judge(cio_spec, f"Choose the ensemble method for the {v} vintage.",
-                          {"regime": mv, "ensembles": ens_eval, "ranking": ranking[:5]},
+                          {"regime": mv, "ensembles": ens_eval, "ranking": ranking[:5],
+                           "strategy_review": {"shortlist": delib["shortlist"],
+                                               "risk_flags": {c["method"]: c["risk_flag"] for c in delib["risk_commentary"]["comments"]},
+                                               "revisions": {k: r["note"] for k, r in delib["revisions"].items()}}},
                           '{"ensemble": str, "rationale": str, "invalidation_conditions": [str]}',
-                          tools=T.cio_tools(assets, {a: universe[a]["name"] for a in assets}, n, ens, ens_eval, ens_rules,
-                                            cand, ranking, ballots),
+                          tools=T.cio_tools(assets, names, n, ens, ens_eval, ens_rules, cand, ranking, ballots),
                           schema=T.cio_schema(list(ens)))
         cio_path = "offline"
         if llm_c and llm_c.get("ensemble") in ens and ens_eval[llm_c["ensemble"]]["compliance"]["FAIL"] == 0:
@@ -405,7 +460,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                                           "compliance": c["compliance"]["overall"]} for k, c in cand.items()},
                        "approvers": approvers, "risk_budget": rb}
 
-    # 5b. positioning, risk-budget usage and portfolio metrics -------------------------------------
+    # 5d. positioning, risk-budget usage and portfolio metrics -------------------------------------
     from ..analytics.positioning import Taxonomy, active_risk_contributions, portfolio_metrics, positioning_table
     from ..governance import POSITIONS_PATH, positions_as_of, record_positions
     pos_path = Path(positions_path) if positions_path else (Path(out_root) / "positions.csv" if out_root else POSITIONS_PATH)
@@ -443,7 +498,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
              output={v: {"te": d["risk"]["te"], "budget": d["risk"]["budget"], "used_pct": d["risk"]["used_pct"],
                          "beta_5y": d["metrics"]["5y"]["portfolio"]["beta_vs_market"]} for v, d in vint_out.items()})
 
-    # 5c. risk analytics: fund risk metrics, decomposition, factors, stress tests, history, look-through --
+    # 5e. risk analytics: fund risk metrics, decomposition, factors, stress tests, history, look-through --
     from ..analytics import risk as RK
     rcfg = RK.load_risk_config()
     chars_df = res["fund.characteristics"].frame if "fund.characteristics" in res else None
@@ -481,6 +536,33 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     co = co_review(run_id, regime_cfg, vint_out, synthetic_detail, L, policy, llm=llm)
     (out / "compliance_report.md").write_text(co["report_md"])
 
+    # 7. board memo ----------------------------------------------------------------------------
+    from .memo import board_memo
+    # the memo writer agent drafts the opening summary; every table and the compliance statement stay code
+    memo_spec = load_agent("board-memo-writer")
+    flagged = {}
+    for b_ in delib["ballots"].values():
+        flagged[b_["bottom_flag"]] = flagged.get(b_["bottom_flag"], 0) + 1
+    memo_ctx = {"regime": {"regime": mv["regime"], "confidence": mv["confidence"]}, "contains_synthetic_data": bool(synthetic_detail),
+                "vintages": {str(v): {"equity_glide_path": round(d["equity_neutral"], 4), "equity_proposed": round(d["equity_final"], 4),
+                                      "tracking_error": round(d["te"], 4), "ensemble": d["ensemble"], "compliance": d["compliance_summary"]["overall"],
+                                      "top_ranked_method": d["ranking"][0]["method"]} for v, d in vint_out.items()},
+                "strategy_review": {"shortlist": delib["shortlist"], "bottom_flags_received": flagged,
+                                    "revisions": {k: r["note"] for k, r in delib["revisions"].items()},
+                                    "risk_flags": {c["method"]: c["risk_flag"] for c in delib["risk_commentary"]["comments"] if c["risk_flag"] != "none"}},
+                "compliance_review": {"status": co["status"], "findings": co["findings"][:6]},
+                "invalidation_conditions": next(iter(vint_out.values()))["invalidation_conditions"][:4]}
+    mj = llm.judge(memo_spec, "Write the opening summary of the board memo for non-technical readers, in 150 to 220 words of plain "
+                   "prose: what is recommended, why, how the agents decided (including dissent), the main risks, and what would "
+                   "change the view. Use only numbers from the context. Say plainly if the run contains synthetic data. Do not "
+                   "present simulated results as actual performance.", memo_ctx, '{"narrative": str}', schema=T.MEMO_SCHEMA)
+    narrative = mj["narrative"].strip()[:3000] if isinstance(mj, dict) and isinstance(mj.get("narrative"), str) and mj["narrative"].strip() else None
+    memo_path = llm.path_name if narrative else "offline"
+    if llm.enabled or llm.last_trace:
+        L.record(dr_type="signal", run_id=run_id, step="board-memo.summary", actor=actor(memo_spec, llm, path=memo_path), policy_version=pv,
+                 summary="Board memo opening summary " + ("drafted by the memo writer agent" if narrative else "not drafted; the memo carries tables only"),
+                 output=_with_trace({"judge_path": memo_path, "words": len(narrative.split()) if narrative else 0}, llm),
+                 **({"rationale": narrative} if narrative else {}))
     if llm.usage["calls"] or llm.enabled:
         L.record(dr_type="signal", run_id=run_id, step="llm.usage", actor=SYSTEM, policy_version=pv,
                  summary=(f"Model {llm.model} via {llm.runtime or 'Messages API'}: {llm.usage['calls']} judgments requested, "
@@ -489,23 +571,30 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                              if "cost_usd" in llm.usage else "")),
                  output=llm.usage)
 
-    # 7. board memo ----------------------------------------------------------------------------
-    from .memo import board_memo
     paths = [r["output"]["judge_path"] for r in L.records() if (r.get("output") or {}).get("judge_path")]
     by_model = sum(p != "offline" for p in paths)
     engine = ("offline-deterministic" if not by_model else
               f"{llm.model} via {llm.runtime or 'Messages API'} ({by_model} of {len(paths)} judgments; "
               f"{len(paths) - by_model} used the deterministic policy)")
-    memo = board_memo(run_id, as_of, mv, cma_table, vint_out, regime_cfg, co, synthetic_detail, policy, engine, snap["snapshot_id"], snap)
+    ai_scope = "nowhere in this run: every judgment used the documented deterministic policy." if not by_model else (
+                "the regime call, the return assumption for each asset class, the ensemble choice for each vintage and the compliance "
+                "narrative" + (", plus the construction agents' theses, peer reviews, ballots and revisions, the risk officer's commentary"
+                               + (" and the summary below" if narrative else "") if delib["by_agents"] else "")
+                + ". All weights, risk numbers, vote tallies, compliance rule results and the tables in this memo are computed by code.")
+    ai_scope = ai_scope if not by_model or delib["by_agents"] else ai_scope.replace(
+        ". All weights", ". The strategy review used the rule-based fallback. All weights")
+    memo = board_memo(run_id, as_of, mv, cma_table, vint_out, regime_cfg, co, synthetic_detail, policy, engine, snap["snapshot_id"], snap,
+                      narrative=narrative, ai_scope=ai_scope)
     (out / "board_memo.md").write_text(memo)
     L.record(dr_type="signal", run_id=run_id, step="board-memo",
              actor=method_actor("board-memo-writer", design_agent="board-memo-writer"),
-             policy_version=pv, summary="Board memo assembled from run results by a code template", output={"path": "board_memo.md"})
+             policy_version=pv, summary="Board memo assembled from run results by a code template"
+             + ("; opening summary drafted by the memo writer agent" if narrative else ""), output={"path": "board_memo.md"})
     (out / "results.json").write_text(json.dumps({"run_id": run_id, "as_of": as_of, "macro": mv, "cma": cma_table,
                                                   "model": {"assets": assets, "cov": np.round(cov, 8).tolist(), "mu": mu.round(6).tolist(),
                                                             "taxonomy": tax.leaves, "views": tax.raw["views"],
                                                             "market": dict(zip(assets, mkt_w.round(6))),
                                                             "market_name": tax.raw["market_benchmark"]["name"]},
-                                                  "vintages": vint_out, "risk": risk_out, "compliance_officer": {k: v for k, v in co.items() if k != "report_md"},
+                                                  "vintages": vint_out, "strategy_review": delib, "risk": risk_out, "compliance_officer": {k: v for k, v in co.items() if k != "report_md"},
                                                   "snapshot": snap}, indent=2, default=str))
     return RunResult(run_id, out, vint_out, out / "board_memo.md", out / "compliance_report.md", verify(out / "ledger.jsonl"))

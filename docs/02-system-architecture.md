@@ -85,17 +85,31 @@ Every agent run emits: JSON outputs (validated against schema), markdown narrati
 
 ## 4a. How agents run today (pilot, 2026-11-11)
 
-The roster in §5 is the target design. In the pilot, four roles are model-driven and the rest are code.
+The roster in §5 is the target design. In the pilot, agents supply judgment and words in 50 sessions per run; every weight, risk number, vote tally and compliance result is code.
 
-| Step | Today | Calls per run |
+| Step | Who | Sessions per run |
 |---|---|---|
-| `macro-regime` | **Model** reviews the rule-based regime and may confirm or change it | 1 |
-| `asset-class-analyst` (CMA judge) | **Model** weights the forecast methods; code bounds the result to the methods' range | 13 |
-| `cio` | **Model** picks the ensemble per vintage; code rejects a pick with any FAIL | 9 |
-| `compliance-officer` | **Model** drafts the narrative; findings and status are code | 1 |
-| `pc-*` proposals (7 methods incl. the adversarial one) | Code (optimizers) | 0 |
-| `cro` risk report, review and vote | Code (rule-based lenses and Borda count) | 0 |
-| `board-memo-writer` | Code template | 0 |
+| `macro-regime` | **Agent** reviews the rule-based regime and may confirm or change it | 1 |
+| `asset-class-analyst` (CMA judge) | **Agent** weights the forecast methods; code bounds the result to the methods' range | 13 |
+| `pc-*` proposal weights (7 methods incl. the adversarial one) | Code (optimizers) | 0 |
+| `cro` risk report numbers | Code | 0 |
+| `pc-*` thesis | **Agent** per method explains its proposal and names its weaknesses | 7 |
+| `cro.commentary` | **Agent** comments on every candidate with a risk flag; does not vote | 1 |
+| `pc-*` peer review | **Agent** per method reviews two assigned peers | 7 |
+| `pc-*` ballot | **Agent** per method votes after all reviews are released; code validates and tallies | 7 |
+| `pc-*` revision | **Agent** for each shortlisted method (top 3) may temper its tilt or blend toward a peer; code recomputes and the compliance engine re-checks | 3 |
+| `cio` | **Agent** picks the ensemble per vintage; code rejects a pick with any FAIL | 9 |
+| `compliance-officer` | **Agent** drafts the narrative; findings and status are code | 1 |
+| `board-memo-writer` | **Agent** drafts the opening summary; tables and compliance statement are a code template | 1 |
+
+**Strategy review (paper §3.5, `src/meridian/pipelines/deliberation.py`).** The seven construction methods work as a panel, once per run for the whole series:
+1. *Thesis.* Each method's agent sees every candidate's series-average metrics and writes its case.
+2. *Risk commentary.* The risk officer agent is neutral: it flags (`none`, `watch`, `concern`) and never ranks or votes.
+3. *Peer review.* Each agent reviews two peers: one from its own family where one exists, one from another family. Assignments are drawn at random with a seed derived from the run ID and recorded (`pc-review.assignments`). Reviews are released together.
+4. *Vote.* Each agent ranks a top 3 (3/2/1 points) and flags one weakest (−2), never itself. One ballot per agent applies to every vintage; code tallies it and blends it with each vintage's metric composite. A ballot that fails validation is discarded and that method's rule-based family lens votes instead.
+5. *Revision.* The top 3 by blended score (at least two families) may scale their tilt toward the glide path (0.5–1.0) and blend up to 50% toward one peer's original proposal. Both are convex combinations of policy-feasible portfolios; code recomputes metrics and the compliance engine re-checks every vintage. Any FAIL puts the original back.
+
+Differences from the paper: 7 methods, not 21, so the ballot is top-3 and the shortlist is 3 (the paper uses top-5 for both); agents deliberate once for the series, not per portfolio; agents do not write optimizer code. With no model, a failed session or an exhausted budget, each step falls back to the previous rule-based behavior, and an offline run produces the same portfolios as before.
 
 The ledger records code-only steps as `system` actors with `implemented_by: deterministic code` and no model name; `design_agent` names the agent role they are meant to become. A judgment that falls back to the deterministic policy is recorded as `offline-deterministic` even when a model backend is on.
 
@@ -111,6 +125,8 @@ The ledger records code-only steps as `system` actors with `implemented_by: dete
 | Agent | Tools |
 |---|---|
 | macro-regime | `indicator_detail`, `rescore_regime` (what-if on the rule-based classifier) |
+| pc-agent (each method) | `candidate_detail`, `compare_candidates`; in the revision step also `preview_revision` |
+| cro | `candidate_detail`, `compare_candidates` |
 | asset-class-analyst | `blend_preview`, `asset_facts`, `cross_section` |
 | cio | `ensemble_detail`, `candidate_detail`, `dissent` |
 | compliance-officer | `rule_results`, `judgment_paths`, `ledger_search` |

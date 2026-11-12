@@ -6,13 +6,14 @@ def _p(x, d=1):
     return f"{x * 100:.{d}f}%"
 
 
-def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, model_label, snapshot_id, snap=None) -> str:
+def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, model_label, snapshot_id, snap=None,
+               narrative=None, ai_scope=None) -> str:
     L = [f"# Board Memo — Meridian Target Retirement Series", "",
          f"**Run:** `{run_id}` · **As of:** {as_of} · **Policy:** `{policy.id}` · **Data snapshot:** `{snapshot_id}`  ",
          f"**Judgment engine:** {model_label} · **Compliance review:** {co['status']} · **Autonomy:** {regime.autonomy_level} (human approval required)", "",
-         "*Where AI is used:* the regime call, the return assumption for each asset class, the ensemble choice for each vintage "
-         "and the compliance narrative. Portfolio construction, the review vote, risk, compliance rule results and this memo "
-         "are computed by code.", ""]
+         "*Where AI is used:* " + (ai_scope or "the regime call, the return assumption for each asset class, the ensemble choice "
+                                   "for each vintage and the compliance narrative. Portfolio construction, the review vote, risk, "
+                                   "compliance rule results and this memo are computed by code."), ""]
     if synthetic:
         parts = "; ".join(f"{k}: {v}" for k, v in synthetic.items()) if isinstance(synthetic, dict) else "all data"
         L += [f"> **CONTAINS SYNTHETIC DATA — SYSTEM TEST ONLY.** Generated data was used for — {parts}. "
@@ -20,6 +21,10 @@ def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, mode
     if snap:
         L += ["**Data sources:** " + "; ".join(f"{ds} ← {', '.join(f'{s} ({n})' for s, n in m.get('contributions', {}).items())}"
                                                for ds, m in snap["datasets"].items()), ""]
+    if narrative:
+        L += ["## Summary (AI-drafted)", "", narrative, "",
+              "*Drafted by the memo writer agent from this run's results. The tables and the compliance statement below are "
+              "computed by code and take precedence if they differ.*", ""]
     L += ["## 1. Recommendation", "",
           "Hold each vintage within its tactical band around the strategic glide path, implementing the CIO agent's ensemble "
           "allocations below once approved by the designated approvers. No vintage requires a glide-path (strategic) change.", "",
