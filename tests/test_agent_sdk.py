@@ -66,7 +66,44 @@ def install(monkeypatch, script, cost=0.01, **env):
     return sdk
 
 
+METHODS = ["glide_path_neutral", "max_sharpe_tilt", "black_litterman_tilt", "min_variance_tilt",
+           "max_diversification_tilt", "risk_budget_tilt", "adversarial_diversifier"]
+
+
 async def script(system, prompt, call_tool):
+    import re
+    me = re.search(r"for the method `(\w+)`", prompt)
+    me = me.group(1) if me else None
+    if "Write the thesis" in prompt:
+        return {"thesis": f"{me} suits an expansion with modest growth.", "fits_regime": "well", "weaknesses": ["CMA error"]}
+    if "standardized risk commentary" in prompt:
+        text, err = await call_tool("candidate_detail", {"method": "max_sharpe_tilt", "vintage": "2050"})
+        assert not err and "tracking_error" in text
+        return {"overview": "All candidates sit inside the tracking-error budget.",
+                "comments": [{"method": m, "comment": f"{m}: within limits.", "risk_flag": "watch" if m == "max_sharpe_tilt" else "none"}
+                             for m in METHODS]}
+    if "Review these two peers" in prompt:
+        a, b = re.search(r"Review these two peers: (\w+) and (\w+)\.", prompt).groups()
+        assert me not in (a, b)
+        if me == "min_variance_tilt":
+            return {"reviews": [{"peer": a, "assessment": "only one review", "concerns": [], "score": 4}]}     # incomplete -> fallback
+        return {"reviews": [{"peer": a, "assessment": f"{a} is sound.", "concerns": ["estimation risk"], "score": 9},
+                            {"peer": b, "assessment": f"{b} leans on the CMAs.", "concerns": [], "score": 2}]}
+    if "Vote on the other candidates" in prompt:
+        assert "reviews_received_by_each_candidate" in prompt
+        others = [m for m in METHODS if m != me]
+        if me == "risk_budget_tilt":
+            return {"top": [me, others[0], others[1]], "bottom_flag": others[2], "rationale": "votes for itself"}   # invalid
+        return {"top": ["glide_path_neutral" if me != "glide_path_neutral" else "min_variance_tilt",
+                        *[m for m in others if m not in ("glide_path_neutral", "min_variance_tilt", "adversarial_diversifier")][:2]],
+                "bottom_flag": "adversarial_diversifier" if me != "adversarial_diversifier" else "risk_budget_tilt",
+                "rationale": "Reviews favoured the low tracking-error candidates."}
+    if "You are shortlisted" in prompt:
+        text, err = await call_tool("preview_revision", {"tilt_scale": 0.6, "blend_with": "none"})
+        assert not err and "by_vintage" in text and "any_compliance_fail" in text
+        return {"tilt_scale": 0.6, "blend_with": "none", "blend_weight": 0.9, "response_to_reviews": "Tempered the tilt for estimation risk."}
+    if "opening summary of the board memo" in prompt:
+        return {"narrative": "The agents recommend holding each vintage near its glide path. One method dissented. This run contains synthetic data."}
     if "regime classification" in prompt:
         text, err = await call_tool("rescore_regime", {"overrides": {"hy_spread_bp": 900}})
         assert not err and "with_overrides" in text
@@ -123,8 +160,39 @@ def test_agent_sdk_pipeline(monkeypatch, tmp_path):
             assert x["actor"]["implemented_by"] == "deterministic code"
 
     usage = by["llm.usage"]["output"]
-    assert usage["backend"] == "claude-agent-sdk" and usage["calls"] == 24 and usage["failures"] == 1
-    assert usage["cost_usd"] == pytest.approx(0.23) and usage["tool_calls"] >= 10
+    assert usage["backend"] == "claude-agent-sdk" and usage["calls"] == 50 and usage["failures"] == 1
+    assert usage["cost_usd"] == pytest.approx(0.49) and usage["tool_calls"] >= 14
+
+    # strategy review: thesis -> risk commentary -> peer review -> vote -> revision, all recorded
+    sr = json.loads((r.out_dir / "results.json").read_text())["strategy_review"]
+    assert by["pc-max_sharpe_tilt.thesis"]["actor"]["id"] == "pc-max_sharpe_tilt" and by["pc-max_sharpe_tilt.thesis"]["output"]["judge_path"] == "agent"
+    assert by["cro.commentary"]["output"]["judge_path"] == "agent" and by["cro.commentary"]["actor"]["model"] == "claude-test-model"
+    assert by["pc-review.assignments"]["output"]["seed"] == sr["seed"]
+    for k, peers in sr["assignments"].items():                               # two different peers, never itself
+        assert len(set(peers)) == 2 and k not in peers
+        fam = sr["families"]
+        same = [m for m in METHODS if m != k and fam[m] == fam[k]]
+        assert (fam[peers[0]] == fam[k]) == bool(same) and fam[peers[1]] != fam[k]
+    assert sr["reviews"]["max_sharpe_tilt"]["reviews"][0]["score"] == 5       # 9 clamped to the 1-5 scale
+    assert sr["reviews"]["min_variance_tilt"]["source"] == "offline" and by["pc-min_variance_tilt.peer-review"]["actor"]["model"] == "offline-deterministic"
+    assert set(sr["ballots"]) == set(METHODS) - {"risk_budget_tilt"}         # the self-vote was discarded
+    assert by["pc-risk_budget_tilt.ballot"]["output"]["judge_path"] == "offline"
+    vote = next(x for x in recs if x["step"] == "pc-review.borda-vote" and x["portfolio_scope"] == ["MTRS-2050"])
+    src = {b["voter"]: b["source"] for b in vote["output"]["ballots"]}
+    assert src["risk_budget_tilt"] == "lens" and src["max_sharpe_tilt"] == "agent" and "6 of 7 ballots cast by agents" in vote["summary"]
+    assert all(b["voter"] not in b["top"] and b["voter"] != b["bottom_flag"] for b in vote["output"]["ballots"])
+    assert len(sr["shortlist"]) == 3 and len({sr["families"][k] for k in sr["shortlist"]}) >= 2
+    for k in sr["shortlist"]:
+        rv = sr["revisions"][k]
+        assert rv["tilt_scale"] == 0.6 and rv["blend_with"] is None and rv["blend_weight"] == 0.0
+        assert by[f"pc-{k}.revision"]["output"]["agent_trace"]["tool_calls"][0]["tool"] == "preview_revision"
+        revised = [x for x in recs if x["step"] == f"pc-{k}.proposal-revised"]
+        assert len(revised) == (9 if rv["applied"] else 0) and all(x["actor"]["kind"] == "system" for x in revised)
+    assert any(rv["applied"] for rv in sr["revisions"].values())
+    assert all(v["compliance_summary"]["FAIL"] == 0 for v in r.vintages.values())
+    memo = r.memo_path.read_text()
+    assert "## Summary (AI-drafted)" in memo and "One method dissented" in memo and "peer reviews, ballots and revisions" in memo
+    assert by["board-memo.summary"]["output"]["judge_path"] == "agent" and by["board-memo"]["actor"]["kind"] == "system"
 
     # every session is locked down: no built-in tools, no settings, capped turns and spend, schema-bound output
     for o in sdk.sessions:
@@ -144,7 +212,7 @@ def test_run_budget_stops_agent_calls(monkeypatch, tmp_path):
     by = {x["step"]: x for x in Ledger(r.out_dir / "ledger.jsonl").records()}
     usage = by["llm.usage"]["output"]
     assert len(sdk.sessions) == 3 and usage["calls"] == 3                  # third call crosses the cap; the rest are skipped
-    assert usage["skipped_over_budget"] == 21 and usage["cost_usd"] == pytest.approx(0.30)
+    assert usage["skipped_over_budget"] == 47 and usage["cost_usd"] == pytest.approx(0.30)
     skipped = by["compliance-officer.review"]["output"]
     assert skipped["judge_path"] == "offline" and skipped["agent_trace"]["skipped"] == "run budget used up"
     assert all(v["compliance_summary"]["FAIL"] == 0 for v in r.vintages.values())
@@ -195,3 +263,30 @@ def test_model_selection_precedence(monkeypatch, tmp_path):
 def test_shipped_default_is_cheapest_model():
     from meridian.agents.runtime import model_config
     assert model_config() == {"default": "claude-haiku-5-5", "agents": {}}
+
+
+def test_strategy_review_rules():
+    from meridian.pipelines import deliberation as D
+    import numpy as np
+    fam = {"a1": "x", "a2": "x", "b1": "y", "b2": "y", "solo": "z"}
+    a1, a2 = D.assign_reviews(fam, 7), D.assign_reviews(fam, 7)
+    assert a1 == a2                                                            # same seed, same draw
+    for r, (p1, p2) in a1.items():
+        assert r not in (p1, p2) and p1 != p2 and fam[p2] != fam[r]
+        assert (fam[p1] == fam[r]) == (r != "solo")
+    assert set(p for ps in a1.values() for p in ps) == set(fam)                # everyone is reviewed
+    ms = list(fam)
+    assert D.validate_ballot({"top": ["a2", "b1", "b2"], "bottom_flag": "solo"}, "a1", ms)["top"] == ["a2", "b1", "b2"]
+    for bad in ({"top": ["a1", "b1", "b2"], "bottom_flag": "solo"}, {"top": ["a2", "a2", "b2"], "bottom_flag": "solo"},
+                {"top": ["a2", "b1"], "bottom_flag": "solo"}, {"top": ["a2", "b1", "b2"], "bottom_flag": "b2"},
+                {"top": ["a2", "b1", "b2"], "bottom_flag": "a1"}, {"top": ["a2", "b1", "nope"], "bottom_flag": "solo"}, None):
+        assert D.validate_ballot(bad, "a1", ms) is None
+    rev = D.validate_revision({"tilt_scale": 0.1, "blend_with": "b1", "blend_weight": 3}, "a1", ms)
+    assert rev["tilt_scale"] == 0.5 and rev["blend_with"] == "b1" and rev["blend_weight"] == 0.5
+    assert D.validate_revision({"tilt_scale": 2, "blend_with": "a1", "blend_weight": 0.3}, "a1", ms)["blend_with"] is None   # not with itself
+    assert D.validate_revision({"tilt_scale": "abc"}, "a1", ms) is None
+    n, w, peer = np.array([0.5, 0.3, 0.2]), np.array([0.56, 0.27, 0.17]), np.array([0.5, 0.32, 0.18])
+    out = D.apply_revision(w, n, peer, {"tilt_scale": 0.5, "blend_with": "b1", "blend_weight": 0.5})
+    assert out.sum() == pytest.approx(1.0) and np.allclose(out, 0.5 * (n + 0.5 * (w - n)) + 0.5 * peer)
+    assert np.all(np.abs(out - n) <= np.maximum(np.abs(w - n), np.abs(peer - n)) + 1e-12)   # never further from the glide path
+    assert D.shortlist({"a1": 0.9, "a2": 0.8, "b1": 0.5, "solo": 0.4, "b2": 0.1}, fam, 2) == ["a1", "b1"]   # family diversity

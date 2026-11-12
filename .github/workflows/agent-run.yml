@@ -33,7 +33,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -134,11 +134,15 @@ jobs:
           for r in recs:
               o = r.get("output") or {}
               if o.get("judge_path"):
-                  paths[(r["step"].split(".")[-1] if r["step"].startswith("ac-") else r["step"]) + ":" + o["judge_path"]] += 1
+                  paths[(r["step"].split(".")[-1] if r["step"].startswith(("ac-", "pc-")) else r["step"]) + ":" + o["judge_path"]] += 1
               for c in (o.get("agent_trace") or {}).get("tool_calls", []):
                   tools[c["tool"] + (":error" if c.get("error") else "")] += 1
           print("judgment paths:", dict(paths))
           print("tool calls:", dict(tools))
+          sr = json.load(open(os.environ["RUN_DIR"] + "/results.json")).get("strategy_review") or {}
+          print("strategy review: shortlist", sr.get("shortlist"), "| agent ballots", sorted(sr.get("ballots") or {}),
+                "| revisions", {k: v["note"] for k, v in (sr.get("revisions") or {}).items()},
+                "| risk flags", {c["method"]: c["risk_flag"] for c in (sr.get("risk_commentary") or {}).get("comments", []) if c["risk_flag"] != "none"})
           PY
       - uses: actions/upload-artifact@v4
         with:

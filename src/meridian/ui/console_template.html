@@ -278,8 +278,23 @@ V.agents = () => {
   const v=state.vintage,x=R.vintages[v]; const vote=L.find(r=>r.step==='pc-review.borda-vote'&&r.portfolio_scope.includes('MTRS-'+v));
   return `${vintageTabs()}<div class="grid g2"><div class="card"><h2>Ranking — ${v}</h2><p class="small muted">Modified Borda vote (top-3 = 3/2/1, bottom flag −2) blended with a metric composite.</p>
   <table><tr><th>#</th><th>Method</th><th class="num">Votes</th><th class="num">Composite</th></tr>${x.ranking.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.method)}</td><td class="num">${r.votes>0?'+':''}${r.votes}</td><td class="num">${r.composite.toFixed(3)}</td></tr>`).join('')}</table></div>
-  <div class="card"><h2>Ballots</h2><table><tr><th>Voter</th><th>Lens</th><th>Top 3</th><th>Bottom flag</th></tr>${(vote?vote.output.ballots:[]).map(b=>`<tr><td>${esc(b.voter)}</td><td class="small">${esc(b.lens)}</td><td class="small">${b.top.map(esc).join(', ')}</td><td class="small">${esc(b.bottom_flag)}</td></tr>`).join('')}</table></div></div>`;
+  <div class="card"><h2>Ballots</h2><table><tr><th>Voter</th><th>Lens</th><th>Cast by</th><th>Top 3</th><th>Bottom flag</th></tr>${(vote?vote.output.ballots:[]).map(b=>`<tr title="${esc(b.rationale||'')}"><td>${esc(b.voter)}</td><td class="small">${esc(b.lens)}</td><td class="small">${b.source&&b.source!=='lens'?'agent':'rule'}</td><td class="small">${b.top.map(esc).join(', ')}</td><td class="small">${esc(b.bottom_flag)}</td></tr>`).join('')}</table><p class="small muted">Cast by: agent = the method's agent voted after reading the reviews; rule = its family's rule-based lens voted for it. Hover a row for the agent's reason.</p></div></div>${strategyReview()}`;
 };
+
+function strategyReview(){
+  const s=R.strategy_review; if(!s) return '';
+  const src=x=>x&&x!=='offline'?'<span class="chip">agent</span>':'<span class="chip warn">fallback</span>';
+  const ms=Object.keys(s.theses||{});
+  const flag=f=>f==='none'?'':`<span class="chip ${f==='concern'?'bad':'warn'}">${esc(f)}</span>`;
+  return `<div class="card" style="margin-top:14px"><h2>Strategy review — whole series</h2>
+  <p class="small muted">The construction methods work as a panel: each states a thesis, the risk officer comments without voting, each reviews two peers (drawn at random, seed ${esc(String(s.seed))}), all vote after the reviews are released, and the shortlist (${(s.shortlist||[]).map(esc).join(', ')}) may revise. Weights, risk numbers, tallies and compliance results are computed by code.</p>
+  <h3>Theses and risk officer commentary ${src(s.risk_commentary&&s.risk_commentary.source)}</h3>
+  <div class="scroll"><table><tr><th>Method</th><th>Family</th><th>Thesis</th><th>Own weaknesses</th><th>Risk officer</th></tr>${ms.map(k=>{const t=s.theses[k],c=((s.risk_commentary||{}).comments||[]).find(x=>x.method===k)||{};return `<tr><td>${esc(k)} ${src(t.source)}</td><td class="small">${esc((s.families||{})[k]||'')}</td><td class="small">${esc(t.thesis)}</td><td class="small">${(t.weaknesses||[]).map(esc).join('; ')}</td><td class="small">${flag(c.risk_flag||'none')} ${esc(c.comment||'')}</td></tr>`}).join('')}</table></div>
+  <h3>Peer reviews</h3>
+  <div class="scroll"><table><tr><th>Reviewer</th><th>Peer</th><th class="num">Score</th><th>Assessment</th><th>Concerns</th></tr>${ms.flatMap(k=>((s.reviews[k]||{}).reviews||[]).map(r=>`<tr><td>${esc(k)} ${src(s.reviews[k].source)}</td><td>${esc(r.peer)}</td><td class="num">${r.score}/5</td><td class="small">${esc(r.assessment)}</td><td class="small">${(r.concerns||[]).map(esc).join('; ')}</td></tr>`)).join('')}</table></div>
+  <h3>Revisions by the shortlist</h3>
+  <table><tr><th>Method</th><th>Outcome</th><th>Response to reviews</th></tr>${Object.entries(s.revisions||{}).map(([k,r])=>`<tr><td>${esc(k)} ${src(r.source)}</td><td class="small">${esc(r.note)}</td><td class="small">${esc(r.response_to_reviews||'')}</td></tr>`).join('')}</table></div>`;
+}
 
 V.funds = () => {
   const ud=Object.entries(U);

@@ -180,6 +180,87 @@ def compliance_tools(vintages: dict, records: Callable[[], list]) -> list[ToolSp
     ]
 
 
+# ------------------------------------------------------------------------------------------ strategy review
+def _tilts(w, neutral, assets, names, n=4):
+    act = np.asarray(w) - np.asarray(neutral)
+    order = np.argsort(act)
+    row = lambda i: {"asset": names.get(assets[i], assets[i]), "weight": float(w[i]), "active": float(act[i])}  # noqa: E731
+    return {"largest_overweights": [row(i) for i in order[::-1][:n] if act[i] > 1e-6],
+            "largest_underweights": [row(i) for i in order[:n] if act[i] < -1e-6]}
+
+
+def _metrics(c: dict) -> dict:
+    return {"expected_return": c["exp_ret"], "volatility": c["vol"], "tracking_error": c["te"], "sharpe": c["sharpe"],
+            "effective_n": c["eff_n"], "max_drawdown": c["backtest"].get("max_drawdown"),
+            "distance_to_consensus": c["dist_centroid"], "compliance_summary": c["compliance"]}
+
+
+def deliberation_tools(ctx: dict, assets: list, names: dict) -> list[ToolSpec]:
+    """Tools for the construction agents and the risk officer during the strategy review.
+
+    ``ctx[vintage]`` = {"n": glide path, "cand": {method: candidate}}. Tools read the candidates as they
+    stand when called, so a revision by one agent is visible to the next."""
+    vs = {str(v): v for v in ctx}
+    methods = sorted(next(iter(ctx.values()))["cand"])
+
+    def _get(a, key="method"):
+        v, k = str(a.get("vintage")), a.get(key)
+        if v not in vs:
+            raise ValueError(f"unknown vintage {v!r}; choose from {sorted(vs)}")
+        if k not in methods:
+            raise ValueError(f"unknown method {k!r}; choose from {methods}")
+        return ctx[vs[v]], k
+
+    def candidate_detail(a: dict):
+        d, k = _get(a)
+        c = d["cand"][k]
+        return _r({"method": k, "vintage": str(a.get("vintage")), "family": c["family"], **_metrics(c),
+                   "rules_not_passing": [r for r in c.get("rules", []) if r.get("status") not in ("PASS", "OFF")],
+                   **_tilts(c["w"], d["n"], assets, names)})
+
+    def compare_candidates(a: dict):
+        d, k1 = _get(a, "method_a")
+        _, k2 = _get(a, "method_b")
+        c1, c2 = d["cand"][k1], d["cand"][k2]
+        diff = np.asarray(c1["w"]) - np.asarray(c2["w"])
+        order = np.argsort(-np.abs(diff))[:5]
+        return _r({"vintage": str(a.get("vintage")), k1: _metrics(c1), k2: _metrics(c2),
+                   "weight_overlap": float(np.minimum(c1["w"], c2["w"]).sum()),
+                   "largest_weight_differences": [{"asset": names.get(assets[i], assets[i]), f"{k1}_minus_{k2}": float(diff[i])} for i in order]})
+
+    vint = {"type": "string", "enum": sorted(vs)}
+    meth = {"type": "string", "enum": methods}
+    return [
+        ToolSpec("candidate_detail", "one method's metrics, largest tilts versus the glide path and any rule not passing, for one vintage",
+                 _obj({"method": meth, "vintage": vint}, ["method", "vintage"]), candidate_detail),
+        ToolSpec("compare_candidates", "two methods side by side for one vintage: metrics, weight overlap and largest weight differences",
+                 _obj({"method_a": meth, "method_b": meth, "vintage": vint}, ["method_a", "method_b", "vintage"]), compare_candidates),
+    ]
+
+
+def revision_tools(method: str, methods: list, ctx: dict, original: dict, apply: Callable, validate: Callable) -> list[ToolSpec]:
+    """``preview_revision``: what a tilt scale and peer blend would do to this method's proposal, without changing it."""
+    def preview_revision(a: dict):
+        rev = validate(a, method, methods)
+        if rev is None:
+            raise ValueError("tilt_scale and blend_weight must be numbers")
+        rows = {}
+        for v, d in ctx.items():
+            w = apply(original[v][method], d["n"], original[v].get(rev["blend_with"]), rev)
+            rows[str(v)] = d["preview"](w)
+        keys = ("expected_return", "volatility", "tracking_error", "sharpe")
+        return _r({"applied": {k: rev[k] for k in ("tilt_scale", "blend_with", "blend_weight")},
+                   "series_average": {k: float(np.mean([r[k] for r in rows.values()])) for k in keys},
+                   "any_compliance_fail": any(r["compliance"]["FAIL"] for r in rows.values()), "by_vintage": rows,
+                   "note": "Preview only. Values outside the allowed ranges were clamped as shown in 'applied'."})
+
+    others = [m for m in methods if m != method]
+    return [ToolSpec("preview_revision", "metrics and compliance your proposal would have after a tilt scale (0.5-1.0) and an optional "
+                     "blend toward one peer (weight up to 0.5), for every vintage",
+                     _obj({"tilt_scale": {"type": "number"}, "blend_with": {"type": "string", "enum": others + ["none"]},
+                           "blend_weight": {"type": "number"}}, ["tilt_scale"]), preview_revision)]
+
+
 # ------------------------------------------------------------------------------------------ output schemas
 REGIMES = ["expansion", "late_cycle", "recession", "recovery"]
 
@@ -199,3 +280,34 @@ def cio_schema(ensembles: list) -> dict:
     return _obj({"ensemble": {"type": "string", "enum": sorted(ensembles)}, "rationale": {"type": "string"},
                  "invalidation_conditions": {"type": "array", "items": {"type": "string"}}},
                 ["ensemble", "rationale", "invalidation_conditions"])
+
+
+THESIS_SCHEMA = _obj({"thesis": {"type": "string"}, "fits_regime": {"type": "string", "enum": ["well", "partly", "poorly"]},
+                      "weaknesses": {"type": "array", "items": {"type": "string"}}}, ["thesis", "fits_regime", "weaknesses"])
+
+MEMO_SCHEMA = _obj({"narrative": {"type": "string"}}, ["narrative"])
+
+
+def cro_schema(methods: list) -> dict:
+    item = _obj({"method": {"type": "string", "enum": sorted(methods)}, "comment": {"type": "string"},
+                 "risk_flag": {"type": "string", "enum": ["none", "watch", "concern"]}}, ["method", "comment", "risk_flag"])
+    return _obj({"overview": {"type": "string"}, "comments": {"type": "array", "items": item}}, ["overview", "comments"])
+
+
+def review_schema(peers: list) -> dict:
+    item = _obj({"peer": {"type": "string", "enum": sorted(peers)}, "assessment": {"type": "string"},
+                 "concerns": {"type": "array", "items": {"type": "string"}}, "score": {"type": "integer"}},
+                ["peer", "assessment", "concerns", "score"])
+    return _obj({"reviews": {"type": "array", "items": item}}, ["reviews"])
+
+
+def ballot_schema(others: list) -> dict:
+    m = {"type": "string", "enum": sorted(others)}
+    return _obj({"top": {"type": "array", "items": m}, "bottom_flag": m, "rationale": {"type": "string"}},
+                ["top", "bottom_flag", "rationale"])
+
+
+def revision_schema(others: list) -> dict:
+    return _obj({"tilt_scale": {"type": "number"}, "blend_with": {"type": "string", "enum": sorted(others) + ["none"]},
+                 "blend_weight": {"type": "number"}, "response_to_reviews": {"type": "string"}},
+                ["tilt_scale", "blend_with", "blend_weight", "response_to_reviews"])
