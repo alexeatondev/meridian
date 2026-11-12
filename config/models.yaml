@@ -1,0 +1,21 @@
+# Which Claude model the judging agents use.
+#
+# To switch models:
+#   - For one run: pick a model in the "model" dropdown when starting the agent-run workflow.
+#   - As the standing default: change `default` below.
+#   - For one agent only: add it under `agents` (it then keeps that model whatever the run's choice is).
+#
+# Order of precedence, highest first:
+#   MERIDIAN_MODEL_<SLUG> env  >  agents.<slug> below  >  MERIDIAN_MODEL env (the run's dropdown)  >  default below
+#
+# Model IDs and prices: https://platform.claude.com/docs/en/about-claude/models/overview
+#   claude-haiku-5-5   cheapest, fastest
+#   claude-sonnet-5-5  mid-priced
+#   claude-opus-5-5    most capable, most expensive
+default: claude-haiku-5-5
+
+# Per-agent overrides. Slugs: macro-regime, asset-class-analyst, cio, compliance-officer.
+# Example:
+#   agents:
+#     cio: claude-sonnet-5-5
+agents: {}

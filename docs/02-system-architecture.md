@@ -83,6 +83,42 @@ Every agent run emits: JSON outputs (validated against schema), markdown narrati
 
 **Tool permissions** are declared per agent (read-only data, compute sandbox, web search on/off, no write access outside its run directory). The orchestrator — not the agent — persists outputs.
 
+## 4a. How agents run today (pilot, 2026-11-11)
+
+The roster in §5 is the target design. In the pilot, four roles are model-driven and the rest are code.
+
+| Step | Today | Calls per run |
+|---|---|---|
+| `macro-regime` | **Model** reviews the rule-based regime and may confirm or change it | 1 |
+| `asset-class-analyst` (CMA judge) | **Model** weights the forecast methods; code bounds the result to the methods' range | 13 |
+| `cio` | **Model** picks the ensemble per vintage; code rejects a pick with any FAIL | 9 |
+| `compliance-officer` | **Model** drafts the narrative; findings and status are code | 1 |
+| `pc-*` proposals (7 methods incl. the adversarial one) | Code (optimizers) | 0 |
+| `cro` risk report, review and vote | Code (rule-based lenses and Borda count) | 0 |
+| `board-memo-writer` | Code template | 0 |
+
+The ledger records code-only steps as `system` actors with `implemented_by: deterministic code` and no model name; `design_agent` names the agent role they are meant to become. A judgment that falls back to the deterministic policy is recorded as `offline-deterministic` even when a model backend is on.
+
+**Two backends** (`MERIDIAN_AGENT_BACKEND`, an input on the `agent-run` workflow):
+
+| Backend | What a judgment is | Tools | Notes |
+|---|---|---|---|
+| `messages` | One Anthropic Messages API call, single shot | None | Original pilot path; still the default for local runs |
+| `sdk` | One **Claude Agent SDK** session: AGENT.md + skills as the system prompt, schema-validated output | Read-only Meridian tools (below) | Default for `agent-run`. Capped by run budget, per-session budget and turn limit |
+
+**Agent tools (read-only, results computed by code, `src/meridian/agents/tools.py`):**
+
+| Agent | Tools |
+|---|---|
+| macro-regime | `indicator_detail`, `rescore_regime` (what-if on the rule-based classifier) |
+| asset-class-analyst | `blend_preview`, `asset_facts`, `cross_section` |
+| cio | `ensemble_detail`, `candidate_detail`, `dissent` |
+| compliance-officer | `rule_results`, `judgment_paths`, `ledger_search` |
+
+**Limits on the SDK backend (`src/meridian/agents/sdk_backend.py`):** no built-in tools (no shell, files or web), no project or user settings loaded, an empty working directory, `MERIDIAN_RUN_BUDGET_USD` (default 3.00) for the whole run, `MERIDIAN_AGENT_BUDGET_USD` (0.25) and `MERIDIAN_AGENT_MAX_TURNS` (8) per session. When the run budget is used up, or three sessions fail in a row, the remaining judgments use the deterministic policy and the ledger says so. Each agent record carries an `agent_trace` (turns, tool calls with inputs, cost, session ID), and the run's `llm.usage` record carries total cost against the budget.
+
+**Choosing the model (`config/models.yaml`):** `default` is the standing model (currently `claude-haiku-5-5`, the cheapest). The `agent-run` workflow's `model` dropdown overrides it for one run. An entry under `agents` (for example `cio: claude-sonnet-5-5`) pins one agent to a model whatever the run's choice. Precedence, highest first: `MERIDIAN_MODEL_<SLUG>` env, `agents.<slug>` in the file, `MERIDIAN_MODEL` env (the dropdown), `default` in the file. The model each judgment used is on its ledger record.
+
 ## 5. Agent roster (v1.0)
 
 **Shared / control agents**
@@ -152,7 +188,7 @@ The pilot runs a deliberately smaller stack than the recommendation above. Detai
 | Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger (append-only triggers), governance ledger (exceptions, trading, regulations), access log (append-only), exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings (incl. positions, glide-path adjustments), fund regulations, compliance obligations |
 | Identity | Amazon Cognito (admin-created users; groups = eight workspaces plus three permissions: `investment_committee`, `chief_compliance_officer`, `route_manager`; optional TOTP MFA). Managed in the app's **User access** screen; any access change signs the person out at once |
 | Secrets | AWS Secrets Manager (app); GitHub secrets (Anthropic and FRED keys) |
-| Orchestration | GitHub Actions: `ci`, `deploy`, `manage-users`, `agent-run` (live LLM judgment), `data-refresh` (monthly). Temporal is not used yet |
+| Orchestration | GitHub Actions: `ci`, `deploy`, `manage-users`, `agent-run` (live model judgment; Claude Agent SDK backend by default, see §4a), `data-refresh` (monthly). Temporal is not used yet |
 | CI/CD auth | GitHub OIDC → IAM role `meridian-github-deploy`; no long-lived keys |
 | Cost control | AWS Budgets: $75/month, email alerts, automatic deny policy on deploy roles at 100% |
 | Ledger & WORM | Hash-chained records in Postgres; WORM evidence store not yet built (doc 14 §12) |
@@ -163,7 +199,7 @@ GitHub (code, CI, agent-run) ──OIDC──▶ AWS (us-east-2)
                                         CloudFront ─▶ ALB ─▶ ECS Fargate (Meridian app) ─▶ RDS PostgreSQL
                                                                    │
                                                           Cognito · Secrets Manager · CloudWatch
-agent-run: pulls approved positions from the app ─▶ runs agents (Claude) ─▶ publishes run bundle to the app
+agent-run: pulls approved positions from the app ─▶ runs the pipeline; judging agents call Claude (§4a) ─▶ publishes run bundle to the app
 ```
 
 ## 10. Security model (agent-specific)

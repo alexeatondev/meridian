@@ -10,9 +10,23 @@ on:
         default: "2026-10-31"
         required: true
       model:
-        description: "Model ID"
-        default: "claude-opus-5-5"
+        description: "Model for this run. 'config default' uses config/models.yaml (currently Haiku, the cheapest)"
+        type: choice
+        options: ["config default", claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5]
+        default: "config default"
+      backend:
+        description: "sdk = Claude Agent SDK agents with tools; messages = single-shot calls (older, cheapest)"
+        type: choice
+        options: [sdk, messages]
+        default: sdk
+      budget_usd:
+        description: "Spend cap for this run in USD (sdk backend). When used up, remaining judgments use the deterministic policy"
+        default: "3.00"
         required: true
+      publish:
+        description: "Publish the run to the Meridian app (untick for test runs)"
+        type: boolean
+        default: true
 permissions:
   contents: read
   id-token: write
@@ -24,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: pip install -e ".[llm,app]"
+      - run: pip install -e ".[llm,app,agents]"
       - name: Connect to the Meridian app (if deployed)
         id: aws
         if: vars.AWS_DEPLOY_ROLE_ARN != ''
@@ -64,8 +78,10 @@ jobs:
       - name: Run pipeline (live LLM judgment)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          MERIDIAN_MODEL: ${{ inputs.model }}
+          MERIDIAN_MODEL: ${{ inputs.model != 'config default' && inputs.model || '' }}
           MERIDIAN_LLM: "on"
+          MERIDIAN_AGENT_BACKEND: ${{ inputs.backend }}
+          MERIDIAN_RUN_BUDGET_USD: ${{ inputs.budget_usd }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           meridian run target-date --as-of "${{ inputs.as_of }}" | tee run.txt
@@ -84,8 +100,11 @@ jobs:
           for r in recs:
               p = (r.get("output") or {}).get("judge_path")
               if p: paths[p] = paths.get(p, 0) + 1
-          print("## LLM usage\n")
-          print(f"- calls: {usage.get('calls')}, failures (fell back): {usage.get('failures')}, input tokens: {usage.get('input_tokens')}, output tokens: {usage.get('output_tokens')}")
+          print("## Model usage\n")
+          print(f"- backend: {usage.get('backend', 'messages')}; judgments requested: {usage.get('calls')}, failures (fell back): {usage.get('failures')}, input tokens: {usage.get('input_tokens')}, output tokens: {usage.get('output_tokens')}")
+          if "cost_usd" in usage:
+              print(f"- cost: ${usage['cost_usd']:.2f} of ${usage['budget_usd']:.2f} run budget; agent turns: {usage.get('turns')}, tool calls: {usage.get('tool_calls')}, skipped over budget: {usage.get('skipped_over_budget')}")
+          if usage.get("disabled"): print(f"- **agent backend switched off:** {usage['disabled']}")
           print(f"- judgment paths: {paths}")
           for e in usage.get("errors", [])[:10]: print(f"- error: `{e}`")
           print("\n---\n")
@@ -94,7 +113,7 @@ jobs:
           print(open(f"{d}/compliance_report.md").read())
           PY
       - name: Publish run to the Meridian app
-        if: env.APP_URL != '' && env.INGEST_TOKEN != ''
+        if: inputs.publish && env.APP_URL != '' && env.INGEST_TOKEN != ''
         run: |
           set -euo pipefail
           cd "$(dirname "$RUN_DIR")"
@@ -102,6 +121,25 @@ jobs:
             "$(basename "$RUN_DIR")/board_memo.md" "$(basename "$RUN_DIR")/compliance_report.md"
           curl -fsS -H "Authorization: Bearer $INGEST_TOKEN" -F bundle=@/tmp/run.tgz "$APP_URL/api/ingest"
           echo "" >> "$GITHUB_STEP_SUMMARY"; echo "**Published to the app:** $APP_URL/runs/$(basename "$RUN_DIR")" >> "$GITHUB_STEP_SUMMARY"
+      - name: Model usage (job log)
+        if: env.RUN_DIR != ''
+        run: |
+          python - <<'PY'
+          import json, os, collections
+          recs = [json.loads(l) for l in open(os.environ["RUN_DIR"] + "/ledger.jsonl")]
+          usage = next((r["output"] for r in recs if r["step"] == "llm.usage"), {})
+          print("usage:", json.dumps({k: v for k, v in usage.items() if k != "errors"}))
+          for e in usage.get("errors", [])[:10]: print("error:", e)
+          paths, tools = collections.Counter(), collections.Counter()
+          for r in recs:
+              o = r.get("output") or {}
+              if o.get("judge_path"):
+                  paths[(r["step"].split(".")[-1] if r["step"].startswith("ac-") else r["step"]) + ":" + o["judge_path"]] += 1
+              for c in (o.get("agent_trace") or {}).get("tool_calls", []):
+                  tools[c["tool"] + (":error" if c.get("error") else "")] += 1
+          print("judgment paths:", dict(paths))
+          print("tool calls:", dict(tools))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: meridian-${{ env.RUN_DIR != '' && 'run' || 'failed' }}-${{ github.run_number }}

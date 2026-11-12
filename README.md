@@ -24,7 +24,9 @@ jupyter lab notebooks/            # PM, research and compliance workbenches
 Each run writes `runs/<run_id>/`: `board_memo.md`, `compliance_report.md`, `results.json`, `ledger.jsonl`, `snapshot/`.
 A sample is committed in `examples/sample-run/`.
 
-**LLM judgment:** set `ANTHROPIC_API_KEY` (and optionally `MERIDIAN_MODEL`) and `pip install -e ".[llm]"`. The judgment agents then use the model; numbers are still computed and bounded in code. Without a key, documented deterministic policies run, and every decision record says which path was used.
+**Model judgment:** set `ANTHROPIC_API_KEY` and `pip install -e ".[llm]"`. The model comes from `config/models.yaml` (default `claude-haiku-5-5`; per-agent overrides allowed) unless `MERIDIAN_MODEL` is set. Four agents then use the model (regime review, return assumption per asset class, ensemble choice per vintage, compliance narrative: 24 judgments per run); numbers are still computed and bounded in code, and portfolio construction, risk, the review vote and the board memo are code. Without a key, documented deterministic policies run, and every decision record says which path was used.
+
+**Agent SDK backend:** `pip install -e ".[agents]"` and set `MERIDIAN_AGENT_BACKEND=sdk` to run each judgment as a Claude Agent SDK session with read-only tools, schema-validated output and spend caps (`MERIDIAN_RUN_BUDGET_USD`, default 3.00). See `docs/02-system-architecture.md` §4a.
 
 ## Repository map
 | Path | What |

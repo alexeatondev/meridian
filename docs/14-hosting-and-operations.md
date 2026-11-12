@@ -112,9 +112,19 @@ Segregation of duties: the app records each approval against the signed-in user 
 
 ## 6. Running the agent pipeline
 
-Actions → agent-run → Run workflow with `as_of` (month-end date) and `model`. The run:
+Actions → agent-run → Run workflow with:
+
+| Input | Meaning |
+|---|---|
+| `as_of` | Month-end date |
+| `model` | Dropdown: `config default` (the `default` in `config/models.yaml`, currently `claude-haiku-5-5`, the cheapest), or `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5` for this run only |
+| `backend` | `sdk` (default): Claude Agent SDK agents with read-only tools. `messages`: single-shot calls, the original and cheapest path |
+| `budget_usd` | Spend cap for the run on the `sdk` backend (default 3.00). When it is used up, remaining judgments use the deterministic policy |
+| `publish` | Untick for a test run: nothing is sent to the app, but the run bundle is still attached to the workflow |
+
+The run summary shows the cost against the budget, agent turns, tool calls and how many judgments each path made. The run:
 1. Pulls approved positions, recorded risk history and policy overrides from the app (so the next run builds on human decisions).
-2. Runs the target-date pipeline with live LLM judgment (key: GitHub secret `ANTHROPIC_API_KEY`; FRED data key: `FRED_API_KEY`).
+2. Runs the target-date pipeline with live model judgment for 24 steps (doc 02 §4a; key: GitHub secret `ANTHROPIC_API_KEY`; FRED data key: `FRED_API_KEY`).
 3. Publishes the run bundle to the app (`/api/ingest`, authenticated with the ingest token) and uploads it as a workflow artifact.
 
 First hosted run: `run_tds_20261031_48d07c` (as-of 2026-10-31), published 2026-11-09.

@@ -21,3 +21,9 @@ Marketing review screening (AI-washing, hypothetical performance), quarterly cha
 annual-review evidence package, regulator exam evidence packs, policy-change second review.
 
 **Skills:** `compliance-review`.
+
+## Tools (Agent SDK backend)
+Read-only; results are computed by code. Use one only when it could change your answer, and make at most three calls.
+- `rule_results`: full rule results for one vintage.
+- `judgment_paths`: how many judgments were made by a model versus the deterministic fallback.
+- `ledger_search`: summaries of this run's ledger records by step name.

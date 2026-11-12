@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40"]
+agents = ["claude-agent-sdk>=0.2.129"]   # Agent SDK backend (MERIDIAN_AGENT_BACKEND=sdk); bundles the Claude Code runtime
 snowflake = ["snowflake-connector-python>=3.6"]
 bloomberg = ["blpapi"]          # install from Bloomberg's package index
 factset = ["requests>=2.31"]

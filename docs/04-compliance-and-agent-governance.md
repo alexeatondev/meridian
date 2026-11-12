@@ -145,11 +145,12 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 | PC-7 Rule testing | **Built** (unit tests on every change) |
 | SUP-1/2 Approval matrix, reasoned approvals | **Built:** checkbox + reason; segregation of duties across roles; Investment Committee and CCO permissions |
 | SUP-3 Dissent visibility | **Built** |
-| SUP-4 Scope limits | Partial (agents run in GitHub Actions with no write access to the app except publishing a run) |
+| SUP-4 Scope limits | Partial (agents run in GitHub Actions with no write access to the app except publishing a run). On the Agent SDK backend each agent can reach only its own read-only tools: no shell, files or web, with turn and spend caps (doc 02 §4a) |
 | SUP-5 Challenge reviews | Not built |
 | MRM-1 Inventory, MRM-3 validation | Not built (Phase 7/8) |
 | MRM-4 Change control | **Built** via git, CI tests and deploy workflow |
-| REC-1 Decision records | **Built**, including trading and access changes |
+| REC-1 Decision records | **Built**, including trading and access changes. Since 2026-11-11 steps computed by code are recorded as `system` actors with no model name, fallbacks are recorded as `offline-deterministic`, and agent records carry a trace of turns, tool calls and cost |
+| MKT-1 No AI-washing | **Partial:** the board memo and doc 02 §4a state which steps a model performs (24 judgments per run) and which are code. Earlier docs and ledger records overstated the model's role; external statements still need Compliance pre-approval |
 | REC-2 Immutability | **Partial:** hash chain + database append-only triggers; WORM copy deferred to production (cost) |
 | REC-3 Retention | 6 years applied by the pipeline; backups 7 days; CCO to confirm |
 | REC-5 Exam readiness | **Partial:** ledger search across runs, CSV, evidence pack per run |
