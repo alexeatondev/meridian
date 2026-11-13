@@ -30,7 +30,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 
 **Approver.** Since 2026-11-13 approval authority is its own permission (`approver`): a Portfolio Manager or Risk user without it reviews but can't decide. Every grant and removal is in the access log.
 
-**Permissions vs workspaces.** Workspace roles decide which screens a person sees. Permissions (`investment_committee`, `chief_compliance_officer`) are switched on or off per person on top of that and allow recording decisions that need that authority (IPS §10.4). A permission alone gives no screens: an IC member also needs the `leadership` workspace.
+**Permissions vs workspaces.** Workspace roles decide which screens a person sees. Permissions (`investment_committee`, `chief_compliance_officer`, `route_manager`, `approver`) are switched on or off per person on top of that and allow recording decisions that need that authority (IPS §10.4). A permission alone gives no screens: an IC member also needs the `leadership` workspace.
 
 ## Cross-cutting themes
 
