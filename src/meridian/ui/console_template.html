@@ -55,6 +55,7 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)} tr.sel t
 .scroll{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:8px}
 .muted{color:var(--muted)} .small{font-size:12px} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
 .btn{cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);padding:7px 12px;border-radius:8px;font-weight:600}
+.btn.small{padding:4px 9px;font-size:12px}.vpick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}.vchip{cursor:pointer;border:1px solid var(--line-strong);background:var(--surface);color:var(--text-2);padding:5px 11px;border-radius:999px;font-weight:600;font-size:13px}.vchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.vchip:focus-visible{outline:2px solid var(--accent,#1f4e8c);outline-offset:2px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)} .btn:disabled{opacity:.5;cursor:not-allowed}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .pill-list{display:flex;flex-wrap:wrap;gap:6px}
@@ -143,7 +144,7 @@ const ROLES = {
   compliance:{label:'Compliance',            approverRole:'chief_compliance_officer', tabs:['home','compliance','exceptions','riskbudget','exposures','report','ledger']},
   audit:     {label:'Audit (read-only)',     approverRole:null,                tabs:['home','ledger','exceptions','compliance','report']},
 };
-const TABS = {products:'Funds & vintages',positioning:'Positioning',riskbudget:'Risk budget',metrics:'Metrics',home:'Home',portfolios:'Portfolios & proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
+const TABS = {products:'Funds & vintages',positioning:'Positioning',riskbudget:'Risk budget',metrics:'Metrics',home:'Home',portfolios:'Proposals',glide:'Glide path',approvals:'Approvals',agents:'Agent votes',
   riskSummary:'Fund risk',factors:'Factor risk',stress:'Stress tests',riskHistory:'Risk history',exposures:'Look-through & search',
   risk:'Candidate risk',cma:'Capital market assumptions',funds:'Underlying funds',memo:'Board memo',compliance:'Compliance',report:'Compliance report',ledger:'Decision ledger',changes:'Changes since last run',exceptions:'Exceptions'};
 const NAV_GROUPS = [['Overview',['home','changes','memo']],['Portfolio',['products','positioning','portfolios','glide','funds','cma','agents']],
@@ -183,6 +184,17 @@ function renderShell(){
 
 // --------------------------------------------------------------- views
 const V = {};
+// glide-path scope: which vintages (all selected = no restriction)
+function gpSel(){ if(!state.gpVint) state.gpVint=VINT.slice(); return state.gpVint; }
+function gpScopeFunds(){ const sc=$('#gpScope')?$('#gpScope').value:((state.gpScopeSel||{}).scope||'*'), vs=gpSel();
+  return (FUNDS||[]).filter(f=>(sc==='*'||sc===f.id||sc==='vehicle:'+f.vehicle)&&(sc===f.id||vs.includes(f.vintage))); }
+function gpVintPicker(){ const vs=gpSel(), sc=(state.gpScopeSel||{}).scope||'*', one=!['*','vehicle:mutual_fund','vehicle:cit'].includes(sc);
+  if(one) return `<label class="small">2. Vintages</label><div class="small muted" style="padding-top:8px">One fund chosen, so its own vintage applies.</div>`;
+  const n=gpScopeFunds().length;
+  return `<label class="small" id="gpVlab">2. Vintages <span class="muted">(click to include or leave out)</span></label>
+   <div class="vpick" role="group" aria-labelledby="gpVlab">${VINT.map(v=>`<button type="button" class="vchip ${vs.includes(v)?'on':''}" aria-pressed="${vs.includes(v)}" data-gpv="${v}">${v}</button>`).join('')}
+   <button type="button" class="btn small" data-gpvset="all">All</button><button type="button" class="btn small" data-gpvset="near">2030–2045</button><button type="button" class="btn small" data-gpvset="far">2050–2070</button><button type="button" class="btn small" data-gpvset="none">Clear</button></div>
+   <div class="small ${vs.length?'muted':'neg'}" id="gpVcount">${vs.length?`${vs.length===VINT.length?'All':vs.length} vintage${vs.length===1?'':'s'} selected · ${n} fund${n===1?'':'s'} in scope`:'Pick at least one vintage'}</div>`; }
 function vintageTabs(){return `<div class="vt-tabs" role="tablist">${VINT.map(v=>`<button class="${v===state.vintage?'active':''}" data-vt="${v}">${v}</button>`).join('')}</div>`}
 
 function approvalForm(v,roleName){
@@ -869,14 +881,16 @@ function summaryLine(v){ const s=propSummary(v);
   return `Equity ${pct(s.equity)} (${pp(s.tilt)} vs glide path). Largest tilts: ${movesText(s.moves)}. Tracking error ${pct(s.te,2)}, ${s.used!=null?(s.used*100).toFixed(0)+'% of the '+pct(s.budget,2)+' risk budget':''}. Compliance ${esc(s.compliance)}.${s.vsPrev?` Since the last run: ${movesText(s.vsPrev)}.`:''}`; }
 function fundsLine(v){ const fs=vFunds(v,'all'); return fs.length?fs.map(f=>`<span class="mono">${esc(f.id)}</span> ${VEH_SHORT[f.vehicle]} ${money(f.nav)}`).join(' · '):`MTRS-${v}`; }
 
+// can the signed-in person record a decision in this role? PM and Risk decisions also need the Approver permission
+function holdsAuth(r){ if(!LIVE) return true; const rs=LIVE.user.roles||[]; return rs.includes(r)&&(!['portfolio_manager','risk'].includes(r)||!!LIVE.is_approver); }
 // items that need the signed-in person, for the home screen and the approvals queue
 function attention(opts){
   opts=opts||{}; const role=ROLES[state.role], out=[];
-  if(role.approverRole){ const wait=VINT.filter(v=>{const s=apprStatus(v);return s.need.includes(role.approverRole)&&!s.by[role.approverRole]});
+  if(role.approverRole&&holdsAuth(role.approverRole)){ const wait=VINT.filter(v=>{const s=apprStatus(v);return s.need.includes(role.approverRole)&&!s.by[role.approverRole]});
     if(wait.length>3&&!opts.expand) out.push({kind:'Proposal',title:`${wait.length} proposals await your approval as ${roleName(role.approverRole)}`,
       detail:wait.map(v=>{const p=propSummary(v);return `${v}: equity ${pp(p.tilt)} vs glide path, ${p.used!=null?(p.used*100).toFixed(0)+'% of risk budget':''}, ${esc(p.compliance)}`}).join('<br>'),go:{tab:'approvals'}});
     else wait.forEach(v=>out.push({kind:'Proposal',title:`${v} proposal awaits your approval as ${roleName(role.approverRole)}`,detail:summaryLine(v),go:{tab:'portfolios',v}})); }
-  if(LIVE){ (D.change_requests||[]).filter(c=>c.status==='pending').forEach(c=>{ const mine=c.required_approvals.filter(rl=>LIVE.user.roles.includes(rl)&&!c.approvals.some(a=>a.role===rl));
+  if(LIVE){ (D.change_requests||[]).filter(c=>c.status==='pending').forEach(c=>{ const mine=c.required_approvals.filter(rl=>holdsAuth(rl)&&!c.approvals.some(a=>a.role===rl));
       if(mine.length) out.push({kind:'Risk budget',title:`Risk budget change ${c.id}: ${c.target.vintage} from ${pct(c.current,2)} to ${pct(c.proposed,2)}`,detail:`Requested by ${esc(c.requested_by.name)}: ${esc(c.reason)}. Needs your decision as ${mine.map(roleName).join(' and ')}.`,go:{tab:'riskbudget'}}); });
     if(LIVE.can_glide_decide&&PR) (PR.glide.requests||[]).filter(r=>r.status==='pending').forEach(r=>out.push({kind:'Glide path',title:`Glide-path ${r.kind==='retire'?'retirement':'change'} ${r.id} for ${esc(r.scope_label)}`,detail:`${gpShiftText(r.shifts)}. ${r.funds.length} funds. Requested by ${esc(r.requested_by.name)}: ${esc(r.reason)}.`,go:{tab:'glide'}}));
     const ex=(LIVE.exceptions||[]).filter(c=>['open','in_progress'].includes(c.status));
@@ -1001,10 +1015,10 @@ function positionSeries(){
   <div class="scroll" style="max-height:none"><table><tr><th>Asset class</th>${VINT.map(v=>`<th class="num click" data-posv="${v}" style="cursor:pointer">${v}</th>`).join('')}<th class="num">Series</th></tr>${rows}</table></div></div>`;
 }
 
-// --------------------------------------------------------------- Portfolios & proposals
+// --------------------------------------------------------------- Proposals
 V.portfolios = () => {
   const v=state.vintage, x=R.vintages[v], dr=cioRec(v), role=ROLES[state.role], s=apprStatus(v), ps=propSummary(v), w=propW(v);
-  const needed=role.approverRole&&s.need.includes(role.approverRole), holds=!LIVE||(LIVE.user.roles||[]).includes(role.approverRole), canApprove=needed&&holds;
+  const needed=role.approverRole&&s.need.includes(role.approverRole), holds=!!role.approverRole&&holdsAuth(role.approverRole), canApprove=needed&&holds;
   const prev=LIVE&&LIVE.prev&&LIVE.prev.vintages[v];
   const fs=vFunds(v,'all');
   const vrec=L.find(r=>r.step==='pc-review.borda-vote'&&r.portfolio_scope.includes('MTRS-'+v)), bal=vrec?vrec.output.ballots:[];
@@ -1033,7 +1047,7 @@ V.portfolios = () => {
       ${warnRules.length?`<ul class="small">${warnRules.map(r=>`<li>${chip(r.status)} ${esc(r.rule_id)}: ${fmtRule(r)}</li>`).join('')}</ul>`:''}
       <h3>Evidence</h3><div class="small">Decision record <a href="#" data-dr="${dr&&dr.dr_id}" class="mono">${dr?dr.dr_id:'—'}</a> ${whyBtn('proposal',v)}</div>
     </div></div>
-  <div class="card" style="margin-top:14px">${canApprove?approvalForm(v,role.approverRole):`<h2>Decision</h2><div class="small muted">${needed&&!holds?`Your account doesn't have the <b>${esc(roleName(role.approverRole))}</b> permission; ask an admin to switch it on.`:`Approval by ${s.need.map(roleName).join(' and ')}. ${role.approverRole?'':'Your workspace views this proposal; it does not approve it.'}`}</div>`}</div>`;
+  <div class="card" style="margin-top:14px">${canApprove?approvalForm(v,role.approverRole):`<h2>Decision</h2><div class="small muted">${needed&&!holds?`Your account doesn't have the <b>${['portfolio_manager','risk'].includes(role.approverRole)?'Approver':esc(roleName(role.approverRole))}</b> permission, so you can review this proposal but not decide it. An admin can switch it on in User access.`:`Approval by ${s.need.map(roleName).join(' and ')}. ${role.approverRole?'':'Your workspace views this proposal; it does not approve it.'}`}</div>`}</div>`;
 };
 
 // --------------------------------------------------------------- Approval queue
@@ -1067,9 +1081,8 @@ V.glide = () => {
   const aOpts=sel=>P.assets.map(a=>`<option value="${a}" ${a===sel?'selected':''}>${esc(nm(a))}</option>`).join('');
   const form=canReq?`<div class="card" style="margin-top:14px"><h2>Propose a glide-path adjustment</h2>
     <p class="small muted">Move weight between asset classes on the glide path for a set of funds. It must stay inside the IPS bands (±3pp per asset class, ±5pp total equity from the IPS glide path); anything larger needs an IPS amendment. The Investment Committee approves it, and the requester can't approve their own request.</p>
-    <div class="grid g3"><div><label class="small">Apply to</label><select id="gpScope">${scopeOpts.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></div>
-     <div><label class="small">From vintage (optional)</label><select id="gpVf"><option value="">First</option>${VINT.map(v=>`<option>${v}</option>`).join('')}</select></div>
-     <div><label class="small">To vintage (optional)</label><select id="gpVt"><option value="">Last</option>${VINT.map(v=>`<option>${v}</option>`).join('')}</select></div></div>
+    <div class="grid g3"><div><label class="small" for="gpScope">1. Apply to</label><select id="gpScope">${scopeOpts.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></div>
+     <div style="grid-column:span 2">${gpVintPicker()}</div></div>
     <h3>Moves</h3>${state.gpShifts.map((s,i)=>`<div class="row" style="margin-bottom:6px"><span class="small">Move</span><input type="number" step="0.25" value="${s.pp}" data-gpi="${i}" data-gpk="pp" style="width:90px"><span class="small">pp into</span><select data-gpi="${i}" data-gpk="asset_class" style="width:auto">${aOpts(s.asset_class)}</select><span class="small">from</span><select data-gpi="${i}" data-gpk="from" style="width:auto">${aOpts(s.from)}</select>${state.gpShifts.length>1?`<button class="btn" data-gpdel="${i}">Remove</button>`:''}</div>`).join('')}
     <div class="row"><button class="btn" id="gpAdd">Add a move</button><button class="btn primary" id="gpPrev">Preview</button></div>
     <div id="gpOut">${state.gpPrev?gpPreviewHtml(state.gpPrev):''}</div></div>`
@@ -1174,7 +1187,7 @@ V.riskbudget = () => {
     <div class="choice"><b>Change the budget itself</b><p class="small">Change the limit a vintage may use. This is a policy change that lasts until changed again, and needs two approvals.</p>${canReq?'<span class="small muted">Use the form below.</span>':''}</div></div></div>
   <div class="grid g2" style="margin-top:14px"><div class="card"><h2>Request a budget change</h2>${form}</div>
    <div class="card"><h2>Requests</h2>${crs.length?`<table><tr><th>Request</th><th>Change</th><th>Requested by</th><th>Status</th><th></th></tr>${crs.map(c=>{
-      const mine=LIVE&&c.status==='pending'?c.required_approvals.filter(rl=>LIVE.user.roles.includes(rl)&&!c.approvals.some(a=>a.role===rl)):[];
+      const mine=LIVE&&c.status==='pending'?c.required_approvals.filter(rl=>holdsAuth(rl)&&!c.approvals.some(a=>a.role===rl)):[];
       return `<tr><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}: ${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td class="small">${esc(c.requested_by.name)}<br><span class="muted">${esc(c.reason)}</span></td><td>${chip(c.status)}<div class="small">${c.approvals.map(a=>esc(roleName(a.role)+': '+a.decision+' ('+a.name+')')).join('<br>')}</div><div class="small muted">${c.status==='pending'?'Waiting for '+c.required_approvals.filter(r=>!c.approvals.some(a=>a.role===r)).map(roleName).join(', '):''}</div></td>
       <td>${mine.map(rl=>`<div class="row" style="gap:4px;margin-bottom:4px"><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="approve">Approve as ${esc(roleName(rl))}</button><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="reject">Reject</button></div>`).join('')}</td></tr>`}).join('')}</table>`:'<div class="muted small">None.</div>'}</div></div>
   <div class="card" style="margin-top:14px"><h2>${v} in detail</h2>${vintageTabs()}
@@ -1194,10 +1207,13 @@ function bindNew(){
   document.querySelectorAll('[data-gpi]').forEach(e=>e.onchange=()=>{const s=state.gpShifts[+e.dataset.gpi];s[e.dataset.gpk]=e.dataset.gpk==='pp'?parseFloat(e.value):e.value;state.gpPrev=null});
   document.querySelectorAll('[data-gpdel]').forEach(e=>e.onclick=()=>{state.gpShifts.splice(+e.dataset.gpdel,1);state.gpPrev=null;render()});
   const ga=$('#gpAdd'); if(ga) ga.onclick=()=>{state.gpShifts.push({asset_class:'us_core_bond',from:'us_large_cap',pp:0.5});state.gpPrev=null;render()};
-  const gscope=()=>({scope:$('#gpScope').value,vintage_from:$('#gpVf').value||null,vintage_to:$('#gpVt').value||null,shifts:state.gpShifts});
-  if($('#gpScope')&&state.gpScopeSel){$('#gpScope').value=state.gpScopeSel.scope;$('#gpVf').value=state.gpScopeSel.vintage_from||'';$('#gpVt').value=state.gpScopeSel.vintage_to||''}
-  ['#gpScope','#gpVf','#gpVt'].forEach(id=>{const el=$(id);if(el)el.onchange=()=>{state.gpPrev=null;state.gpScopeSel=gscope();render()}});
-  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const body=gscope();state.gpScopeSel=body;gp.disabled=true;
+  const gscope=()=>{const sc=$('#gpScope').value, vs=gpSel(), single=!['*','vehicle:mutual_fund','vehicle:cit'].includes(sc);
+    return {scope:sc,vintages:single||vs.length===VINT.length?[]:vs.slice(),shifts:state.gpShifts}};
+  if($('#gpScope')&&state.gpScopeSel){$('#gpScope').value=state.gpScopeSel.scope}
+  {const el=$('#gpScope');if(el)el.onchange=()=>{state.gpPrev=null;state.gpScopeSel=gscope();render()}}
+  document.querySelectorAll('[data-gpv]').forEach(b=>b.onclick=()=>{const v=+b.dataset.gpv, vs=gpSel(); state.gpVint=vs.includes(v)?vs.filter(x=>x!==v):vs.concat(v).sort(); state.gpPrev=null; state.gpScopeSel=gscope(); render()});
+  document.querySelectorAll('[data-gpvset]').forEach(b=>b.onclick=()=>{const k=b.dataset.gpvset; state.gpVint=k==='all'?VINT.slice():k==='none'?[]:VINT.filter(v=>k==='near'?v<=2045:v>=2050); state.gpPrev=null; state.gpScopeSel=gscope(); render()});
+  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const body=gscope();state.gpScopeSel=body;if(!gpScopeFunds().length){toast('Pick at least one vintage.','error');return}gp.disabled=true;
     api('/api/trading/glide-path/preview',body).then(r=>{state.gpPrev=r;render()}).catch(e=>{gp.disabled=false;toast(e.message,'error')})};
   const gsub=$('#gpSubmit'); if(gsub) gsub.onclick=()=>{const reason=$('#gpReason').value.trim();if(reason.length<10){toast('Please give a reason (10+ characters).');return}
     gsub.disabled=true; api('/api/trading/glide-path/requests',{...state.gpScopeSel,reason}).then(r=>{toast(`Request ${r.id} sent to the Investment Committee (${r.funds} funds).`);setTimeout(()=>location.reload(),900)}).catch(e=>{gsub.disabled=false;toast(e.message,'error')})};

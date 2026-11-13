@@ -1,12 +1,14 @@
 """UAT-PM: Portfolio Manager (persona: Maya Chen). See docs UAT scripts, section PM."""
+from playwright.sync_api import expect
+
 from conftest import open_tab, tabs, toast_text
 
-PM_TABS = ["Home", "Funds & vintages", "Positioning", "Portfolios & proposals", "Changes since last run", "Fund risk",
+PM_TABS = ["Home", "Funds & vintages", "Positioning", "Proposals", "Changes since last run", "Fund risk",
            "Risk budget", "Metrics", "Look-through & search", "Glide path", "Approvals", "Exceptions", "Agent votes"]
 
 
 def test_pm_01_sees_only_pm_workspace(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     assert [o.get_attribute("value") for o in p.query_selector_all("#role option")] == ["pm"]
     assert sorted(tabs(p)) == sorted(PM_TABS)  # grouped sidebar: order follows the section headings
     assert "Maya Chen" in p.inner_text(".mbar") and p.text_content("#nav .navh") == "Overview"
@@ -15,8 +17,8 @@ def test_pm_01_sees_only_pm_workspace(sign_in):
 
 
 def test_pm_02_approval_needs_acknowledgement_and_reason(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
-    open_tab(p, "Portfolios & proposals")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
+    open_tab(p, "Proposals")
     p.click("[data-vt='2040']")
     p.click("[data-decide=approve]")
     assert "Confirm you read" in toast_text(p)
@@ -27,8 +29,8 @@ def test_pm_02_approval_needs_acknowledgement_and_reason(sign_in):
 
 
 def test_pm_03_review_and_approve_a_vintage(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
-    open_tab(p, "Portfolios & proposals")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
+    open_tab(p, "Proposals")
     p.click("[data-vt='2050']")
     view = p.inner_text("#view")
     for section in ("What is being approved", "Nothing is traded by this approval", "Why the agents recommend it",
@@ -46,7 +48,7 @@ def test_pm_03_review_and_approve_a_vintage(sign_in):
 
 
 def test_pm_04_adjust_weights_recomputes_risk_and_compliance(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Positioning")
     p.click("[data-posmode='vintage']")
     p.click("[data-vt='2045']")
@@ -65,8 +67,18 @@ def test_pm_04_adjust_weights_recomputes_risk_and_compliance(sign_in):
 
 
 def test_pm_05_explain_largest_change(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
-    open_tab(p, "Portfolios & proposals")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
+    open_tab(p, "Proposals")
     p.click("[data-vt='2050']")
     view = p.inner_text("#view")
     assert "The weights" in view and "Tilts at a glance" in view and "chosen by the CIO agent using the" in view
+
+
+def test_pm_06_reviewer_without_approver_permission(sign_in):
+    """PM-6: a PM without the Approver permission reviews the proposal but sees no decision buttons."""
+    p = sign_in("Jordan Ellis", "portfolio_manager")
+    open_tab(p, "Proposals")
+    expect(p.locator("#view")).to_contain_text("Approver")
+    expect(p.locator("[data-decide]")).to_have_count(0)
+    open_tab(p, "Approvals")
+    expect(p.locator("#view")).to_contain_text("Nothing is waiting for your decision")

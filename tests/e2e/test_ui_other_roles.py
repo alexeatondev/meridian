@@ -92,8 +92,8 @@ def test_comp_03_aco_report_is_draft(sign_in):
 
 
 def test_comp_04_trace_an_approval_in_the_ledger(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
-    open_tab(p, "Portfolios & proposals")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
+    open_tab(p, "Proposals")
     p.click("[data-vt='2035']")
     p.check("#ack")
     p.fill("#reason", "Approval for the compliance trace test.")
@@ -128,7 +128,7 @@ def test_audit_03_evidence_export(sign_in, app_url):
 
 
 def test_audit_04_pm_cannot_export_evidence(sign_in, app_url):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     rid = p.input_value("#runSel")
     assert p.request.get(f"{app_url}/api/runs/{rid}/evidence").status == 403
 

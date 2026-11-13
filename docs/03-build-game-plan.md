@@ -50,6 +50,11 @@
 - **Trading redesign:** **New trade** with four tasks (invest cashflows, rebalance, trade a security, exit) and **Start from your goal** shortcuts; tickets by amount or **to a target weight** with a live cash check; **See the impact** (dry run, nothing saved) showing totals, off-target bars by fund and each fund's asset mix now vs after against target and glide path; the same impact view on saved lists (doc 17, doc 06 §10).
 - **Docs:** doc 06 rewritten step by step (v0.8) with 75 regenerated screenshots; docs 00, 02, 03, 11, 15, 16 (TRD-19 to TRD-23), 17 updated.
 
+## Built 2026-11-13 (evening)
+- **Approver permission:** approval authority is now its own permission (`approver`), switched on or off per person in User access and logged like the others. PM and Risk decisions on proposals, risk-budget changes and trade lists need it; without it a PM or Risk user reviews only. Analyst permissions unchanged.
+- **Vintage picker:** glide-path changes (Console → Glide path) and every bulk change (Trading → Glide path & bulk changes) choose vintages by clicking them, with All / 2030–2045 / 2050–2070 / Clear, replacing From/To vintage boxes. Older range entries keep working.
+- **"Portfolios & proposals" renamed "Proposals".**
+
 ## Next steps (not blocked, in order)
 1. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
 2. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).

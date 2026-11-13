@@ -192,6 +192,7 @@ def console(request: Request, run_id: str):
                                     key=list(auth.CONSOLE_ROLE.values()).index),
             "role_ids": {auth.CONSOLE_ROLE[r]: r for r in user["roles"] if r in auth.CONSOLE_ROLE},
             "permissions": [r for r in user["roles"] if r in auth.PERMISSIONS],
+            "is_approver": auth.APPROVER in user["roles"],
             "csrf": user["csrf"], "runs": st.list_runs()[:24], "run_id": rid}
     from .oversight import list_cases, previous_summary
     live["prev"] = previous_summary(st, run)
@@ -249,6 +250,7 @@ def approve(request: Request, run_id: str, body: dict = Body(...)):
     user = _actor(request)
     role = body.get("role")
     auth.require_role(user, role) if role else None
+    auth.require_approver(user, role)
     from ..approvals import record_decision
     try:
         with store().run_workspace(run_id) as wd:
@@ -290,6 +292,7 @@ def rb_decide(request: Request, cr_id: str, body: dict = Body(...)):
     user = _actor(request)
     role = body.get("role")
     auth.require_role(user, role)
+    auth.require_approver(user, role)
     from .. import governance as gv
     try:
         with store().governance_workspace(POLICY_PATH) as (gov, pol):

@@ -16,7 +16,7 @@ def _toast(page, text):
 
 def test_trd_01_vehicle_toggle_and_universe(sign_in, app_url):
     """TRD-1/2: vehicle toggle shows all, mutual funds or CITs; fund detail shows held, no-target and candidates."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.click("a[href='/trading']")
     trading_tab(page, "Funds & securities")
     page.wait_for_selector("[data-fund]")
@@ -35,7 +35,7 @@ def test_trd_01_vehicle_toggle_and_universe(sign_in, app_url):
 
 def test_trd_02_cashflow_to_charles_river(sign_in, app_url):
     """TRD-3 to TRD-6: enter a cashflow, generate a CIT-only trade list, preview, approve, export."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Cashflows')")
     page.select_option("#cfFund", "MTRT-2045")
@@ -83,12 +83,12 @@ def test_trd_02_cashflow_to_charles_river(sign_in, app_url):
 
 def test_trd_03_route_permission_logged_and_roles(sign_in, app_url):
     """TRD-7/8: routes need the route permission and a reason and are logged; analysts can't change settings."""
-    page = sign_in("Jordan Ellis", "portfolio_manager")
+    page = sign_in("Jordan Ellis", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Routing & settings')")
     assert page.locator("[data-route=bond]").is_disabled()
     expect(page.locator("#rtWho")).to_contain_text("You do not hold the route permission")
-    page = sign_in("Maya Chen", "portfolio_manager", "route_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "route_manager", "approver")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Routing & settings')")
     page.select_option("[data-route=bond]", "State Street")
@@ -114,7 +114,7 @@ def test_trd_03_route_permission_logged_and_roles(sign_in, app_url):
 
 def test_trd_04_tilt_exit_ticket_and_tranches(sign_in, app_url):
     """TRD-10 to TRD-13: tilt and exit flag, manual ticket, exit trade list, unequal tranches with checks."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Routing & settings')")
     page.select_option("#tiInst", "MER-EM-MF")
@@ -172,7 +172,7 @@ def test_trd_04_tilt_exit_ticket_and_tranches(sign_in, app_url):
 
 def test_trd_17_bulk_glide_path_and_tilt(sign_in, app_url):
     """TRD-17/18: glide-path change for all CITs, approved by an IC member; asset-class tilt on all mutual funds."""
-    page = sign_in("Jordan Ellis", "portfolio_manager")
+    page = sign_in("Jordan Ellis", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Glide path & bulk changes')")
     page.select_option("#bkScope", "vehicle:cit")
@@ -222,7 +222,7 @@ def test_trd_20_new_trade_tasks_and_roles(sign_in, app_url):
 
 def test_trd_21_trade_to_weight_shows_now_vs_after(sign_in, app_url):
     """TRD-21: trade one security to a target weight (cash warning when buys exceed cash); impact shows now, after, target and glide path by asset class."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     trade_setup(page, "security", fund="MTRS-2040")
     held = page.evaluate("S.nt.fd.rows.filter(r=>r.value>0 && r.type!=='cash' && !r.excluded).sort((a,b)=>b.value-a.value)[0]")
@@ -247,7 +247,7 @@ def test_trd_21_trade_to_weight_shows_now_vs_after(sign_in, app_url):
 
 def test_trd_22_rebalance_toward_glide_path_reduces_gap(sign_in, app_url):
     """TRD-22: rebalance toward the glide path (neutral) closes the gap: off target after ≤ before, per fund."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     trade_setup(page, "rebalance", strat="neutral")
     page.select_option("#ntFunds", "MTRS-2070")
@@ -260,7 +260,7 @@ def test_trd_22_rebalance_toward_glide_path_reduces_gap(sign_in, app_url):
 
 def test_trd_23_goal_shortcuts(sign_in, app_url):
     """TRD-23: 'Start from your goal' sets up the right task and strategy (glide path, night close, strategic)."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     page.locator("tr", has_text="Get back to the glide path").locator("[data-goal]").click()
     expect(page.locator("[data-task='rebalance']")).to_have_class(re.compile(r"\bon\b"))
@@ -270,3 +270,25 @@ def test_trd_23_goal_shortcuts(sign_in, app_url):
     page.evaluate("S.nt.task=null; vTrade()")
     page.locator("tr", has_text="stay as positioned last night").locator("[data-goal]").click()
     expect(page.locator("input[name=ntStrat][value='previous_close']")).to_be_checked()
+
+
+def test_trd_24_bulk_vintage_picker(sign_in, app_url):
+    """TRD-24: Glide path & bulk changes picks vintages by clicking; an empty pick is refused, never 'all funds'."""
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
+    page.goto(app_url + "/trading")
+    trading_tab(page, "Glide path & bulk changes")
+    page.select_option("#bkScope", "vehicle:mutual_fund")
+    expect(page.locator("#bkCount")).to_contain_text("Applies to 9 funds · all vintages")
+    page.click("[data-bkvset='far']")
+    expect(page.locator("#bkCount")).to_contain_text("Applies to 5 funds · 5 vintages")
+    page.click("[data-bkv='2060']")
+    expect(page.locator("#bkCount")).to_contain_text("Applies to 4 funds · 4 vintages")
+    page.click("#gpPrev")
+    expect(page.locator("#gpPreview")).to_contain_text("4 funds")
+    page.click("[data-bkvset='none']")
+    expect(page.locator("#bkCount")).to_contain_text("Pick at least one vintage")
+    page.click("#gpPrev")
+    expect(page.locator("#mtoasts")).to_contain_text("Pick at least one vintage")
+    page.select_option("#bkScope", "MTRS-2040")
+    expect(page.locator("#bkVwrap")).to_be_hidden()
+    expect(page.locator("#bkCount")).to_contain_text("Applies to 1 fund")

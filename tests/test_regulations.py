@@ -99,12 +99,12 @@ def test_tagging_obligations_and_controls_in_trading(client, monkeypatch):
     assert f["controls_status"] == "FAIL" and f["retention_years"] == 6
     assert any(not r_["filled"] for r_ in f["roles"])                # e.g. fund board unfilled
     # a PM can't tag; compliance analyst can't remove; the CCO can
-    hp = login(client, "Maya Chen", "portfolio_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver")
     assert client.post("/api/regulations/tags", headers=hp, json={"reg_id": "ICA40", "fund_ids": ["MTRS-2030"],
                                                                   "reason": R}).status_code == 403
     # regulation controls flow into trading: UCITS FAIL blocks the 2050 trade list
     client.post("/api/trading/cashflows", headers=hp, json={"trade_date": "2026-11-10", "fund_id": "MTRS-2050", "amount": 1e7})
-    hp = login(client, "Maya Chen", "portfolio_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver")
     tl = client.post("/api/trading/trade-lists", headers=hp, json={"trade_date": "2026-11-10", "strategy": "neutral"}).json()
     comp = tl["funds"][0]["compliance"]
     assert comp["status"] == "FAIL" and "MTRS-2050" in tl["blocked_funds"]
@@ -148,7 +148,7 @@ def test_tagging_obligations_and_controls_in_trading(client, monkeypatch):
 
 
 def test_approved_table_rebalance_positions_and_fills(client):
-    hp = login(client, "Maya Chen", "portfolio_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver")
     # approved proposal: none yet -> clear error
     r = client.post("/api/trading/rebalance", headers=hp, json={"strategy": "approved", "fund_ids": ["MTRS-2050"],
                                                                "trade_date": "2026-11-10", "reason": R})
@@ -185,7 +185,7 @@ def test_approved_table_rebalance_positions_and_fills(client):
 
     # cashflow -> approve -> export -> fills book to positions
     client.post("/api/trading/cashflows", headers=hp, json={"trade_date": "2026-11-10", "fund_id": "MTRS-2030", "amount": 4e6})
-    hp = login(client, "Maya Chen", "portfolio_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver")
     tl = client.post("/api/trading/trade-lists", headers=hp, json={"trade_date": "2026-11-10", "strategy": "previous_close"}).json()
     client.post(f"/api/trading/trade-lists/{tl['id']}/approve", headers=hp, json={"checked": True, "reason": R})
     assert client.post(f"/api/trading/trade-lists/{tl['id']}/fills", headers=hp, json={"all": True}).status_code == 409

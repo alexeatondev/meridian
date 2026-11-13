@@ -51,7 +51,7 @@ def test_end_to_end(client, run_dir):
     assert client.post("/api/ingest", headers={"Authorization": "Bearer test-ingest-token"},
                        files={"bundle": ("b.tgz", bundle(run_dir))}).status_code == 409
 
-    h = login(client, "Pat PM", "portfolio_manager")
+    h = login(client, "Pat PM", "portfolio_manager", "approver")
     page = client.get("/runs/latest")
     assert page.status_code == 200 and '"console_roles": ["pm"]' in page.text and rid in page.text
 
@@ -68,7 +68,7 @@ def test_end_to_end(client, run_dir):
     assert client.post(f"/api/runs/{rid}/approvals", headers=h, json={"vintage": 2050, "role": "portfolio_manager",
                        "decision": "approve", "reason": "Adjusted proposal reviewed."}).status_code == 200
     # risk approves -> positions recorded as approved
-    h2 = login(client, "Riley Risk", "risk")
+    h2 = login(client, "Riley Risk", "risk", "approver")
     assert client.post(f"/api/runs/{rid}/approvals", headers=h2, json={"vintage": 2050, "role": "risk",
                        "decision": "approve", "reason": "Within the 1.2% budget."}).status_code == 200
     import meridian.app.main as m
@@ -82,16 +82,16 @@ def test_end_to_end(client, run_dir):
     assert ok and any(r["step"] == "pm.adjustment" for r in led)
 
     # risk budget change request: PM requests, PM can't self-approve, risk + another PM approve -> override
-    h = login(client, "Pat PM", "portfolio_manager")
+    h = login(client, "Pat PM", "portfolio_manager", "approver")
     cr = client.post("/api/risk-budget/requests", headers=h, json={"vintage": "2050", "te": 0.01,
                      "reason": "Tighter budget in this regime."}).json()
     assert cr["status"] == "pending"
     assert client.post(f"/api/risk-budget/requests/{cr['id']}/decisions", headers=h,
                        json={"role": "portfolio_manager", "decision": "approve", "reason": "self approve attempt"}).status_code == 400
-    h3 = login(client, "Sam PM2", "portfolio_manager")
+    h3 = login(client, "Sam PM2", "portfolio_manager", "approver")
     client.post(f"/api/risk-budget/requests/{cr['id']}/decisions", headers=h3,
                 json={"role": "portfolio_manager", "decision": "approve", "reason": "Agree with the change."})
-    h2 = login(client, "Riley Risk", "risk")
+    h2 = login(client, "Riley Risk", "risk", "approver")
     out = client.post(f"/api/risk-budget/requests/{cr['id']}/decisions", headers=h2,
                       json={"role": "risk", "decision": "approve", "reason": "Risk agrees with tightening."}).json()
     assert out["status"] == "applied"
@@ -157,3 +157,21 @@ def test_placeholder_role_holder_never_fills_a_required_role():
     assert "portfolio_manager" not in reg.unfilled_roles
     assert "fictional placeholder" in reg.holder_label("chief_compliance_officer")
     assert any("placeholder: Robert Hayes" in b for b in reg.production_blockers)
+
+
+def test_approvals_need_the_approver_permission(client, run_dir):
+    """PM or Risk workspace alone can review but not decide; the Approver permission adds the decision."""
+    r = client.post("/api/ingest", headers={"Authorization": "Bearer test-ingest-token"},
+                    files={"bundle": ("b.tgz", bundle(run_dir))})
+    rid = r.json()["run_id"] if r.status_code == 200 else client.get("/api/runs").json()[0]["run_id"]
+    body = {"vintage": 2045, "role": "portfolio_manager", "decision": "approve", "reason": "Reviewed, within budget."}
+    h = login(client, "Rev Iewer", "portfolio_manager")
+    page = client.get(f"/runs/{rid}")
+    assert '"is_approver": false' in page.text
+    r = client.post(f"/api/runs/{rid}/approvals", headers=h, json=body)
+    assert r.status_code == 403 and "Approver permission" in r.text
+    h = login(client, "Ann Approver", "portfolio_manager", "approver")
+    assert client.post(f"/api/runs/{rid}/approvals", headers=h, json=body).status_code == 200
+    # the permission alone (no PM or Risk workspace) decides nothing
+    h = login(client, "Only Perm", "analyst", "approver")
+    assert client.post(f"/api/runs/{rid}/approvals", headers=h, json=body | {"vintage": 2040}).status_code == 403

@@ -65,6 +65,12 @@ def warnings(roles: list[str], users: list[dict] | None = None, email: str = "")
     if rs & PROPOSERS and rs & {"investment_committee", "chief_compliance_officer"}:
         w.append("Separation of duties: this person can propose changes (PM or analyst) and also approve them "
                  "as Investment Committee or CCO. The app will still stop them deciding the same item twice.")
+    if "approver" in rs and not rs & {"portfolio_manager", "risk"}:
+        w.append("Approver permission without the Portfolio Manager or Risk workspace: it has no effect "
+                 "(analysts and other workspaces don't approve).")
+    if rs & {"portfolio_manager", "risk"} and "approver" not in rs:
+        w.append("No Approver permission: this person can review proposals and trade lists but can't record "
+                 "approval decisions.")
     if "investment_committee" in rs and "leadership" not in rs:
         w.append("Investment Committee permission without the Leadership workspace: they can't see committee screens.")
     if "chief_compliance_officer" in rs and "compliance" not in rs:

@@ -1,6 +1,6 @@
 # 16 — User Acceptance Test (UAT) Scripts
 
-**Version 0.6 · 2026-11-13 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
+**Version 0.7 · 2026-11-13 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
 
 One script per role, built from the personas (doc 15). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
 
@@ -10,7 +10,7 @@ One script per role, built from the personas (doc 15). Each step has an expected
 
 | Test account | Roles | Use for |
 |---|---|---|
-| Alex Eaton (full access) | All eight | PM, Research, Manager Selection, Leadership scripts (switch workspace in the side bar) |
+| Alex Eaton (full access) | All eight (approving also needs the Approver permission, doc 06 §1.9) | PM, Research, Manager Selection, Leadership scripts (switch workspace in the side bar) |
 | RCTest User | Risk, Compliance | Risk and Compliance scripts; second approver for segregation-of-duties steps |
 
 Approvals made in the hosted app are permanent ledger records (it is shadow mode, so no money moves). Use reasons that start with "UAT:" so they're easy to find later. To test as the fictional people in the roster (doc 15), an admin can invite extra logins using plus-addresses of an inbox you own (e.g. `you+maya@…`), which most email providers deliver to the same inbox.
@@ -27,11 +27,12 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | # | Step | Expected result | Auto test |
 |---|---|---|---|
-| PM-1 | Sign in with only the PM role | Workspace selector shows Portfolio Manager only; tabs: Home, Funds & vintages, Positioning, Portfolios & proposals, Fund risk, Risk budget, Metrics, Look-through & search, Glide path, Approvals, Agent votes, grouped under Overview, Portfolio, Risk and Governance; your name in the app bar | `test_pm_01` |
-| PM-2 | Portfolios & proposals → 2040 → Approve without ticking the box, then with a 9-character reason | Blocked each time with a clear message (tick the box; reason ≥ 10 characters) | `test_pm_02` |
-| PM-3 | Portfolios & proposals → 2050: read *Why this proposal?*, *What would make this wrong*, *Dissent*, *Compliance*; tick, give a reason, Approve | "Decision recorded in the ledger"; Approvals tab shows 2050 / portfolio_manager / approve | `test_pm_03` |
+| PM-1 | Sign in with only the PM role | Workspace selector shows Portfolio Manager only; tabs: Home, Funds & vintages, Positioning, Proposals, Fund risk, Risk budget, Metrics, Look-through & search, Glide path, Approvals, Agent votes, grouped under Overview, Portfolio, Risk and Governance; your name in the app bar | `test_pm_01` |
+| PM-2 | Proposals → 2040 → Approve without ticking the box, then with a 9-character reason | Blocked each time with a clear message (tick the box; reason ≥ 10 characters) | `test_pm_02` |
+| PM-3 | Proposals → 2050: read *Why this proposal?*, *What would make this wrong*, *Dissent*, *Compliance*; tick, give a reason, Approve | "Decision recorded in the ledger"; Approvals tab shows 2050 / portfolio_manager / approve | `test_pm_03` |
 | PM-4 | Positioning → 2045 → Adjust: Fixed Income short-dated +1pp funded from long-dated; reason; submit | Toast shows new TE, % of budget and compliance status; adjustment recorded | `test_pm_04` |
 | PM-5 | Explain the largest change for 2050 using the active-weights chart and the ensemble rationale | You can state the biggest over/underweight and the reason in one sentence | `test_pm_05` (content present) |
+| PM-6 | Sign in as a PM **without** the Approver permission; open **Proposals** → 2050, then **Approvals** | Proposal readable; note "Your account doesn't have the Approver permission" in place of the buttons; nothing waiting in Approvals | `test_pm_06`, `test_approvals_need_the_approver_permission` |
 
 **Usefulness questions:** Could you approve with confidence from this screen alone? What did you have to look for elsewhere?
 
@@ -39,7 +40,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | # | Step | Expected result | Auto test |
 |---|---|---|---|
-| RISK-1 | Sign in with the Risk role | Tabs: Home, Fund risk, Factor risk, Stress tests, Risk history, Look-through & search, Risk budget, Metrics, Candidate risk, Positioning, Portfolios & proposals, Approvals | `test_risk_01` |
+| RISK-1 | Sign in with the Risk role | Tabs: Home, Fund risk, Factor risk, Stress tests, Risk history, Look-through & search, Risk budget, Metrics, Candidate risk, Positioning, Proposals, Approvals | `test_risk_01` |
 | RISK-2 | Fund risk: scan all vintages | Every vintage 2030–2070 with total risk, effective duration, credit spread duration, VaR, diversification | `test_risk_02` |
 | RISK-3 | Risk budget: find the vintage closest to its tracking-error budget | Percent of budget used shown for every vintage; you can name the closest and why (Fund risk drill-down) | `test_risk_03` |
 | RISK-4 | Stress tests → Build a scenario: equities −20%, Treasury yields +100bp | Loss per vintage updates instantly; historical replays (e.g., global financial crisis) listed above | `test_risk_04` |
@@ -125,7 +126,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 
 | # | Step | Expected result | Auto test |
 |---|---|---|---|
-| OVS-1 | PM → Portfolios & proposals → 2050 → **Why?** | Panel lists the records behind the proposal (CIO ensemble, risk report, votes, approvals, adjustments) and the inputs shared by the run; Esc closes it | `test_ovs_01` |
+| OVS-1 | PM → Proposals → 2050 → **Why?** | Panel lists the records behind the proposal (CIO ensemble, risk report, votes, approvals, adjustments) and the inputs shared by the run; Esc closes it | `test_ovs_01` |
 | OVS-2 | Compliance → Compliance → **why** under a vintage → open a record | Panel for that vintage; "open in ledger" jumps to the full record with hashes | `test_ovs_02` |
 | OVS-3 | Research → Capital market assumptions → US Large Cap → **All records** | The CMA judge record and its method records | `test_ovs_03` |
 | OVS-4 | Leadership → **Changes since last run** | Previous run named; regime change; per vintage equity, E[r], vol, TE, ensemble, largest weight moves, compliance; CMAs that moved most. With only one run: "No earlier run to compare with yet" | `test_ovs_04` |
@@ -152,6 +153,8 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | TRD-12 | Fund page → **Exit a position** → **See the impact** → reason → create | Draft `EX-…` selling the whole flagged position; post-trade position is zero | `test_trd_04`, API test |
 | TRD-13 | On a draft list → Tranches: two dates at 25% and 70%, apply; then 25% and 75%; save. Try a fund-level and a security-level series in one cashflow list | Refused at 95%; saved at 100%; bucket by date, "1 of 2", quantities add back; the Charles River file has one row per tranche with its date | `test_trd_04`, `test_tranche_checks_and_split`, API test |
 | ADM-17 | User access → edit a person → switch **Trade route manager** on, then off | Listed on the person, in the access review and in the access log with who changed it and when | Manual (same switch as ADM-11) |
+| ADM-18 | User access → edit a PM → switch **Approver** on with a reason, then off with a reason; check the Access log and Access review | Warning "No Approver permission" while off; each change logged with who, when, before, after and reason; listed per person in the access review | `test_approver_permission_is_switched_on_and_off_and_logged` |
+| TRD-25 | PM without the Approver permission opens a draft trade list; then with it | Note about the Approver permission instead of the Approve form, list not in My work; with it, approval works | `test_trade_list_approval_needs_the_approver_permission` |
 
 **Usefulness questions:** Does pro rata by each table match how the desk allocates today? Does the impact view (now vs after, off target, gaps) answer "what will this do to the fund?" before you save? Do the goal shortcuts match how you think about a trade? Is the Charles River file missing any field your import needs? Is the ETF buffer applied the way you meant (§0 of doc 17)?
 
@@ -165,6 +168,8 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | TRD-21 | PM: **Trade a security** in MTRS-2040: largest holding → **Trade to weight** +5pp, then −1pp → **See the impact** | +5pp shows **Not enough cash**; −1pp gives a SELL with the asset mix now vs after, target, glide path, Off target and compliance | `test_trd_21` |
 | TRD-22 | PM: **Rebalance to a target** → **Back to the glide path** → MTRS-2070 → **See the impact** | Off target after ≤ before for the fund | `test_trd_22` |
 | TRD-23 | **Start from your goal** → "Get back to the glide path", then "…stay as positioned last night" | Sets up Rebalance → Back to the glide path, then Invest cashflows → Keep the current mix | `test_trd_23` |
+| TRD-24 | Glide path & bulk changes → All mutual funds → **2050–2070**, then click 2060 off → Preview; then **Clear** → Preview; then pick one fund | 5 funds, then 4 funds and the preview lists 4; Clear shows "Pick at least one vintage" and refuses; one fund hides the vintage buttons | `test_trd_24`, `test_glide_path_scope_by_picked_vintages` |
+| GP-1 | Console → **Glide path** → All CITs → **Clear**, then click 2035, 2055, 2065 → Preview | No From/To boxes; count "3 vintages selected · 3 funds"; preview lists MTRT-2035, -2055, -2065 only | `test_glide_path_vintage_picker` |
 
 ## REG — Regulations & obligations (Nina Alvarez, analyst; Robert Hayes, CCO) · built 2026-11-10 (doc 18)
 
@@ -220,3 +225,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |
 | 5 (automated) | 2026-11-11 | Browser + API tests | All + TRD + REG + UX | 135 pass (65 browser) | UX update: app bar, My work, Help, dialogs, messages, keyboard; tests updated for the grouped console tabs |
 | 6 (automated) | 2026-11-13 | Browser + API tests | All + TRD-19 to TRD-23 | 154 pass (78 unit/API, 76 browser) | Trading redesign: New trade builder, goal shortcuts, dry-run impact, cash check; earlier trading and UX scripts moved to the new flow. Guide screenshots regenerated (75) from the same local app |
+| 7 (automated) | 2026-11-13 | Browser + API tests | All + PM-6, ADM-18, TRD-24, TRD-25, GP-1 | 161 pass (82 unit/API, 79 browser) | Approver permission; vintage picker for glide-path and bulk changes; "Portfolios & proposals" renamed "Proposals"; screenshots regenerated |

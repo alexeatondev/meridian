@@ -35,7 +35,7 @@ def test_nav_is_filtered_by_role():
 
 
 def test_every_page_carries_the_shell_without_duplicate_links(client):
-    login(client, "Maya Chen", "portfolio_manager", "admin", "compliance")
+    login(client, "Maya Chen", "portfolio_manager", "admin", "compliance", "approver")
     for path in ("/trading", "/regulations", "/admin"):
         html = client.get(path).text
         assert "window.MERIDIAN_NAV=" in html and 'id="mshell-css"' in html, path
@@ -43,7 +43,7 @@ def test_every_page_carries_the_shell_without_duplicate_links(client):
 
 
 def test_help_anchors_exist(client):
-    login(client, "Maya Chen", "portfolio_manager")
+    login(client, "Maya Chen", "portfolio_manager", "approver")
     html = client.get("/help").text
     assert "<h2" in html and 'src="/help/img/' in html and "Image: `" not in html
     for page, num in HELP_SECTION.items():
@@ -56,7 +56,7 @@ def test_help_anchors_exist(client):
 
 
 def test_my_work_lists_drafts_committee_requests_and_obligations(client):
-    h = login(client, "Maya Chen", "portfolio_manager")
+    h = login(client, "Maya Chen", "portfolio_manager", "approver")
     assert client.get("/api/my-work").json()["count"] == 0
     client.post("/api/trading/cashflows", headers=h, json={"trade_date": "2026-11-10", "fund_id": "MTRS-2050",
                                                            "amount": 1e6, "type": "subscription"})

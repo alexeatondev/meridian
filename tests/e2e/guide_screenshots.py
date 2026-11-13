@@ -85,7 +85,7 @@ def scroll_to(page, text):
 
 
 def test_console_pm(page, app_url):
-    p = go(page, app_url, "Maya Chen", "portfolio_manager")
+    p = go(page, app_url, "Maya Chen", "portfolio_manager", "approver")
     p.wait_for_selector("#nav button")
     shot(p, "pm-01-home")
     tab(p, "Funds & vintages")
@@ -93,7 +93,7 @@ def test_console_pm(page, app_url):
     p.click("[data-pf='MTRT-2050']")
     p.wait_for_timeout(400)
     shot(p, "pm-09-product-detail")
-    tab(p, "Portfolios & proposals")
+    tab(p, "Proposals")
     shot(p, "pm-02-proposal")
     p.locator(".why-btn").first.click()
     p.wait_for_selector(".modal .box, [role=dialog]")
@@ -137,7 +137,7 @@ def test_console_pm(page, app_url):
 
 
 def test_console_risk_research_mgr(page, app_url):
-    p = go(page, app_url, "Daniel Okafor", "risk")
+    p = go(page, app_url, "Daniel Okafor", "risk", "approver")
     p.wait_for_selector("#nav button")
     tab(p, "Fund risk")
     shot(p, "risk-01-fund-risk")
@@ -240,7 +240,7 @@ def test_admin(page, app_url):
 
 
 def test_trading(page, app_url):
-    p = go(page, app_url, "Maya Chen", "portfolio_manager", "route_manager", email="maya.chen@example.com")
+    p = go(page, app_url, "Maya Chen", "portfolio_manager", "route_manager", "approver", email="maya.chen@example.com")
     p.goto(app_url + "/trading")
     p.wait_for_selector("[data-task]")
     shot(p, "trd-21-new-trade")
@@ -383,7 +383,7 @@ def test_regulations_and_new_trading(page, app_url):
     p.click(".tabs button:text-is('Regulation library')")
     shot(p, "reg-06-library")
 
-    p = go(page, app_url, "Maya Chen", "portfolio_manager", email="maya.chen@example.com")
+    p = go(page, app_url, "Maya Chen", "portfolio_manager", "approver", email="maya.chen@example.com")
     p.goto(app_url + "/trading")
     ttab(p, "Funds & securities")
     p.wait_for_selector("[data-fund]")
@@ -422,11 +422,11 @@ def test_regulations_and_new_trading(page, app_url):
 
 
 def test_bulk_changes(page, app_url):
-    p = go(page, app_url, "Maya Chen", "portfolio_manager", email="maya.chen@example.com")
+    p = go(page, app_url, "Maya Chen", "portfolio_manager", "approver", email="maya.chen@example.com")
     p.goto(app_url + "/trading")
     p.click(".tabs button:text-is('Glide path & bulk changes')")
     p.select_option("#bkScope", "vehicle:cit")
-    p.select_option("#bkTo", "2045")
+    p.click("[data-bkvset='near']")
     p.fill("#bkReason", R)
     p.select_option("[data-sha='0']", "us_large_cap")
     p.select_option("[data-shf='0']", "us_core_bond")
@@ -444,7 +444,7 @@ def test_bulk_changes(page, app_url):
     p.fill("#bkReason", R)
     p.locator("text=Waiting for the Investment Committee").scroll_into_view_if_needed()
     shot(p, "trd-19-glide-approve")
-    p = go(page, app_url, "Maya Chen", "portfolio_manager", email="maya.chen@example.com")
+    p = go(page, app_url, "Maya Chen", "portfolio_manager", "approver", email="maya.chen@example.com")
     p.goto(app_url + "/trading")
     p.click(".tabs button:text-is('Glide path & bulk changes')")
     p.locator("#bkTiGo").scroll_into_view_if_needed()
@@ -453,7 +453,7 @@ def test_bulk_changes(page, app_url):
 
 def test_navigation_and_feedback(page, app_url):
     """App bar, My work, Help, in-page dialogs and messages (UX update 2026-11-11)."""
-    go(page, app_url, "Maya Chen", "portfolio_manager", "route_manager")
+    go(page, app_url, "Maya Chen", "portfolio_manager", "route_manager", "approver")
     page.goto(app_url + "/trading")
     page.wait_for_selector(".mbar")
     st, _ = api(page, "POST", "/api/trading/rebalance", {"strategy": "neutral", "trade_date": "2026-11-13", "fund_ids": ["MTRS-2045"], "reason": R})

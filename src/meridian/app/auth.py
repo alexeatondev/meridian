@@ -34,7 +34,11 @@ PERMISSIONS = {
     "investment_committee": "Investment Committee member (approves glide-path changes and autonomy changes)",
     "chief_compliance_officer": "Chief Compliance Officer (approves exceptions; must be a named person)",
     "route_manager": "Trade route manager (may change where orders are routed; every change is logged)",
+    "approver": "Approver (records approval decisions on proposals, risk-budget changes and trade lists; "
+                "works with the Portfolio Manager or Risk workspace)",
 }
+APPROVER = "approver"
+APPROVING_WORKSPACES = ("portfolio_manager", "risk")   # their decisions also need the Approver permission
 ROLES.update(PERMISSIONS)
 # Console workspace key for each role
 CONSOLE_ROLE = {"portfolio_manager": "pm", "risk": "risk", "analyst": "research", "manager_selection": "mgr",
@@ -92,6 +96,13 @@ def require_role(user: dict, *roles: str) -> str:
         if r in user.get("roles", []):
             return r
     raise HTTPException(403, f"Requires one of: {', '.join(roles)}")
+
+
+def require_approver(user: dict, role: str | None = None) -> None:
+    """Approval decisions recorded as Portfolio Manager or Risk need the Approver permission on top of the workspace."""
+    if (role is None or role in APPROVING_WORKSPACES) and APPROVER not in user.get("roles", []):
+        raise HTTPException(403, "Recording an approval needs the Approver permission "
+                                 "(an admin switches it on in User access)")
 
 
 def check_csrf(request: Request, user: dict) -> None:

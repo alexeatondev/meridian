@@ -143,7 +143,7 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 | Fund-level regulations | **Built:** US and international regulation tags per fund with controls, obligations, required roles and retention (doc 18) |
 | PC-6 Exceptions | **Built:** auto-opened from WARN/FAIL, owner, due date, remediation, CCO-only time-limited acceptance (≤ 365 days), close with separation of duties |
 | PC-7 Rule testing | **Built** (unit tests on every change) |
-| SUP-1/2 Approval matrix, reasoned approvals | **Built:** checkbox + reason; segregation of duties across roles; Investment Committee and CCO permissions |
+| SUP-1/2 Approval matrix, reasoned approvals | **Built:** checkbox + reason; segregation of duties across roles; Investment Committee and CCO permissions; since 2026-11-13 PM and Risk decisions (proposals, risk-budget changes, trade lists) also need the separately assigned **Approver** permission, each grant and removal in the access log |
 | SUP-3 Dissent visibility | **Built** |
 | SUP-4 Scope limits | Partial (agents run in GitHub Actions with no write access to the app except publishing a run). On the Agent SDK backend each agent can reach only its own read-only tools: no shell, files or web, with turn and spend caps (doc 02 §4a) |
 | SUP-5 Challenge reviews | Not built |
