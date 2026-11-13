@@ -1,7 +1,7 @@
 # Meridian — Agentic Portfolio Management Platform
 
 **Working product name:** Meridian (rename anytime)
-**Status:** Pilot in shadow mode on real public data; hosted multi-user app live on AWS with role workspaces, User access, exceptions, a Trading screen (example positions) and fund-level Regulations · **Doc set version:** 0.6 · **Date:** 2026-11-11
+**Status:** Pilot in shadow mode on real public data; hosted multi-user app live on AWS with role workspaces, User access, exceptions, a Trading screen with a task-based New trade builder and now-vs-after impact view (example positions) and fund-level Regulations · **Doc set version:** 0.7 · **Date:** 2026-11-13
 **Code:** https://github.com/alexeatondev/meridian
 **App:** https://d3maw6l4k5cc0v.cloudfront.net (invited users only)
 **Source research:** Ang, Azimbayev & Kim, *The Self-Driving Portfolio: Agentic Architecture for Institutional Asset Management* (SSRN 6504386, April 2026) — `ssrn-6504386.pdf` in this project.
@@ -25,7 +25,7 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 03 | Build Game Plan & Roadmap (incl. status and next steps) | Product owner (you), engineering |
 | 04 | Compliance & Agent Governance Framework | Compliance, legal, audit, leadership |
 | 05 | Decision Record & Audit Trail Specification | Compliance, audit, engineering |
-| 06 | User Guides by Role (incl. signing in) | PMs, risk, research, manager selection, leadership, audit, compliance |
+| 06 | User Guides by Role — step-by-step for every task (incl. signing in, trading recipes, messages and what they mean) | PMs, risk, research, manager selection, leadership, audit, compliance |
 | 07 | Investment Policy Statement — Target Retirement Series | Everyone |
 | 08 | Operating-Entity Profiles (select one or many) | Compliance, leadership |
 | 09 | Data Integration (Bloomberg, S&P, Moody's, Fitch, FactSet; direct or Snowflake) | Engineering, data |
@@ -40,7 +40,7 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 18 | Fund Regulations & Obligations — US and international regulation tags, controls, tracked obligations | Compliance, PMs, audit, leadership |
 | — | Sample run board memo | Leadership, IC |
 
-The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/`, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.
+The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/` (regenerated from the app by `tests/e2e/guide_screenshots.py`; last 2026-11-13), the same guide opens inside the app under **? Help**, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.
 
 ## Guiding principles
 1. **LLMs judge; code computes; rules decide compliance.** No arithmetic in the model. No compliance determination by the model.

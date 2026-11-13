@@ -1,6 +1,6 @@
 # 16 — User Acceptance Test (UAT) Scripts
 
-**Version 0.5 · 2026-11-11 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
+**Version 0.6 · 2026-11-13 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
 
 One script per role, built from the personas (doc 15). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
 
@@ -141,25 +141,30 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | TRD-1 | App bar → **Trading**; switch All funds / Mutual funds / CITs | 18 funds, then 9 `MTRS-…` mutual funds, then 9 `MTRT-…` CITs | `test_trd_01` |
 | TRD-2 | Open MTRS-2040 | Held securities; "Held · no target" (legacy fund); "Not held · candidate" (IEFA); three target columns | `test_trd_01` |
 | TRD-3 | Cashflows → download the Excel template, fill two rows, upload; then add one by hand | Rows loaded and listed as New; a bad fund id stops the whole file with the row number | `test_end_to_end_cashflows_to_charles_river_file` |
-| TRD-4 | CITs only → Trades → Generate (Previous night close) | Only CIT funds; CIT orders routed to State Street, ETFs and bonds to the internal desk; IPS PASS | `test_trd_02` |
-| TRD-5 | Current vs post-trade | Current, trade, post-trade and target per security; cash before/after; buffer held | `test_trd_02` |
+| TRD-4 | CITs only → **New trade** → **Invest cashflows** → **Keep the current mix** → **See the impact** → reason → **Create draft trade list** | Impact lists only CIT funds; the draft opens on Trade lists; CIT orders routed to State Street, ETFs and bonds to the internal desk; IPS PASS | `test_trd_02` |
+| TRD-5 | On the saved list: **Impact: now vs after**, then **Orders** | Asset-mix bars (now, after, target, glide path), Off target now → after, cash before/after, buffer held; Orders view by destination | `test_trd_02` |
 | TRD-6 | Approve without the box, then with box and reason; download the Charles River file | Refused, then approved; CSV with one row per order and its destination; list shows *Exported* | `test_trd_02` |
 | TRD-7 | Routing & settings without the Trade route manager permission; then with it: change a route with a 5-character reason, then a proper reason | Route boxes locked and "You do not hold the route permission"; with it: refused, then saved; the trading change log shows `routes.change`; the tab names who holds the permission | `test_trd_03` |
-| TRD-8 | As an analyst | Can load cashflows and generate trade lists; can't approve, change settings or target tables | `test_trd_03`, `test_settings_and_strategic_table_are_controlled_and_logged` |
+| TRD-8 | As an analyst | Can load cashflows and prepare cashflow, security and exit trades; **Rebalance to a target** is disabled; can't approve, change settings or target tables | `test_trd_03`, `test_settings_and_strategic_table_are_controlled_and_logged` |
 | TRD-9 | PM: MTRS-2050 → Set custom weights (total ≠ 100%, then = 100%) with a reason; generate with Strategic | Refused until 100%; version 1 saved; trade list uses the custom table | `test_settings_and_strategic_table_are_controlled_and_logged` |
 | TRD-10 | PM: Routing & settings → add a +50 bp tilt on a security for one fund and flag a legacy holding for exit; save with a reason | Saved and recorded; the fund page shows "Tilt +50 bp" and "Exiting"; the next cashflow trade list notes the tilt and skips the exiting security | `test_trd_04`, `test_tickets_exits_tilts_and_tranches_api` |
-| TRD-11 | Fund page → Trade individual securities: buy the candidate ETF (IEFA); then try a buy larger than the fund's cash | Draft ticket `TK-…` routed to the internal desk; the oversize buy is refused ("Cash would go negative") | `test_trd_04`, API test |
-| TRD-12 | Fund page → Create exit trade list | Draft `EX-…` selling the whole flagged position; post-trade position is zero | `test_trd_04`, API test |
+| TRD-11 | Fund page → **Trade a security**: search IEFA → **Add** → **Buy amount** $2,000,000 → **See the impact** → reason → create; then try a buy larger than the fund's cash | Draft ticket `TK-…` routed to the internal desk; the oversize buy shows **Not enough cash** in the ticket and is refused at preview ("Cash would go negative") | `test_trd_04`, API test |
+| TRD-12 | Fund page → **Exit a position** → **See the impact** → reason → create | Draft `EX-…` selling the whole flagged position; post-trade position is zero | `test_trd_04`, API test |
 | TRD-13 | On a draft list → Tranches: two dates at 25% and 70%, apply; then 25% and 75%; save. Try a fund-level and a security-level series in one cashflow list | Refused at 95%; saved at 100%; bucket by date, "1 of 2", quantities add back; the Charles River file has one row per tranche with its date | `test_trd_04`, `test_tranche_checks_and_split`, API test |
 | ADM-17 | User access → edit a person → switch **Trade route manager** on, then off | Listed on the person, in the access review and in the access log with who changed it and when | Manual (same switch as ADM-11) |
 
-**Usefulness questions:** Does pro rata by each table match how the desk allocates today? Is the Charles River file missing any field your import needs? Is the ETF buffer applied the way you meant (§0 of doc 17)?
+**Usefulness questions:** Does pro rata by each table match how the desk allocates today? Does the impact view (now vs after, off target, gaps) answer "what will this do to the fund?" before you save? Do the goal shortcuts match how you think about a trade? Is the Charles River file missing any field your import needs? Is the ETF buffer applied the way you meant (§0 of doc 17)?
 
-| TRD-14 | PM: Trades → Rebalance to target (Neutral, one fund, reason) → approve → export → **Mark all open orders filled** | `RB-…` list; fills booked; list *Filled and booked*; fund's Positions column shows "Booked from …" | `test_trd_14` |
+| TRD-14 | PM: **New trade** → **Rebalance to a target** → **Back to the glide path**, one fund → **See the impact** → reason → create → approve → export → **Mark all open orders filled** | `RB-…` list; fills booked; list *Filled and booked*; fund's Positions column shows "Booked from …" | `test_trd_14` |
 | TRD-15 | PM: Funds & securities → upload a positions CSV (one bad security, then a good file) | Refused naming the row; then loaded and shown as "Uploaded file" | `test_approved_table_rebalance_positions_and_fills` |
 | TRD-17 | PM: Glide path & bulk changes → All CITs → shift US large cap +1pp from core bond → Preview → Submit; then as an IC member approve | Preview within IPS bands for 9 funds; request pending; requester can't approve; IC approval puts it in force and the funds show *Glide path adjusted* | `test_trd_17`, `test_bulk_scopes_glide_path_and_strategic` |
 | TRD-18 | PM: All mutual funds → asset-class tilt EM +25 bp; then a 4pp glide-path shift | Tilt applied to 9 funds; 4pp refused ("needs an IPS amendment") | `test_trd_17`, API test |
 | TRD-16 | Rebalance to **Approved proposal** before and after PM + Risk approve a vintage | Refused ("no approved proposal"), then the list follows the approved weights | API test |
+| TRD-19 | Any New trade task → **See the impact**, then leave without creating | Impact shown; no trade list, no ledger record, cashflows still New | `test_dry_run_previews_impact_without_saving` |
+| TRD-20 | As an analyst open Trading | Opens on **New trade** with four task tiles; **Rebalance to a target** disabled ("Portfolio managers only"); a security preview saves nothing | `test_trd_20` |
+| TRD-21 | PM: **Trade a security** in MTRS-2040: largest holding → **Trade to weight** +5pp, then −1pp → **See the impact** | +5pp shows **Not enough cash**; −1pp gives a SELL with the asset mix now vs after, target, glide path, Off target and compliance | `test_trd_21` |
+| TRD-22 | PM: **Rebalance to a target** → **Back to the glide path** → MTRS-2070 → **See the impact** | Off target after ≤ before for the fund | `test_trd_22` |
+| TRD-23 | **Start from your goal** → "Get back to the glide path", then "…stay as positioned last night" | Sets up Rebalance → Back to the glide path, then Invest cashflows → Keep the current mix | `test_trd_23` |
 
 ## REG — Regulations & obligations (Nina Alvarez, analyst; Robert Hayes, CCO) · built 2026-11-10 (doc 18)
 
@@ -177,10 +182,10 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | # | Step | Expected result | Auto test |
 |---|---|---|---|
 | UX-1 | Open the console, Trading, Regulations and (as admin) User access | The same app bar on every screen; only the screens your access allows; the current one underlined; no "Back to console" links; a **Read-only** label for view-only access | `test_ux_01`, `test_every_page_carries_the_shell_without_duplicate_links` |
-| UX-2 | As a PM, generate a trade list, go to the console, open **My work** and click the trade list | Item "Approve TL-…" listed; Esc closes the list; clicking opens Trading → Trades with that list selected | `test_ux_02`, `test_my_work_lists_drafts_committee_requests_and_obligations` |
+| UX-2 | As a PM, create a draft on **New trade**, go to the console, open **My work** and click the trade list | Item "Approve TL-…" listed; Esc closes the list; clicking opens Trading → **Trade lists** with that list selected | `test_ux_02`, `test_my_work_lists_drafts_committee_requests_and_obligations` |
 | UX-3 | Cancel that trade list: try a 5-character reason, then **Go back**, then cancel with a proper reason | In-page confirmation names the list; **Cancel trade list** stays disabled until the reason has 10 characters; Go back changes nothing; then "Trade list cancelled" | `test_ux_02` |
-| UX-4 | Type in any reason field; submit a rebalance with no reason | Counter shows "n/10 characters minimum"; the red error stays until you close it | `test_ux_03` |
-| UX-5 | Keyboard only: Tab from the top of Trading, then use ← → on the tab row | First Tab offers "Skip to main content"; arrows move between tabs | `test_ux_03` |
+| UX-4 | Type in any reason field; click **Create draft trade list** with no reason | Counter shows "n/10 characters minimum"; the red error stays until you close it | `test_ux_03` |
+| UX-5 | Keyboard only: Tab from the top of Trading, then use ← →, Home and End on the tab row | First Tab offers "Skip to main content"; arrows move between tabs; Home/End go to New trade / Routing & settings | `test_ux_03` |
 | UX-6 | On Regulations click **? Help**, search "obligation", go back | Guide opens at §12; headings filter; back returns to Regulations | `test_ux_04`, `test_help_anchors_exist` |
 | UX-7 | Let the session expire (or sign out in another tab), then act | "Your session has expired" with Sign in / Stay on page; Sign in goes to the sign-in page | `test_ux_04` |
 | UX-8 | As a Compliance user with obligations due soon, open My work | Obligations due within 14 days or overdue for your role, red when overdue; click opens that obligation | API test |
@@ -214,3 +219,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 4 (automated) | 2026-11-10 | Browser + API tests | All + REG + TRD-14 to 16 | 125 pass | Regulations, rebalance, positions, fills; F-4 and F-11 fixed |
 | 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |
 | 5 (automated) | 2026-11-11 | Browser + API tests | All + TRD + REG + UX | 135 pass (65 browser) | UX update: app bar, My work, Help, dialogs, messages, keyboard; tests updated for the grouped console tabs |
+| 6 (automated) | 2026-11-13 | Browser + API tests | All + TRD-19 to TRD-23 | 154 pass (78 unit/API, 76 browser) | Trading redesign: New trade builder, goal shortcuts, dry-run impact, cash check; earlier trading and UX scripts moved to the new flow. Guide screenshots regenerated (75) from the same local app |

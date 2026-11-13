@@ -25,7 +25,7 @@ th{font-size:12px;color:var(--muted);font-weight:600}tr.sel td{background:var(--
 .btn:disabled{opacity:.5;cursor:not-allowed}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
 label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input[type=text],input[type=email],textarea,input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.impgrid{grid-template-columns:minmax(320px,0.8fr) 1.2fr}table.compact td,table.compact th{padding:5px 7px}table.goals td{vertical-align:middle;padding:9px 6px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
 .opt{display:flex;gap:8px;align-items:flex-start;padding:6px 0}.opt input{margin-top:3px}.opt .d{font-size:12px;color:var(--muted)}
 .switch{position:relative;width:36px;height:20px;flex:none}.switch input{opacity:0;width:0;height:0}
 .switch span{position:absolute;inset:0;background:var(--line-strong);border-radius:999px;transition:.15s}.switch span:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
@@ -410,7 +410,7 @@ function bindTranches(t){
 // ------------------------------------------------------------------ New trade: task launcher, builder and impact
 const AN = a => (S.st.asset_names||{})[a] || a;
 const GROUPS = () => { const g=S.st.groups||{}; return [['Equity',g.equity||[]],['Fixed income',g.fixed_income||[]],['Real assets',g.real_assets||[]],['Cash',['cash']]]; };
-const pp = (x,d=1) => (x>0?'+':x<0?'−':'')+Math.abs(x*100).toFixed(d)+'pp';
+const pp = (x,d=1) => Math.abs(x*100)<0.5*Math.pow(10,-d) ? '0.'+'0'.repeat(d)+'pp' : (x>0?'+':'−')+Math.abs(x*100).toFixed(d)+'pp';
 const sumA = (ac,as,k) => as.reduce((s,a)=>s+((ac[a]||{})[k]||0),0);
 const STRAT = {
   previous_close:['Keep the current mix','Split the money in proportion to what each fund held at last night\'s close. Use it to stay invested as you are.'],
@@ -422,6 +422,14 @@ const TASKS = [
   ['rebalance','Rebalance to a target','Move holdings back toward the glide path, a strategic mix or the approved proposal.','approve'],
   ['security','Trade a security','Buy or sell specific stocks, bonds, ETFs or funds in one fund, by amount or to a target weight.','prepare'],
   ['exit','Exit a position','Sell whole positions that are flagged for exit in a fund.','prepare']];
+const GOALS = [
+  ['Invest new money (or raise cash) and stay as positioned last night','invest','previous_close','Invest cashflows → Keep the current mix: splits each fund\'s net flow in line with last night\'s close.'],
+  ['Invest new money and lean back toward the glide path','invest','neutral','Invest cashflows → Back to the glide path: new money goes in at glide-path weights.'],
+  ['Get back to the glide path (be more neutral)','rebalance','neutral','Rebalance to a target → Back to the glide path: trades holdings to close gaps to the glide path.'],
+  ['Move to a strategic view','rebalance','strategic','Rebalance to a target → Strategic mix: trades to the fund\'s strategic table (edit it on Funds & securities).'],
+  ['Implement the approved proposal','rebalance','approved','Rebalance to a target → Approved proposal: trades to the weights the committee approved.'],
+  ['Buy or sell a specific stock, bond, ETF or fund','security',null,'Trade a security: pick a fund, search the security, buy/sell an amount or trade to a weight.'],
+  ['Sell a position completely','exit',null,'Exit a position (if flagged for exit) or Trade a security → Sell all.']];
 S.nt = {task:null, strat:'neutral', date:'', fundSel:'', drift:5, fund:'', fd:null, orders:[], q:'', prev:null, impF:null};
 
 function stratPicker(keys){
@@ -431,8 +439,11 @@ function vTrade(){
   const nt = S.nt, can = {prepare:BOOT.can_prepare, approve:BOOT.can_approve};
   let h = `<div class="card"><h2>1. What do you want to do?</h2>${!BOOT.can_prepare?'<p class="small muted">Your role views trading but doesn\'t prepare trades. Open <b>Trade lists</b> to review what others prepared.</p>':''}
    <div class="tiles four">${TASKS.map(([k,t,d,need])=>`<button class="tile task ${nt.task===k?'on':''}" data-task="${k}" ${can[need]?'':'disabled title="Needs the portfolio manager role"'}><b>${t}</b><span class="small muted">${d}</span>${can[need]?'':'<span class="small">Portfolio managers only</span>'}</button>`).join('')}</div></div>`;
+  if (!nt.task) h += `<div class="card"><h2>Not sure which? Start from your goal</h2><table class="goals">
+   ${GOALS.map(([goal,task,st,how],i)=>{const ok=can[TASKS.find(x=>x[0]===task)[3]]; return `<tr><td><b>${goal}</b><br><span class="small muted">${how}</span></td><td style="width:180px;text-align:right"><button class="btn small" data-goal="${i}" ${ok?'':'disabled title="Needs the portfolio manager role"'}>${ok?'Set this up':'Portfolio managers only'}</button></td></tr>`}).join('')}</table>
+   <p class="small muted">Every option shows the impact (now vs after, against target and glide path) before anything is saved. A saved draft still needs a portfolio manager's approval before it is exported to Charles River.</p></div>`;
   if (nt.task) h += `<div class="card"><h2>2. Set it up</h2>${({invest:setupInvest, rebalance:setupRebalance, security:setupSecurity, exit:setupExit})[nt.task]()}
-    <div class="row" style="margin-top:14px"><label>Trade date <input type="date" id="ntDate" value="${nt.tdate||localDate()}"></label><button class="btn primary" id="ntPrev">See the impact</button><span class="small muted">Nothing is saved until you create the draft.</span></div></div>`;
+    <div class="row" style="margin-top:14px">${nt.task==='invest'?`<span class="small">Trade date: <b>${esc(nt.date||'—')}</b> (the cashflow date)</span>`:`<label>Trade date <input type="date" id="ntDate" value="${nt.tdate||localDate()}"></label>`}<button class="btn primary" id="ntPrev">See the impact</button><span class="small muted">Nothing is saved until you create the draft.</span></div></div>`;
   if (nt.prev) h += `<div class="card"><h2>3. Impact: now vs after these trades</h2>${impactPanel(nt.prev,'nt')}</div>
     <div class="card"><h2>4. Create the draft trade list</h2><p class="small muted">The draft keeps exactly these orders. A portfolio manager then approves it (with the same impact view), and it is exported to Charles River for its own compliance check and execution. Nothing trades from here.</p>
     <label class="f" for="ntReason">Reason (kept in the ledger)</label><input type="text" id="ntReason" placeholder="At least 10 characters" value="${esc(nt.reason||'')}">
@@ -496,7 +507,7 @@ function setupExit(){
     :`<p class="small">Nothing in ${esc(S.nt.fund)} is flagged for exit. Flag a security on <a href="#" data-gotab="settings">Routing &amp; settings</a> → Full exits, or use <b>Trade a security</b> → Sell all to sell one position now.</p>`);
 }
 function ntRequest(){
-  const nt=S.nt, td=$('#ntDate').value; nt.tdate=td;
+  const nt=S.nt, td=$('#ntDate')?$('#ntDate').value:nt.date; if($('#ntDate')) nt.tdate=td;
   if (nt.task==='invest') { if(!nt.date) throw new Error('No cashflows to invest'); return ['/api/trading/trade-lists',{trade_date:nt.date, strategy:nt.strat, vehicle:S.veh}]; }
   if (nt.task==='rebalance') return ['/api/trading/rebalance',{strategy:nt.strat, trade_date:td, min_drift_bps:+nt.drift, vehicle:S.veh, fund_ids: nt.fundSel?[nt.fundSel]:null}];
   if (!nt.fund) throw new Error('Choose a fund');
@@ -508,6 +519,7 @@ function ntRequest(){
 }
 function bindTrade(){
   const nt=S.nt, re=()=>{nt.prev=null; vTrade()};
+  document.querySelectorAll('[data-goal]').forEach(b=>b.onclick=()=>{const g=GOALS[+b.dataset.goal]; nt.task=g[1]; if(g[2]) nt.strat=g[2]; nt.prev=null; vTrade(); window.scrollTo(0,0)});
   document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{nt.task=b.dataset.task; nt.prev=null; if(nt.task==='rebalance'&&nt.strat==='previous_close') nt.strat='neutral'; vTrade()});
   document.querySelectorAll('input[name=ntStrat]').forEach(r=>r.onchange=()=>{nt.strat=r.value; re()});
   document.querySelectorAll('[data-gotab]').forEach(a=>a.onclick=e=>{e.preventDefault(); S.tab=a.dataset.gotab; sessionStorage.setItem('tr_tab',S.tab); render()});
@@ -541,7 +553,7 @@ function impactPanel(t, key){
   let h = `<div class="kpis"><div><span class="muted small">Funds</span><b>${fs.length}</b></div><div><span class="muted small">Orders</span><b>${tot.o}</b></div><div><span class="muted small">Buys</span><b class="pos">${musd(tot.buy)}</b></div><div><span class="muted small">Sells</span><b class="neg">${musd(tot.sell)}</b></div>
    <div><span class="muted small">Uninvested cash</span><b>${musd(tot.cb)} → ${musd(tot.ca)}</b></div><div><span class="muted small">Off target (avg)</span><b>${pct(gb,1)} → ${pct(ga,1)}</b></div>
    <div><span class="muted small">Compliance after</span><b>${Object.entries(cnt).map(([k,n])=>compChip({status:k})+n).join(' ')}</b></div></div>
-   <p class="small muted">"Off target" is the share of the fund that would have to move to match the ${esc(t.strategy==='manual'?'glide-path':(STRAT[t.strategy]||[t.strategy_name])[0].toLowerCase())} mix exactly: lower is closer.</p>`;
+   <p class="small muted">"Off target" is the share of the fund that would have to move to match ${t.strategy==='manual'?'the glide path':'the target of “'+esc((STRAT[t.strategy]||[t.strategy_name])[0])+'”'} exactly: lower is closer. 0% means the fund is exactly on target.</p>`;
   if (fs.length>1) h += `<h3>By fund</h3><div class="scroll"><table><tr><th>Fund</th><th class="n">Net flow</th><th class="n">Orders</th><th class="n">Buys</th><th class="n">Sells</th><th class="n">Cash after</th><th>Off target: now → after</th><th class="n">Equity: now → after</th><th class="n">Glide path</th><th>Compliance</th></tr>
    ${fs.map(f=>{const ac=acOf(f), eqs=(S.st.groups||{}).equity||[], x=fundTotals(f), b=gapOf(f,'before'), a=gapOf(f,'after'), mx=Math.max(0.0001,...fs.map(z=>gapOf(z,'before')));
      return `<tr class="click ${f===sel?'sel':''}" data-impf="${key}|${f.fund_id}"><td><b>${f.fund_id}</b> <span class="small muted">${vname(f.vehicle)}</span></td><td class="n ${sgn(f.flow||0)}">${f.flow?musd(f.flow):'—'}</td><td class="n">${f.orders.length}</td><td class="n">${musd(x.buy)}</td><td class="n">${musd(x.sell)}</td><td class="n">${musd(f.cash_after)}</td>
@@ -552,10 +564,10 @@ function impactPanel(t, key){
   return h;
 }
 function fundImpact(f, t){
-  const ac=acOf(f), hasG=Object.values(ac).some(x=>x.glide!=null), A=S.st.assets.filter(a=>ac[a]&&(ac[a].current||ac[a].post||ac[a].target));
+  const ac=acOf(f), hasG=t.strategy!=='manual'&&Object.values(ac).some(x=>x.glide!=null), A=S.st.assets.filter(a=>ac[a]&&(ac[a].current||ac[a].post||ac[a].target));
   const mx=Math.max(0.01,...A.map(a=>Math.max(ac[a].current,ac[a].post,ac[a].target,ac[a].glide||0)));
   const tgtLabel = t.strategy==='manual'?'Glide path':'Target';
-  const row=(label,c,p,tg,g,cls)=>`<tr class="${cls||''}"><td style="${cls?'':'padding-left:18px'}">${label}</td><td class="n">${pct(c,1)}</td><td class="n"><b>${pct(p,1)}</b></td><td class="n ${sgn(p-c)}">${Math.abs(p-c)<0.00005?'—':pp(p-c,2)}</td><td class="n">${pct(tg,1)}</td>${hasG?`<td class="n">${pct(g,1)}</td>`:''}<td class="n">${pp(c-tg,2)} → <b>${pp(p-tg,2)}</b></td></tr>`;
+  const row=(label,c,p,tg,g,cls)=>`<tr class="${cls||''}"><td style="${cls?'':'padding-left:18px'}">${label}</td><td class="n">${pct(c,1)}</td><td class="n"><b>${pct(p,1)}</b></td><td class="n ${sgn(p-c)}">${Math.abs(p-c)<0.00005?'—':pp(p-c,2)}</td><td class="n">${pct(tg,1)}</td>${hasG?`<td class="n">${pct(g,1)}</td>`:''}<td class="n" style="white-space:nowrap">${pp(c-tg,2)}</td><td class="n" style="white-space:nowrap"><b>${pp(p-tg,2)}</b></td></tr>`;
   const groups=GROUPS().map(([g,as])=>{const s=k=>sumA(ac,as,k); return row(g,s('current'),s('post'),s('target'),s('glide'),'grp')+(as.length>1?as.filter(a=>ac[a]).map(a=>row(esc(AN(a)),ac[a].current,ac[a].post,ac[a].target,ac[a].glide,'')).join(''):'')}).join('');
   const chart=A.map(a=>{const x=ac[a], w=v=>(v/mx*100).toFixed(2)+'%';
     return `<div class="mixrow"><span class="lbl" title="${esc(AN(a))}">${esc(AN(a))}</span><div class="mixtrack"><div class="now" style="width:${w(x.current)}"></div><div class="aft" style="width:${w(x.post)}"></div><i class="tgt" style="left:${w(x.target)}" title="${tgtLabel} ${pct(x.target,1)}"></i>${x.glide!=null&&t.strategy!=='manual'?`<i class="gp" style="left:${w(x.glide)}" title="Glide path ${pct(x.glide,1)}"></i>`:''}</div><span class="v">${pct(x.current,1)} → <b>${pct(x.post,1)}</b></span></div>`}).join('');
@@ -563,7 +575,7 @@ function fundImpact(f, t){
   return `<h3>${f.fund_id} · ${vname(f.vehicle)}: asset mix now vs after</h3>
    <div class="kpis small"><div>NAV ${musd(f.nav_before)} → <b>${musd(f.nav_after)}</b></div><div>Uninvested cash ${musd(f.cash_before)} → <b>${musd(f.cash_after)}</b></div><div>Off target ${pct(gapOf(f,'before'),1)} → <b>${pct(gapOf(f,'after'),1)}</b></div><div>Compliance after ${compChip(f.compliance)}</div></div>
    <div class="legend small"><span><i class="sw now"></i>Now</span><span><i class="sw aft"></i>After trades</span><span><i class="sw tgt"></i>${tgtLabel}</span>${hasG&&t.strategy!=='manual'?'<span><i class="sw gp"></i>Glide path</span>':''}</div>
-   <div class="grid2"><div>${chart}</div><div><table><tr><th>Asset class</th><th class="n">Now</th><th class="n">After</th><th class="n">Change</th><th class="n">${tgtLabel}</th>${hasG?'<th class="n">Glide path</th>':''}<th class="n">vs ${tgtLabel.toLowerCase()}: now → after</th></tr>${groups}</table></div></div>
+   <div class="grid2 impgrid"><div>${chart}</div><div class="scroll"><table class="compact"><tr><th>Asset class</th><th class="n">Now</th><th class="n">After</th><th class="n">Change</th><th class="n">${tgtLabel}</th>${hasG?'<th class="n">Glide path</th>':''}<th class="n">Gap now</th><th class="n">Gap after</th></tr>${groups}</table><p class="small muted">Gap = weight minus ${tgtLabel.toLowerCase()}, in percentage points (pp). Negative means under target.</p></div></div>
    ${f.notes.length?`<ul class="small">${f.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}${f.errors.map(e=>`<div class="warnbox">${esc(e)}</div>`).join('')}
    ${f.compliance.results&&f.compliance.results.length?`<div class="warnbox">${f.compliance.results.map(r=>`${esc(r.rule_id)} ${esc(r.status)}: ${esc(r.detail||'')} (measured ${esc(r.measured)}, limit ${esc(r.limit)})`).join('<br>')}</div>`:`<p class="small muted">${esc(f.compliance.detail||'')}</p>`}
    <details><summary>Securities: now vs after (${rows.filter(r=>r.trade).length} traded)</summary><div class="scroll"><table><tr><th>Security</th><th class="n">Now</th><th class="n">Weight now</th><th class="n">Trade</th><th class="n">After</th><th class="n">Weight after</th><th class="n">Target</th><th class="n">vs target after</th></tr>${rows.map(r=>`<tr${r.trade?' class="sel"':''}><td>${esc(r.instrument)} ${!r.has_target&&r.type!=='cash'?chip('no target','warn'):''}${r.excluded?chip('excluded','crit'):''}<br><span class="small muted">${esc(AN(r.asset_class))}</span></td><td class="n">${musd(r.current)}</td><td class="n">${pct(r.current_w)}</td><td class="n ${sgn(r.trade)}">${r.trade?usd(r.trade):'—'}</td><td class="n">${musd(r.post)}</td><td class="n">${pct(r.post_w)}</td><td class="n">${r.target_w?pct(r.target_w):'—'}</td><td class="n">${r.target_w?((r.post_w-r.target_w)*10000).toFixed(1)+' bp':'—'}</td></tr>`).join('')}</table></div></details>

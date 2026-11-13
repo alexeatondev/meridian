@@ -1,5 +1,6 @@
 """UAT-TRD: Trading workspace (doc 17) driven in the browser."""
 import csv
+import re
 import io
 
 from playwright.sync_api import expect
@@ -255,3 +256,17 @@ def test_trd_22_rebalance_toward_glide_path_reduces_gap(sign_in, app_url):
     assert f["fund_id"] == "MTRS-2070"
     assert f["impact"]["gap_to_target_after"] <= f["impact"]["gap_to_target_before"] + 1e-9
     expect(page.locator("#trade")).to_contain_text("Off target")
+
+
+def test_trd_23_goal_shortcuts(sign_in, app_url):
+    """TRD-23: 'Start from your goal' sets up the right task and strategy (glide path, night close, strategic)."""
+    page = sign_in("Maya Chen", "portfolio_manager")
+    page.goto(app_url + "/trading")
+    page.locator("tr", has_text="Get back to the glide path").locator("[data-goal]").click()
+    expect(page.locator("[data-task='rebalance']")).to_have_class(re.compile(r"\bon\b"))
+    expect(page.locator("input[name=ntStrat][value='neutral']")).to_be_checked()
+    page.click("[data-task='invest']")
+    page.goto(app_url + "/trading")
+    page.evaluate("S.nt.task=null; vTrade()")
+    page.locator("tr", has_text="stay as positioned last night").locator("[data-goal]").click()
+    expect(page.locator("input[name=ntStrat][value='previous_close']")).to_be_checked()
