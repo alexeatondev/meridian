@@ -79,6 +79,18 @@ tr.lvl0 td{font-weight:600}.up{color:var(--pos)}.down{color:var(--neg)}
 #whyModal .box{background:var(--surface);border:1px solid var(--line);border-radius:12px;max-width:860px;width:100%;padding:18px 20px}
 .dr-item{border-left:3px solid var(--line-strong);padding:6px 10px;margin:8px 0}.dr-item.human{border-left-color:var(--accent)}
 tr.overdue td{background:var(--crit-bg)}
+.att{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)}.att:last-child{border-bottom:0}.att>div{flex:1;min-width:0}.att .btn{flex:none}
+.approve-box{border-left:4px solid var(--accent)}
+ol.story{margin:0;padding-left:20px}ol.story li{margin:6px 0}
+.rbrow{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer}.rbrow:hover{background:var(--surface-2)}.rbv{width:44px;font-weight:600}.rbpct{width:44px;text-align:right;font-variant-numeric:tabular-nums}.rbte{width:110px}
+.rbtrack{position:relative;flex:1;height:12px;background:var(--surface-2);border-radius:6px}.rbfill{height:100%;border-radius:6px;background:var(--good)}.rbfill.warn{background:var(--warn)}.rbfill.crit{background:var(--crit)}
+.rbtrack i{position:absolute;top:-3px;bottom:-3px;border-left:2px dotted var(--text-2)}.rbtrack i.lim{border-left:2px solid var(--text)}.rbtrack b{position:absolute;top:1px;width:9px;height:9px;margin-left:-5px;transform:rotate(45deg);background:var(--info);border:1px solid var(--surface)}
+.choice{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.ltsearch{position:relative;flex:1;min-width:300px;max-width:560px}
+.ltsug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:15;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;max-height:360px;overflow:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.ltsug div{padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line)}.ltsug div.act,.ltsug div:hover{background:var(--info-bg)}
+.selbar{display:flex;gap:10px;align-items:center;margin:10px 0 4px;padding:8px 10px;border:1px solid var(--accent);border-radius:8px;background:var(--info-bg)}
+details.card>summary{cursor:pointer}
 </style>
 </head>
 <body>
@@ -171,87 +183,20 @@ function renderShell(){
 
 // --------------------------------------------------------------- views
 const V = {};
-V.home = () => {
-  const r=state.role, vs=VINT.map(v=>R.vintages[v]);
-  const maxTE=Math.max(...vs.map(v=>v.te)), teLim=P.rules.find(x=>x.id==='TE-NEUTRAL').max;
-  const pending = vs.reduce((n,v)=>n+v.approvers.length,0) - state.approvals.length;
-  const counts = vs.reduce((a,v)=>{for(const k of ['PASS','WARN','FAIL','ATTEST']) a[k]=(a[k]||0)+v.compliance_summary[k];return a},{});
-  const kp=(v,l,s='')=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
-  const myQueue = ROLES[r].approverRole ? VINT.filter(v=>R.vintages[v].approvers.includes(ROLES[r].approverRole)&&!state.approvals.find(a=>a.vintage===v&&a.role===ROLES[r].approverRole)) : [];
-  const intro={pm:'Review the CIO agent\'s proposals for each vintage, check the reasoning and dissent, and approve or reject with a reason.',
-    risk:'Check the risk of every candidate and the final proposals against the IPS limits, then co-approve tactical tilts.',
-    research:'Review the capital market assumptions, the CMA judge\'s reasoning, and how the agents voted.',
-    mgr:'Monitor the underlying building-block funds every vintage invests in, and their liquidity and derivatives use.',
-    lead:'Read the board memo, track outstanding approvals and production blockers, and approve glide-path changes.',
-    compliance:'Review rule results, attestations and obligations for the selected entity types, and sign off.',
-    audit:'Reconstruct any decision: who or what decided, from which inputs, under which policy, and whether the record is intact.'}[r];
-  let k='';
-  if(r==='pm') k=kp(myQueue.length,'Proposals awaiting you','vintages')+kp(pct(Math.max(...vs.map(v=>Math.abs(v.equity_final-v.equity_neutral)))),'Largest equity tilt','vs glide path')+kp(pct(vs[0].exp_ret),'Exp. return (2030)','10-yr nominal')+kp(pct(vs[vs.length-1].exp_ret),'Exp. return (2070)','10-yr nominal');
-  if(r==='risk') k=kp(pct(maxTE,2),'Max tracking error','limit '+pct(teLim,2))+kp(pct(Math.min(...vs.map(v=>v.backtest.max_drawdown))),'Worst simulated drawdown','hypothetical')+kp(counts.WARN,'Risk warnings','across vintages')+kp(myQueue.length,'Awaiting your co-approval','vintages');
-  if(r==='research'){const big=[...R.cma].sort((a,b)=>Math.abs(b.judge_minus_blend)-Math.abs(a.judge_minus_blend))[0];
-    k=kp(R.macro.regime.replace('_','-'),'Macro regime','confidence '+R.macro.confidence)+kp(R.cma.length,'Asset classes','CMAs produced')+kp(pp(big.judge_minus_blend),'Largest judge adjustment',esc(big.name))+kp(Object.keys(vs[0].candidates).length,'PC methods competing','per vintage');}
-  if(r==='mgr'){const ud=Object.values(U); k=kp(ud.length,'Underlying funds','building blocks')+kp(ud.filter(u=>u.uses_derivatives).length,'Use derivatives','FX hedge / futures')+kp(ud.filter(u=>u.liquidity==='daily').length+'/'+ud.length,'Daily liquidity','IPS §7.4')+kp(VINT.length,'Vintages served','2030–2070');}
-  if(r==='lead') k=kp(Math.max(pending,0),'Approvals outstanding','all roles')+kp(G.production_blockers.length,'Production blockers','see Compliance')+kp(co.status,'Compliance review','Agentic CO (draft)')+kp(VINT.length,'Vintages','in this run');
-  if(r==='compliance') k=kp(counts.FAIL,'Hard-limit FAILs','blocks approval')+kp(counts.WARN,'Warnings','need acknowledgment')+kp((co.attestations_pending||[]).length,'Attestations pending','need a named human')+kp(G.production_blockers.length,'Production blockers','unfilled roles etc.');
-  if(r==='audit') k=kp(L.length,'Decision records','this run')+kp(D.ledger_verification.ok?'Intact':'Broken','Hash chain',esc(D.ledger_verification.message))+kp(new Set(L.map(x=>x.actor.id)).size,'Distinct actors','agents + system')+kp(G.retention_years+' yrs','Retention applied','strictest regime');
-  const queue = ROLES[r].approverRole ? `<div class="card"><h2>My queue</h2>${myQueue.length?`<table><tr><th>Vintage</th><th>Proposal</th><th>Compliance</th><th></th></tr>${myQueue.map(v=>{const x=R.vintages[v];return `<tr><td>${v}</td><td>Equity ${pct(x.equity_final)} (${pp(x.equity_final-x.equity_neutral)} vs glide path), TE ${pct(x.te,2)}</td><td>${chip(x.compliance_summary.overall)}</td><td><button class="btn" data-open="${v}">Review</button></td></tr>`}).join('')}</table>`:'<div class="muted">Nothing waiting for you.</div>'}</div>`:'';
-  const blockers = (r==='lead'||r==='compliance')?`<div class="card"><h2>Production blockers</h2><ul>${G.production_blockers.map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div>`:'';
-  return `<p class="muted" style="margin-top:0">${intro}</p><div class="grid g4">${k}</div><div class="grid g2" style="margin-top:14px">${queue}${blockers}${vintageSummaryCard()}</div>`;
-};
-function vintageSummaryCard(){return `<div class="card"><h2>All vintages</h2><table><tr><th>Vintage</th><th class="num">Yrs</th><th class="num">Equity</th><th class="num">Tilt</th><th class="num">E[r]</th><th class="num">Vol</th><th>Status</th></tr>${VINT.map(v=>{const x=R.vintages[v];return `<tr class="click" data-open="${v}"><td>${v}</td><td class="num">${x.years_to_target.toFixed(1)}</td><td class="num">${pct(x.equity_final)}</td><td class="num">${pp(x.equity_final-x.equity_neutral)}</td><td class="num">${pct(x.exp_ret)}</td><td class="num">${pct(x.vol)}</td><td>${chip(x.compliance_summary.overall)}</td></tr>`}).join('')}</table></div>`}
-
 function vintageTabs(){return `<div class="vt-tabs" role="tablist">${VINT.map(v=>`<button class="${v===state.vintage?'active':''}" data-vt="${v}">${v}</button>`).join('')}</div>`}
 
-V.portfolios = () => {
-  const v=state.vintage, x=R.vintages[v], dr=cioRec(v), role=ROLES[state.role];
-  const rows=P.assets.map(a=>({a,n:x.neutral[a],f:x.final[a],d:x.final[a]-x.neutral[a]}));
-  const approversAll=[...new Set(x.approvers.concat(x.adjusted?x.adjusted.approvers:[]))];
-  const needed = role.approverRole && approversAll.includes(role.approverRole);
-  const holds = !LIVE || (LIVE.user.roles||[]).includes(role.approverRole);
-  const canApprove = needed && holds;
-  return `${vintageTabs()}
-  <div class="small" style="margin:-4px 0 8px">Proposal for ${v} ${whyBtn('proposal',v)} <span class="muted">every record behind these numbers</span></div>
-  <div class="grid g4">${[['Equity',pct(x.equity_final),'glide path '+pct(x.equity_neutral)],['Expected return',pct(x.exp_ret),'10-yr nominal'],['Volatility',pct(x.vol),'ex-ante'],['Tracking error',pct(x.te,2),'vs glide path, limit 1.50%']].map(([l,v1,s])=>`<div class="card kpi"><div class="l">${l}</div><div class="v">${v1}</div><div class="s">${s}</div></div>`).join('')}</div>
-  <div class="grid g2" style="margin-top:14px">
-    <div class="card"><h2>Active weights vs glide path — ${v}</h2><div class="legend"><span><i style="background:var(--pos)"></i>Overweight</span><span><i style="background:var(--neg)"></i>Underweight</span></div><div class="chart" id="activeChart"></div>
-      <h3>Weights</h3><div class="scroll" style="max-height:300px"><table><tr><th>Asset class</th><th class="num">Glide path</th><th class="num">Proposed</th><th class="num">Active</th></tr>${rows.map(r=>`<tr><td>${esc(nm(r.a))}</td><td class="num">${pct(r.n)}</td><td class="num">${pct(r.f)}</td><td class="num">${pp(r.d)}</td></tr>`).join('')}</table></div></div>
-    <div class="card"><h2>Why this proposal?</h2>
-      <div class="why">${esc(x.rationale)}</div>
-      <h3>Ensemble chosen</h3><span class="chip info">${esc(x.ensemble)}</span>
-      <h3>What would make this wrong</h3><ul>${x.invalidation_conditions.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
-      <h3>Dissent (bottom-flagged by peers)</h3><div class="pill-list">${[...new Set((dr?dr.dissent:[]).map(d=>d.candidate))].map(c=>`<span class="chip warn">${esc(c)}</span>`).join('')||'<span class="muted">None</span>'}</div>
-      <h3>Compliance</h3>${chip(x.compliance_summary.overall)} <span class="small muted">${x.compliance_summary.PASS} pass · ${x.compliance_summary.WARN} warn · ${x.compliance_summary.FAIL} fail · ${x.compliance_summary.ATTEST} attest · ${x.compliance_summary.OFF} n/a</span>
-      <h3>Evidence</h3><div class="small">Decision record <a href="#" data-dr="${dr&&dr.dr_id}" class="mono">${dr?dr.dr_id:'—'}</a> · inputs: ${(dr?dr.inputs:[]).map(i=>`<a href="#" class="mono" data-dr="${i}">${i}</a>`).join(', ')}</div>
-      ${canApprove?approvalForm(v,role.approverRole):`<h3>Approvals</h3><div class="small muted">Requires: ${x.approvers.map(esc).join(', ')}${needed&&!holds?` · your account doesn't have the <b>${esc(role.approverRole.replace(/_/g,' '))}</b> permission; ask an admin to switch it on`:''}</div>`}
-    </div>
-  </div>`;
-};
 function approvalForm(v,roleName){
   const done=allDecisions().find(a=>a.vintage===v&&a.role===roleName);
   if(done) return `<h3>Decision (${esc(roleName)})</h3><div>${chip(done.decision.toUpperCase())} <span class="small">${esc(done.reason||'')}${done.name?' — '+esc(done.name):''}</span></div>${LIVE?`<div class="small muted">Recorded in the ledger as <span class="mono">${esc(done.dr||'')}</span></div>`:`<h3>Record it in the ledger</h3><pre id="cmd">${esc(cmdFor(done))}</pre><button class="btn" id="copyCmd">Copy command</button>`}`;
-  return `<h3>Your decision (${esc(roleName)})</h3>
-  <div class="small muted" style="margin-bottom:6px">Read the rationale and dissent first. A reason is required.</div>
-  <label class="small"><input type="checkbox" id="ack" style="width:auto"> I read the rationale, dissent and compliance results</label>
+  return `<h3>Your decision as ${esc(ROLE_NAME[roleName]||roleName)}</h3>
+  <div class="small muted" style="margin-bottom:6px">You are deciding on the ${v} weights shown above, which become the approved target for this vintage's mutual fund and CIT. No trades are placed. A reason is required.</div>
+  <label class="small"><input type="checkbox" id="ack" style="width:auto"> I reviewed the summary, the weights, the agents' reasoning and disagreement, and the compliance results</label>
   <textarea id="reason" rows="3" placeholder="Reason for your decision" style="margin:8px 0"></textarea>
   <div class="row"><button class="btn primary" data-decide="approve">Approve</button><button class="btn" data-decide="reject">Reject</button><button class="btn" data-decide="request_changes">Request changes</button></div>`;
 }
 function ledgerDecisions(){ return L.filter(r=>r.step==='approval.decision').map(r=>({vintage:+r.portfolio_scope[0].split('-')[1],role:r.approvals[0].role,decision:r.approvals[0].decision,reason:r.rationale,name:r.actor.id,dr:r.dr_id})); }
 function allDecisions(){ return ledgerDecisions().concat(LIVE?[]:state.approvals); }
 function cmdFor(a){return `meridian approve runs/${R.run_id} --vintage ${a.vintage} --role ${a.role} --name "YOUR NAME" --decision ${a.decision} --reason "${a.reason.replace(/"/g,"'")}"`}
-
-V.glide = () => `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)})</h2>
-  <div class="legend">${[['Equity','--s1'],['Real assets','--s2'],['Fixed income','--s3'],['Cash','--s4']].map(([l,c])=>`<span><i style="background:var(${c})"></i>${l}</span>`).join('')}<span class="muted">· dots mark each vintage's position today</span></div>
-  <div class="chart" id="glideChart"></div></div>
-  <div class="card" style="margin-top:14px"><h2>Glide path anchors (% of fund)</h2><div class="scroll"><table><tr><th class="num">Yrs to target</th>${P.assets.map(a=>`<th class="num">${esc(nm(a))}</th>`).join('')}</tr>${P.anchors.map(r=>`<tr><td class="num">${r[0]}</td>${r.slice(1).map(x=>`<td class="num">${x}</td>`).join('')}</tr>`).join('')}</table></div></div>`;
-
-V.approvals = () => {
-  const role=ROLES[state.role];
-  const rows=[];VINT.forEach(v=>{const x=R.vintages[v];const appr=[...new Set(x.approvers.concat(x.adjusted?x.adjusted.approvers:[]))];appr.forEach(a=>{const d=allDecisions().find(y=>y.vintage===v&&y.role===a);rows.push(`<tr class="click" data-open="${v}"><td>${v}${x.adjusted?' <span class="chip warn">adjusted</span>':''}</td><td>${esc(a)}${a===role.approverRole?' <span class="chip info">you</span>':''}</td><td>${d?chip(d.decision.toUpperCase()):chip('pending')}</td><td class="small">${d?esc(d.reason||'')+(d.name?' — '+esc(d.name):''):''}</td></tr>`)})});
-  const cmds=LIVE?'':state.approvals.map(cmdFor).join('\n');
-  return `<div class="card"><h2>Approval queue</h2><p class="small muted">Approvals follow the IPS approval matrix (§10.4) and the strictest rule across selected entity types. ${LIVE?'Decisions are written to the immutable ledger as you make them.':'The prototype records your decision in this browser; run the generated command to write it to the immutable ledger.'}</p>
-  <table><tr><th>Vintage</th><th>Approver role</th><th>Status</th><th>Reason</th></tr>${rows.join('')}</table></div>
-  ${cmds?`<div class="card" style="margin-top:14px"><h2>Commands to record your decisions</h2><pre>${esc(cmds)}</pre></div>`:''}`;
-};
 
 V.risk = () => {
   const v=state.vintage,x=R.vintages[v];
@@ -273,28 +218,6 @@ V.cma = () => `<div class="card"><h2>10-year capital market assumptions</h2><p c
   ${R.cma.map(c=>`<tr class="click" data-cma="${c.asset}"><td>${esc(c.name)}</td><td class="num">${pct(c.historical)}</td><td class="num">${pct(c.equilibrium)}</td><td class="num">${pct(c.building_block??c.yield_based)}</td><td class="num">${pct(c.regime_adjusted)}</td><td class="num">${pct(c.auto_blend)}</td><td class="num"><b>${pct(c.judge)}</b></td><td class="num">${pp(c.judge_minus_blend)}</td><td class="num">${pct(c.vol)}</td></tr>`).join('')}</table></div>
   <div id="cmaWhy" style="margin-top:12px"></div></div>
   <div class="card" style="margin-top:14px"><h2>Macro regime</h2><div class="row">${Object.entries(R.macro.scores).map(([k,v])=>`<span class="chip">${esc(k.replace('_',' '))}: ${v}</span>`).join('')}</div><div class="why" style="margin-top:10px">${esc(R.macro.rationale)}</div></div>`;
-
-V.agents = () => {
-  const v=state.vintage,x=R.vintages[v]; const vote=L.find(r=>r.step==='pc-review.borda-vote'&&r.portfolio_scope.includes('MTRS-'+v));
-  return `${vintageTabs()}<div class="grid g2"><div class="card"><h2>Ranking — ${v}</h2><p class="small muted">Modified Borda vote (top-3 = 3/2/1, bottom flag −2) blended with a metric composite.</p>
-  <table><tr><th>#</th><th>Method</th><th class="num">Votes</th><th class="num">Composite</th></tr>${x.ranking.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.method)}</td><td class="num">${r.votes>0?'+':''}${r.votes}</td><td class="num">${r.composite.toFixed(3)}</td></tr>`).join('')}</table></div>
-  <div class="card"><h2>Ballots</h2><table><tr><th>Voter</th><th>Lens</th><th>Cast by</th><th>Top 3</th><th>Bottom flag</th></tr>${(vote?vote.output.ballots:[]).map(b=>`<tr title="${esc(b.rationale||'')}"><td>${esc(b.voter)}</td><td class="small">${esc(b.lens)}</td><td class="small">${b.source&&b.source!=='lens'?'agent':'rule'}</td><td class="small">${b.top.map(esc).join(', ')}</td><td class="small">${esc(b.bottom_flag)}</td></tr>`).join('')}</table><p class="small muted">Cast by: agent = the method's agent voted after reading the reviews; rule = its family's rule-based lens voted for it. Hover a row for the agent's reason.</p></div></div>${strategyReview()}`;
-};
-
-function strategyReview(){
-  const s=R.strategy_review; if(!s) return '';
-  const src=x=>x&&x!=='offline'?'<span class="chip">agent</span>':'<span class="chip warn">fallback</span>';
-  const ms=Object.keys(s.theses||{});
-  const flag=f=>f==='none'?'':`<span class="chip ${f==='concern'?'bad':'warn'}">${esc(f)}</span>`;
-  return `<div class="card" style="margin-top:14px"><h2>Strategy review — whole series</h2>
-  <p class="small muted">The construction methods work as a panel: each states a thesis, the risk officer comments without voting, each reviews two peers (drawn at random, seed ${esc(String(s.seed))}), all vote after the reviews are released, and the shortlist (${(s.shortlist||[]).map(esc).join(', ')}) may revise. Weights, risk numbers, tallies and compliance results are computed by code.</p>
-  <h3>Theses and risk officer commentary ${src(s.risk_commentary&&s.risk_commentary.source)}</h3>
-  <div class="scroll"><table><tr><th>Method</th><th>Family</th><th>Thesis</th><th>Own weaknesses</th><th>Risk officer</th></tr>${ms.map(k=>{const t=s.theses[k],c=((s.risk_commentary||{}).comments||[]).find(x=>x.method===k)||{};return `<tr><td>${esc(k)} ${src(t.source)}</td><td class="small">${esc((s.families||{})[k]||'')}</td><td class="small">${esc(t.thesis)}</td><td class="small">${(t.weaknesses||[]).map(esc).join('; ')}</td><td class="small">${flag(c.risk_flag||'none')} ${esc(c.comment||'')}</td></tr>`}).join('')}</table></div>
-  <h3>Peer reviews</h3>
-  <div class="scroll"><table><tr><th>Reviewer</th><th>Peer</th><th class="num">Score</th><th>Assessment</th><th>Concerns</th></tr>${ms.flatMap(k=>((s.reviews[k]||{}).reviews||[]).map(r=>`<tr><td>${esc(k)} ${src(s.reviews[k].source)}</td><td>${esc(r.peer)}</td><td class="num">${r.score}/5</td><td class="small">${esc(r.assessment)}</td><td class="small">${(r.concerns||[]).map(esc).join('; ')}</td></tr>`)).join('')}</table></div>
-  <h3>Revisions by the shortlist</h3>
-  <table><tr><th>Method</th><th>Outcome</th><th>Response to reviews</th></tr>${Object.entries(s.revisions||{}).map(([k,r])=>`<tr><td>${esc(k)} ${src(r.source)}</td><td class="small">${esc(r.note)}</td><td class="small">${esc(r.response_to_reviews||'')}</td></tr>`).join('')}</table></div>`;
-}
 
 V.funds = () => {
   const ud=Object.entries(U);
@@ -360,21 +283,6 @@ function treeTable(v, view, rows, opts={}){
 function rbBar(f){ if(f==null) return '—'; const a=Math.abs(f), c=f<0?'var(--neg)':a>0.8?'var(--warn)':'var(--pos)';
   return `<div class="row" style="gap:6px;flex-wrap:nowrap"><div style="flex:1;min-width:70px;height:7px;background:var(--surface-2);border-radius:4px"><div style="height:7px;width:${Math.min(a,1)*100}%;background:${c};border-radius:4px"></div></div><span class="small num" style="width:40px;text-align:right">${(f*100).toFixed(0)}%</span></div>`; }
 
-V.products = () => {
-  const cats=['Equity','Fixed Income','Real Assets'];
-  const top=(v,k)=>{const r=posRows(v,'asset_class_tree').find(x=>x.node===k);return r||{}};
-  const open=state.prodOpen;
-  return `<div class="card"><h2>Funds & products</h2><p class="small muted">Current proposed positioning by asset class, change vs last month, and risk budget used. Click a product to see its vintages, and a vintage to drill into its exposures.</p>
-  <table class="tree"><tr><th>Product / vintage</th>${cats.map(c=>`<th class="num">${c}</th><th class="num small">Δ 1m</th>`).join('')}<th>Risk budget used</th><th>Compliance</th><th></th></tr>
-  <tr class="lvl0 click" data-prod="mtrs"><td><button class="caret">${open.mtrs===false?'▸':'▾'}</button>Meridian Target Retirement Series <span class="muted small">(${VINT.length} vintages)</span></td>${cats.map(()=>'<td></td><td></td>').join('')}<td></td><td>${chip(overallStatus())}</td><td></td></tr>
-  ${open.mtrs===false?'':VINT.map(v=>{const x=R.vintages[v];const o=open['v'+v];
-    return `<tr class="click" data-pv="${v}"><td style="padding-left:26px"><button class="caret">${o?'▾':'▸'}</button>${v} vintage <span class="muted small">${x.years_to_target.toFixed(0)} yrs to target</span></td>
-    ${cats.map(c=>{const r=top(v,c);return `<td class="num">${pct(r.current)}</td><td class="num small">${dpp((r.current||0)-(r.last_month||0))}</td>`}).join('')}
-    <td>${rbBar(x.risk?x.risk.used_pct:null)}</td><td>${chip(x.compliance_summary.overall)}</td><td><button class="btn" data-goto-pos="${v}">Positioning</button></td></tr>
-    ${o?`<tr><td colspan="${3+cats.length*2+1}" style="padding:6px 0 12px 26px;background:var(--surface-2)">${treeTable(v,'asset_class_tree',posRows(v,'asset_class_tree'),{compact:true,h:420,cols:[['current','Current'],['last_month','Last month'],['market','Market']]})}</td></tr>`:''}`}).join('')}
-  </table></div>`;
-};
-
 V.positioning = () => {
   const v=state.vintage, x=R.vintages[v]; if(!x.positioning) return '<div class="card">Positioning not available for this run.</div>';
   const src=x.positioning.columns; const canAdj=['pm','research'].includes(state.role);
@@ -439,28 +347,6 @@ function adjustPanel(v){
    :`<h3>Record it (re-checked by the compliance engine)</h3><pre id="cmd">${esc(cmd)}</pre><button class="btn" id="copyCmd">Copy command</button>`}</div></div>`:''}
   </div>`;
 }
-
-V.riskbudget = () => {
-  const v=state.vintage, x=R.vintages[v], canReq=['pm','risk'].includes(state.role);
-  const crs=(D.change_requests||[]);
-  return `<div class="card"><h2>Risk budgets — tracking error vs glide path</h2><p class="small muted">IPS hard limit ${pct(D.risk_budget_policy.hard_max,2)}. Budgets can be tightened per vintage below it; changes need ${D.policy.approvals.risk_budget_change.join(' + ')} approval. Warning at ${(D.risk_budget_policy.warn_at_pct_used*100).toFixed(0)}% used. <b>With adjustment</b> shows the tracking error of a recorded weight adjustment still awaiting re-approval.</p>
-  <table><tr><th>Vintage</th><th class="num">Budget</th><th class="num">Ex-ante TE</th><th>% used</th><th>With adjustment</th><th>Largest contributors</th></tr>
-  ${VINT.map(vv=>{const r=R.vintages[vv].risk, ad=R.vintages[vv].adjusted;if(!r) return '';return `<tr class="click" data-rbv="${vv}"><td>${vv}</td><td class="num">${pct(r.budget,2)}</td><td class="num">${pct(r.te,2)}</td><td style="min-width:160px">${rbBar(r.used_pct)}</td><td class="small" style="min-width:150px">${ad?`${pct(ad.te,2)} · ${rbBar(ad.risk_budget_used)}<span class="muted">${esc(ad.by)} · needs ${esc(ad.approvers.join(' + '))}</span>`:'<span class="muted">—</span>'}</td><td class="small">${r.contributors.slice(0,3).map(c=>`${esc(nm(c.asset))} ${(c.budget_used*100).toFixed(0)}%`).join(' · ')}</td></tr>`}).join('')}</table></div>
-  <div class="grid g2" style="margin-top:14px"><div class="card"><h2>${v} — where the risk budget goes</h2>${vintageTabs()}
-   <table><tr><th>Fund</th><th class="num">Active weight</th><th class="num">TE contribution</th><th>% of budget</th></tr>${(x.risk?x.risk.contributors:[]).map(c=>`<tr><td>${esc(nm(c.asset))}</td><td class="num">${pp(c.active_weight)}</td><td class="num">${pct(c.te_contribution,3)}</td><td style="min-width:140px">${rbBar(c.budget_used)}</td></tr>`).join('')}</table>
-   <h3>By asset class</h3>${treeTable(v,'asset_class_tree',posRows(v,'asset_class_tree').filter(r=>r.depth<=1),{compact:true,h:300,cols:[['current','Current'],['glide_path','Glide path']]})}</div>
-   <div class="card"><h2>Manage budget</h2>${canReq?`<p class="small muted">Propose a new budget. It takes effect only after the required approvals; you cannot approve your own request.</p>
-    <label class="small">Vintage</label><select id="rbV"><option value="default">Default (all vintages without an override)</option>${VINT.map(vv=>`<option value="${vv}" ${vv===v?'selected':''}>${vv} (now ${pct(R.vintages[vv].risk_budget,2)})</option>`).join('')}</select>
-    <label class="small">New budget (%)</label><input id="rbTe" type="number" step="0.05" min="0.1" max="${D.risk_budget_policy.hard_max*100}" value="${(x.risk_budget*100).toFixed(2)}">
-    <div class="small" id="rbPrev" style="margin:6px 0"></div>
-    <label class="small">Reason</label><textarea id="rbReason" rows="2"></textarea>
-    <div style="margin-top:8px"><button class="btn primary" id="rbGo">${LIVE?'Submit change request':'Prepare change request'}</button></div><pre id="rbCmd" style="display:none"></pre>`:'<p class="small muted">View only. Portfolio managers and Risk can request changes; approvers are listed above.</p>'}
-    <h3>Change requests</h3>${crs.length?`<table><tr><th>ID</th><th>Target</th><th>Change</th><th>Requested by</th><th>Status</th><th>Approvals</th><th></th></tr>${crs.map(c=>{
-      const mine=LIVE&&c.status==='pending'?c.required_approvals.filter(rl=>LIVE.user.roles.includes(rl)&&!c.approvals.some(a=>a.role===rl)):[];
-      return `<tr><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}</td><td>${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td class="small">${esc(c.requested_by.name)}<br><span class="muted">${esc(c.reason)}</span></td><td>${chip(c.status)}</td><td class="small">${c.approvals.map(a=>esc(a.role+': '+a.decision+' ('+a.name+')')).join('<br>')||'—'}</td>
-      <td>${mine.map(rl=>`<div class="row" style="gap:4px;margin-bottom:4px"><span class="small">${esc(rl)}</span><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="approve">Approve</button><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="reject">Reject</button></div>`).join('')}</td></tr>`}).join('')}</table>`:'<div class="muted small">None.</div>'}
-   </div></div>`;
-};
 
 V.metrics = () => {
   const w=state.mwin, keys=[['ann_return','Ann. return',pct],['ann_vol','Volatility',pct],['sharpe','Sharpe',f2],['sortino','Sortino',f2],['beta_vs_market','Beta vs market',f2],['alpha_vs_market','Alpha vs market',pct],['max_drawdown','Max drawdown',pct],['info_ratio_vs_glide','Info ratio vs glide path',f2],['tracking_error_vs_market','TE vs market',pct],['up_capture','Up capture',x=>x==null?'—':(x*100).toFixed(0)+'%'],['down_capture','Down capture',x=>x==null?'—':(x*100).toFixed(0)+'%'],['correlation_vs_market','Correlation',f2]];
@@ -729,27 +615,29 @@ let LTIDX=null;
 function ltIndex(){ if(LTIDX||!LT||!LT.available) return LTIDX; const by={};
   Object.entries(LT.funds).forEach(([a,f])=>f.holdings.forEach(([s,w,d])=>{(by[s]=by[s]||[]).push([a,w,d])}));
   LTIDX={by, text:LT.securities.map(s=>(s[0]+' '+s[1]).toLowerCase())}; return LTIDX; }
+function ltSuggest(q){ q=q.trim().toLowerCase(); if(!q) return []; const idx=ltIndex(), hits=[];
+  idx.text.forEach((t,i)=>{if(t.startsWith(q)||t.includes(' '+q)||(q.length>2&&t.includes(q)))hits.push(i)});
+  return hits.map(s=>({s,mx:Math.max(...VINT.map(v=>secExposure(v,s))),exact:(LT.securities[s][0]||'').toLowerCase()===q,starts:(LT.securities[s][0]||'').toLowerCase().startsWith(q)}))
+    .sort((a,b)=>(b.exact-a.exact)||(b.starts-a.starts)||(b.mx-a.mx)).slice(0,12); }
+function ltPick(s,scroll){ const t=LT.securities[s]; state.ltSel=s; state.ltQuery=t[0]||t[1]; render(); if(scroll){const c=$('#ltCard'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'});} }
 function secExposure(v, s){ const idx=ltIndex(); return (idx.by[s]||[]).reduce((t,[a,w])=>t+R.vintages[v].final[a]*w,0); }
 function secLabel(s){const x=LT.securities[s];return (x[0]&&x[0]!==x[1])?`<span class="mono">${esc(x[0])}</span> ${esc(x[1])}`:esc(x[1])}
 V.exposures = () => {
   if(!RK) return noRisk();
   if(!LT||!LT.available) return `<div class="card"><h2>Look-through holdings not loaded</h2><p class="muted">${esc(LT?LT.note:'')}</p><p class="small">The monthly data refresh downloads the public holdings of each building block's proxy fund (iShares). Licensed holdings (FactSet, Bloomberg, custodian files) plug in through <span class="mono">holdings.lookthrough</span> in <span class="mono">config/data_sources.yaml</span>.</p></div>`;
-  const q=state.ltQuery.trim().toLowerCase(), idx=ltIndex();
-  let search='';
-  if(q.length>=1){ const hits=[]; idx.text.forEach((t,i)=>{if(t.startsWith(q)||t.includes(' '+q)||(q.length>2&&t.includes(q)))hits.push(i)});
-    const ranked=hits.map(s=>({s,mx:Math.max(...VINT.map(v=>secExposure(v,s))),exact:(LT.securities[s][0]||'').toLowerCase()===q})).sort((a,b)=>(b.exact-a.exact)||(b.mx-a.mx)).slice(0,25);
-    const sel=state.ltSel!=null&&hits.includes(state.ltSel)?state.ltSel:(ranked[0]||{}).s;
-    search=`<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);margin-top:10px"><div class="scroll" style="max-height:420px"><table><tr><th>Security / issuer</th><th>Country</th><th class="num">Max exposure</th></tr>${ranked.map(r=>`<tr class="click ${r.s===sel?'sel':''}" data-ltsel="${r.s}"><td>${secLabel(r.s)}<div class="small muted">${esc(LT.securities[r.s][3])} · ${esc(LT.securities[r.s][2])}</div></td><td class="small">${esc(LT.securities[r.s][4])}</td><td class="num">${pct(r.mx,3)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">No match</td></tr>'}</table></div>
-     <div>${sel!=null?secDetail(sel):''}</div></div>`; }
+  const idx=ltIndex(), sel=state.ltSel;
+  const picked = sel!=null ? `<div class="selbar"><span class="small muted">Selected</span> <b>${secLabel(sel)}</b> <button class="btn" id="ltClear">Clear</button></div>${secDetail(sel)}`
+    : `<div class="small muted" style="margin-top:8px">Type a ticker or name, then pick one security from the list to see every vintage that holds it, how much, and through which underlying fund.</div>`;
+  const search = picked;
   const v=state.vintage, x=R.vintages[v];
   const top=Object.keys(idx.by).map(s=>({s:+s,e:secExposure(v,+s)})).sort((a,b)=>b.e-a.e).slice(0,25);
   const funds=P.assets.filter(a=>x.final[a]>0||LT.funds[a]).map(a=>({a,w:x.final[a],f:LT.funds[a]}));
-  return `<div class="card"><h2>Find a security across all portfolios</h2><div class="filters"><input id="ltq" placeholder="Ticker or name, e.g. AAPL, NVDA, Treasury, Toyota" value="${esc(state.ltQuery)}" style="min-width:360px"><span class="small muted" style="align-self:center">${LT.securities.length.toLocaleString()} securities/issuers across ${Object.keys(LT.funds).length} building blocks · holdings as of ${esc(LT.as_of)}</span></div>${search||'<div class="small muted">Type a ticker or name to see every vintage that holds it, how much, and through which underlying fund.</div>'}</div>
+  return `<div class="card" id="ltCard"><h2>Find a security across all portfolios</h2><div class="filters"><div class="ltsearch"><input id="ltq" placeholder="Ticker or name, e.g. AAPL, NVDA, Treasury, Toyota" value="${esc(state.ltQuery)}" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="ltSug" aria-autocomplete="list"><div id="ltSug" class="ltsug" role="listbox"></div></div><span class="small muted" style="align-self:center">${LT.securities.length.toLocaleString()} securities/issuers across ${Object.keys(LT.funds).length} building blocks · holdings as of ${esc(LT.as_of)}</span></div>${search}</div>
   <div class="section-title">Security exposure by portfolio</div>${vintageTabs()}
   <div class="grid g2"><div class="card"><h2>Underlying funds — drill into holdings (MTRS ${v})</h2><div class="scroll" style="max-height:620px"><table><tr><th>Building block</th><th>Look-through proxy</th><th class="num">Weight</th><th class="num">Holdings</th></tr>
    ${funds.map(({a,w,f})=>`<tr class="click" data-ltfund="${a}"><td><span class="caret">${state.ltOpen[a]?'▾':'▸'}</span>${esc(nm(a))}</td><td class="small">${f?f.proxies.map(p=>`${esc(p.ticker)}${p.blend_weight<1?' '+(p.blend_weight*100).toFixed(0)+'%':''}`).join(' + ')+(f.return_proxy&&!f.proxies.some(p=>p.ticker===f.return_proxy)?` <span class="muted">(returns: ${esc(f.return_proxy)})</span>`:''):'<span class="muted">none</span>'}</td><td class="num">${pct(w)}</td><td class="num">${f?f.securities.toLocaleString():'—'}</td></tr>
-   ${state.ltOpen[a]&&f?`<tr><td colspan="4" style="padding:0 0 8px 24px"><table class="small"><tr><th>Security / issuer</th><th>Sector</th><th class="num">% of fund</th><th class="num">% of portfolio</th><th class="num">Duration</th></tr>${f.holdings.slice(0,state.ltOpen[a]==='all'?2000:25).map(([s,hw,d])=>`<tr class="click" data-ltjump="${s}"><td>${secLabel(s)}</td><td>${esc(LT.securities[s][2])}</td><td class="num">${pct(hw,2)}</td><td class="num">${pct(hw*w,3)}</td><td class="num">${d==null?'—':d.toFixed(2)}</td></tr>`).join('')}</table>${f.holdings.length>25&&state.ltOpen[a]!=='all'?`<button class="btn" data-ltall="${a}" style="margin-top:6px">Show all ${f.holdings.length.toLocaleString()}</button>`:''}<div class="small muted">Coverage ${pct(f.coverage)} of fund · ${f.lines.toLocaleString()} positions${f.proxies[0]?' · as of '+esc(f.proxies[0].as_of):''}</div></td></tr>`:''}`).join('')}</table></div></div>
-   <div class="card"><h2>Largest look-through exposures (MTRS ${v})</h2><div class="scroll" style="max-height:620px"><table><tr><th>Security / issuer</th><th>Via</th><th class="num">% of portfolio</th></tr>${top.map(t=>`<tr class="click" data-ltjump="${t.s}"><td>${secLabel(t.s)}</td><td class="small">${idx.by[t.s].filter(([a])=>x.final[a]>0).map(([a])=>esc(LT.funds[a].proxies.map(p=>p.ticker).join('+'))).join(', ')}</td><td class="num">${pct(t.e,2)}</td></tr>`).join('')}</table></div>
+   ${state.ltOpen[a]&&f?`<tr><td colspan="4" style="padding:0 0 8px 24px"><table class="small"><tr><th>Security / issuer</th><th>Sector</th><th class="num">% of fund</th><th class="num">% of portfolio</th><th class="num">Duration</th></tr>${f.holdings.slice(0,state.ltOpen[a]==='all'?2000:25).map(([s,hw,d])=>`<tr class="click${s===state.ltSel?' sel':''}" data-ltjump="${s}" title="Select this security"><td>${secLabel(s)}</td><td>${esc(LT.securities[s][2])}</td><td class="num">${pct(hw,2)}</td><td class="num">${pct(hw*w,3)}</td><td class="num">${d==null?'—':d.toFixed(2)}</td></tr>`).join('')}</table>${f.holdings.length>25&&state.ltOpen[a]!=='all'?`<button class="btn" data-ltall="${a}" style="margin-top:6px">Show all ${f.holdings.length.toLocaleString()}</button>`:''}<div class="small muted">Coverage ${pct(f.coverage)} of fund · ${f.lines.toLocaleString()} positions${f.proxies[0]?' · as of '+esc(f.proxies[0].as_of):''}</div></td></tr>`:''}`).join('')}</table></div></div>
+   <div class="card"><h2>Largest look-through exposures (MTRS ${v})</h2><div class="scroll" style="max-height:620px"><table><tr><th>Security / issuer</th><th>Via</th><th class="num">% of portfolio</th></tr>${top.map(t=>`<tr class="click${t.s===state.ltSel?' sel':''}" data-ltjump="${t.s}" title="Select this security"><td>${secLabel(t.s)}</td><td class="small">${idx.by[t.s].filter(([a])=>x.final[a]>0).map(([a])=>esc(LT.funds[a].proxies.map(p=>p.ticker).join('+'))).join(', ')}</td><td class="num">${pct(t.e,2)}</td></tr>`).join('')}</table></div>
    <div class="small muted" style="margin-top:6px">${esc(LT.note)}</div></div></div>`;
 };
 function secDetail(s){const idx=ltIndex();const x=LT.securities[s];const via=idx.by[s]||[];
@@ -761,11 +649,22 @@ function bindRisk(){
   const fdd=$('#famDrill'); if(fdd) fdd.onchange=()=>{state.famDrill=fdd.value;render()};
   document.querySelectorAll('[data-drv]').forEach(inp=>inp.oninput=()=>{state.custom[inp.dataset.drv]=+inp.value;const d=RM.drivers.find(x=>x.factor===inp.dataset.drv);$('#dv_'+d.factor).textContent=(inp.value>0?'+':'')+inp.value+(d.unit==='pct'?'%':'bp');customOut()});
   const cr=$('#cusReset'); if(cr) cr.onclick=()=>{state.custom={};render()};
-  const q=$('#ltq'); if(q){q.oninput=()=>{state.ltQuery=q.value;state.ltSel=null;const pos=q.selectionStart;render();const n=$('#ltq');n.focus();n.setSelectionRange(pos,pos)}}
-  document.querySelectorAll('[data-ltsel]').forEach(e=>e.onclick=()=>{state.ltSel=+e.dataset.ltsel;render()});
+  const q=$('#ltq'), sug=$('#ltSug');
+  if(q&&sug){ let act=-1, items=[];
+    const draw=()=>{ items=ltSuggest(q.value); state.ltQuery=q.value;
+      sug.innerHTML=items.length?items.map((r,i)=>`<div role="option" data-i="${i}" class="${i===act?'act':''}" aria-selected="${i===act}">${secLabel(r.s)}<span class="small muted"> · ${esc(LT.securities[r.s][3])} · max ${pct(r.mx,3)} of a portfolio</span></div>`).join(''):(q.value.trim()?'<div class="muted small" style="cursor:default">No match</div>':'');
+      sug.style.display=sug.innerHTML?'block':'none'; q.setAttribute('aria-expanded',sug.style.display==='block'); };
+    q.oninput=()=>{act=-1;draw()};
+    q.onfocus=()=>{if(q.value.trim()&&state.ltSel==null)draw()};
+    q.onkeydown=e=>{ if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault(); if(!items.length) draw(); act=Math.max(0,Math.min(items.length-1,act+(e.key==='ArrowDown'?1:-1))); const keep=act; draw(); act=keep; [...sug.children].forEach((c,i)=>c.classList.toggle('act',i===act)); }
+      else if(e.key==='Enter'){ e.preventDefault(); if(!items.length) draw(); const pick=items[act>=0?act:0]; if(pick) ltPick(pick.s); }
+      else if(e.key==='Escape'){ sug.style.display='none'; } };
+    q.onblur=()=>setTimeout(()=>{sug.style.display='none'},150);
+    sug.onmousedown=e=>{const o=e.target.closest('[data-i]'); if(!o) return; e.preventDefault(); ltPick(items[+o.dataset.i].s);}; }
+  const lc=$('#ltClear'); if(lc) lc.onclick=()=>{state.ltSel=null;state.ltQuery='';render();const n=$('#ltq');if(n)n.focus()};
   document.querySelectorAll('[data-ltfund]').forEach(e=>e.onclick=()=>{const a=e.dataset.ltfund;state.ltOpen[a]=state.ltOpen[a]?false:true;render()});
   document.querySelectorAll('[data-ltall]').forEach(e=>e.onclick=(ev)=>{ev.stopPropagation();state.ltOpen[e.dataset.ltall]='all';render()});
-  document.querySelectorAll('[data-ltjump]').forEach(e=>e.onclick=()=>{const s=+e.dataset.ltjump;const t=LT.securities[s];state.ltQuery=t[0]||t[1];state.ltSel=s;render();window.scrollTo({top:0,behavior:'smooth'})});
+  document.querySelectorAll('[data-ltjump]').forEach(e=>e.onclick=()=>ltPick(+e.dataset.ltjump,true));
 }
 function riskCharts(){wrChart();facBar();facHist();ladder();customOut();tsChart()}
 
@@ -908,7 +807,410 @@ function bindSearch(){const g=$('#lsGo'); if(!g) return;
     }catch(e){toast(e.message,'error')}};
 }
 
-function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();bindExceptions();bindSearch();bindRisk();glideChart();activeChart();riskCharts()}
+// --------------------------------------------------------------- product lines, summaries and shared helpers
+const PR = D.products || null;
+const FUNDS = PR ? PR.funds : [];
+const PL_LABEL = {all:'All product lines', mutual_fund:'Mutual funds', cit:'CITs'};
+const VEH_SHORT = {mutual_fund:'Mutual fund', cit:'CIT'};
+const GROUPS = [['Equity',P.groups.equity],['Fixed income',P.groups.fixed_income],['Real assets',P.groups.real_assets],['Cash',['cash']]];
+const METH = {
+  glide_path_neutral:['Glide path, no tilt','Holds the strategic glide path exactly; the benchmark the others are measured against.'],
+  max_sharpe_tilt:['Best risk-adjusted return','Tilts toward the highest expected Sharpe ratio using the return assumptions.'],
+  black_litterman_tilt:['Market view blend','Starts from market-implied returns and blends in the return assumptions (Black-Litterman).'],
+  min_variance_tilt:['Lowest volatility','Tilts toward the lowest expected volatility; ignores return assumptions.'],
+  max_diversification_tilt:['Most diversified','Tilts toward the highest diversification ratio.'],
+  risk_budget_tilt:['Balanced risk','Spreads risk more evenly across asset classes.'],
+  adversarial_diversifier:['Contrarian','Built to differ from the others; useful in a blend, weak on its own.']};
+const FAMILY = {heuristic:'Benchmark',return_optimized:'Return-seeking',risk_structured:'Risk-focused',adversarial:'Contrarian'};
+const ENS = {simple_average:'equal-weight blend of the shortlisted methods',inverse_tracking_error:'blend weighted toward methods closest to the glide path',
+  sharpe_weighted:'blend weighted by expected Sharpe ratio',vote_weighted:'blend weighted by the agents\' votes',min_variance_meta:'minimum-volatility blend of the methods',
+  regime_conditional:'blend chosen for the current economic regime',trimmed_mean:'trimmed-mean blend (extremes dropped)'};
+const mName = k => (METH[k]||[k])[0];
+const mDesc = k => (METH[k]||['',''])[1];
+const ensName = k => ENS[k] ? `${esc(k.replace(/_/g,' '))} <span class="muted">(${esc(ENS[k])})</span>` : esc(k);
+state.pl = 'all'; state.posMode = 'series'; state.posMeasure = 'active'; state.agSel = null; state.gpShifts = [{asset_class:'us_core_bond',from:'us_large_cap',pp:1}]; state.gpPrev = null;
+
+function money(x){ if(x==null||isNaN(x)) return '—'; const a=Math.abs(x); return a>=1e9?'$'+(x/1e9).toFixed(2)+'bn':a>=1e6?'$'+(x/1e6).toFixed(0)+'m':'$'+Math.round(x).toLocaleString(); }
+function grpW(w,assets){ return assets.reduce((s,a)=>s+((w||{})[a]||0),0); }
+function plFunds(pl){ return FUNDS.filter(f=>(pl||state.pl)==='all'||f.vehicle===(pl||state.pl)); }
+function vFunds(v,pl){ return plFunds(pl).filter(f=>f.vintage===v); }
+function aumW(fs,key){ const t=fs.reduce((s,f)=>s+f.nav,0); if(!t) return null; const o={}; fs.forEach(f=>P.assets.forEach(a=>{o[a]=(o[a]||0)+(f[key][a]||0)*f.nav/t})); return o; }
+function propW(v){ const x=R.vintages[v]; return (x.adjusted&&x.adjusted.final)||x.final; }
+function seriesW(fs,fn){ const t=fs.reduce((s,f)=>s+f.nav,0); if(!t) return null; const o={}; fs.forEach(f=>{const w=fn(f); P.assets.forEach(a=>{o[a]=(o[a]||0)+(w[a]||0)*f.nav/t})}); return o; }
+function plSeg(){ if(!PR) return ''; const opts=[['all','All'],['mutual_fund','Mutual funds'],['cit','CITs']];
+  return `<div class="row" style="margin-bottom:10px"><span class="small muted">Product line</span><div class="vt-tabs" style="margin:0">${opts.map(([k,l])=>`<button class="${k===state.pl?'active':''}" data-pl="${k}">${l}</button>`).join('')}</div>${PR.example_data?'<span class="small muted">Holdings are example data until custodian or transfer-agent files are loaded.</span>':''}</div>`; }
+function heat(x,scale){ if(x==null||Math.abs(x)<0.0005) return ''; const a=Math.min(1,Math.abs(x)/(scale||0.03)); const c=x>0?'57,135,229':'217,89,38'; return `background:rgba(${c},${(0.12+0.5*a).toFixed(2)})`; }
+function kpi(l,v,s){ return `<div class="card kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`; }
+function topMoves(w,base,n){ return P.assets.map(a=>[a,(w[a]||0)-(base[a]||0)]).filter(m=>Math.abs(m[1])>=0.0005).sort((p,q)=>Math.abs(q[1])-Math.abs(p[1])).slice(0,n||3); }
+function movesText(ms){ return ms.length?ms.map(([a,d])=>`${esc(nm(a))} ${pp(d)}`).join(', '):'no material moves'; }
+
+// approval status for a vintage's proposal
+function apprNeeded(v){ const x=R.vintages[v]; return [...new Set(x.approvers.concat(x.adjusted?x.adjusted.approvers:[]))]; }
+function apprStatus(v){ const need=apprNeeded(v), ds=allDecisions().filter(d=>d.vintage===v);
+  const by={}; ds.forEach(d=>by[d.role]=d);
+  const st = ds.some(d=>d.decision==='reject')?'rejected':ds.some(d=>d.decision==='request_changes')?'changes requested':need.every(r=>by[r]&&by[r].decision==='approve')?'approved':'pending';
+  return {need, by, st, waiting: need.filter(r=>!by[r])}; }
+function apprChip(st){ return `<span class="chip ${st==='approved'?'good':st==='pending'?'warn':'crit'}">${esc(st)}</span>`; }
+const ROLE_NAME = {portfolio_manager:'Portfolio manager',risk:'Risk',investment_committee:'Investment Committee',chief_compliance_officer:'Chief Compliance Officer',analyst:'Analyst'};
+const roleName = r => ROLE_NAME[r]||String(r).replace(/_/g,' ');
+
+// short, plain summary of a vintage's proposal for approvers
+function propSummary(v){
+  const x=R.vintages[v], w=propW(v), eq=grpW(w,P.groups.equity), eqn=grpW(x.neutral,P.groups.equity);
+  const r=x.risk, used=x.adjusted?x.adjusted.risk_budget_used:(r?r.used_pct:null), te=x.adjusted?x.adjusted.te:x.te;
+  const fs=vFunds(v,'all');
+  const prev=LIVE&&LIVE.prev&&LIVE.prev.vintages[v];
+  return {equity:eq, equity_glide:eqn, tilt:eq-eqn, moves:topMoves(w,x.neutral,3), te, used, budget:x.risk_budget,
+    compliance:(x.adjusted?x.adjusted.compliance_summary:x.compliance_summary).overall, funds:fs,
+    vsPrev: prev?topMoves(w,prev.final,2):null, adjusted:!!x.adjusted};
+}
+function summaryLine(v){ const s=propSummary(v);
+  return `Equity ${pct(s.equity)} (${pp(s.tilt)} vs glide path). Largest tilts: ${movesText(s.moves)}. Tracking error ${pct(s.te,2)}, ${s.used!=null?(s.used*100).toFixed(0)+'% of the '+pct(s.budget,2)+' risk budget':''}. Compliance ${esc(s.compliance)}.${s.vsPrev?` Since the last run: ${movesText(s.vsPrev)}.`:''}`; }
+function fundsLine(v){ const fs=vFunds(v,'all'); return fs.length?fs.map(f=>`<span class="mono">${esc(f.id)}</span> ${VEH_SHORT[f.vehicle]} ${money(f.nav)}`).join(' · '):`MTRS-${v}`; }
+
+// items that need the signed-in person, for the home screen and the approvals queue
+function attention(opts){
+  opts=opts||{}; const role=ROLES[state.role], out=[];
+  if(role.approverRole){ const wait=VINT.filter(v=>{const s=apprStatus(v);return s.need.includes(role.approverRole)&&!s.by[role.approverRole]});
+    if(wait.length>3&&!opts.expand) out.push({kind:'Proposal',title:`${wait.length} proposals await your approval as ${roleName(role.approverRole)}`,
+      detail:wait.map(v=>{const p=propSummary(v);return `${v}: equity ${pp(p.tilt)} vs glide path, ${p.used!=null?(p.used*100).toFixed(0)+'% of risk budget':''}, ${esc(p.compliance)}`}).join('<br>'),go:{tab:'approvals'}});
+    else wait.forEach(v=>out.push({kind:'Proposal',title:`${v} proposal awaits your approval as ${roleName(role.approverRole)}`,detail:summaryLine(v),go:{tab:'portfolios',v}})); }
+  if(LIVE){ (D.change_requests||[]).filter(c=>c.status==='pending').forEach(c=>{ const mine=c.required_approvals.filter(rl=>LIVE.user.roles.includes(rl)&&!c.approvals.some(a=>a.role===rl));
+      if(mine.length) out.push({kind:'Risk budget',title:`Risk budget change ${c.id}: ${c.target.vintage} from ${pct(c.current,2)} to ${pct(c.proposed,2)}`,detail:`Requested by ${esc(c.requested_by.name)}: ${esc(c.reason)}. Needs your decision as ${mine.map(roleName).join(' and ')}.`,go:{tab:'riskbudget'}}); });
+    if(LIVE.can_glide_decide&&PR) (PR.glide.requests||[]).filter(r=>r.status==='pending').forEach(r=>out.push({kind:'Glide path',title:`Glide-path ${r.kind==='retire'?'retirement':'change'} ${r.id} for ${esc(r.scope_label)}`,detail:`${gpShiftText(r.shifts)}. ${r.funds.length} funds. Requested by ${esc(r.requested_by.name)}: ${esc(r.reason)}.`,go:{tab:'glide'}}));
+    const ex=(LIVE.exceptions||[]).filter(c=>['open','in_progress'].includes(c.status));
+    if(ex.length&&role.tabs.includes('exceptions')) out.push({kind:'Exceptions',title:`${ex.length} open exception case${ex.length>1?'s':''}`,detail:ex.slice(0,3).map(c=>esc(c.title||c.rule_id||c.id)).join(' · '),go:{tab:'exceptions'}}); }
+  const warn=VINT.filter(v=>{const r=R.vintages[v].risk;return r&&r.used_pct>=(r.warn_at||0.8)});
+  if(warn.length&&['pm','risk','lead'].includes(state.role)) out.push({kind:'Risk budget',title:`${warn.length} vintage${warn.length>1?'s':''} at or above the risk-budget warning level`,detail:warn.map(v=>`${v}: ${(R.vintages[v].risk.used_pct*100).toFixed(0)}%`).join(' · '),go:{tab:'riskbudget'}});
+  const fails=VINT.filter(v=>R.vintages[v].compliance_summary.FAIL>0);
+  if(fails.length) out.push({kind:'Compliance',title:`Hard-limit failures in ${fails.join(', ')}`,detail:'A failed rule blocks approval until the proposal is adjusted.',go:{tab:role.tabs.includes('compliance')?'compliance':'portfolios',v:fails[0]}});
+  return out;
+}
+function attentionList(items,empty){ return items.length?`<div>${items.map(i=>`<div class="att"><span class="chip info">${esc(i.kind)}</span><div><b>${i.title}</b><div class="small muted">${i.detail}</div></div>${i.go&&ROLES[state.role].tabs.includes(i.go.tab)?`<button class="btn" data-go="${i.go.tab}" data-gov="${i.go.v||''}">Open</button>`:''}</div>`).join('')}</div>`:`<div class="muted">${empty}</div>`; }
+
+// --------------------------------------------------------------- Home
+V.home = () => {
+  const r=state.role, vs=VINT.map(v=>R.vintages[v]);
+  const intro={pm:'What needs a decision today, how the series is positioned against its glide path, and how much risk it is taking.',
+    risk:'Risk budget use across the series, warnings, and proposals waiting for your co-approval.',
+    research:'Where the series is tilted and why: the regime call, assumptions and how the agents voted.',
+    mgr:'Assets by product line and how each fund\'s holdings compare with its targets.',
+    lead:'The series at a glance: assets, outstanding decisions, risk and compliance.',
+    compliance:'Rule results, exceptions and decisions that need oversight.',
+    audit:'What was decided in this run, by whom, and whether the record is intact.'}[r];
+  const att=attention();
+  const tot=FUNDS.reduce((s,f)=>s+f.nav,0), mf=plFunds('mutual_fund').reduce((s,f)=>s+f.nav,0), cit=plFunds('cit').reduce((s,f)=>s+f.nav,0);
+  const nAppr=VINT.filter(v=>apprStatus(v).st==='approved').length;
+  const rbs=vs.filter(x=>x.risk).map(x=>x.risk.used_pct), hi=Math.max(...rbs), hiV=VINT.find(v=>R.vintages[v].risk&&R.vintages[v].risk.used_pct===hi);
+  const counts=vs.reduce((a,v)=>{for(const k of ['PASS','WARN','FAIL','ATTEST']) a[k]=(a[k]||0)+v.compliance_summary[k];return a},{});
+  const k = kpi('Assets in the series',PR?money(tot):'—',PR?`Mutual funds ${money(mf)} · CITs ${money(cit)}`:'product data unavailable')
+    + kpi('Proposals approved',`${nAppr} of ${VINT.length}`,`${VINT.length-nAppr} still need a decision`)
+    + kpi('Highest risk-budget use',`${(hi*100).toFixed(0)}%`,`${hiV} vintage · ${rbs.filter(x=>x>=0.8).length} at or above 80%`)
+    + kpi('Compliance',esc(overallStatus().replace(' (attestations pending)','')),`${counts.FAIL} fail · ${counts.WARN} warn · ${counts.ATTEST} need a human attestation`);
+  const P0=LIVE&&LIVE.prev;
+  const changes = P0?`<div class="card"><h2>Since the last run</h2><p class="small muted">Compared with ${esc(P0.run_id)} (as of ${esc(P0.as_of)}).</p>
+    <p>Regime: ${P0.regime===R.macro.regime?`${esc(R.macro.regime.replace('_','-'))}, unchanged`:`${esc(P0.regime)} → <b>${esc(R.macro.regime)}</b>`}</p>
+    <table><tr><th>Vintage</th><th class="num">Equity change</th><th>Largest weight moves</th></tr>${VINT.filter(v=>P0.vintages[v]).map(v=>{const x=R.vintages[v],o=P0.vintages[v];return `<tr><td>${v}</td><td class="num">${dpp(x.equity_final-o.equity_final)}</td><td class="small">${movesText(topMoves(x.final,o.final,2))}</td></tr>`}).join('')}</table>
+    ${ROLES[r].tabs.includes('changes')?'<button class="btn" data-go="changes" style="margin-top:8px">All changes</button>':''}</div>`
+    :`<div class="card"><h2>Since the last run</h2><p class="muted small">${LIVE?'No earlier run to compare with yet.':'Available in the hosted app, which keeps every run.'}</p></div>`;
+  return `<p class="muted" style="margin-top:0">${intro}</p>
+  <div class="grid g4">${k}</div>
+  <div class="card" style="margin-top:14px"><h2>Needs your attention</h2>${attentionList(att,'Nothing is waiting for you in this run.')}</div>
+  <div style="margin-top:14px">${seriesCard()}</div>
+  <div class="grid g2" style="margin-top:14px">${rbSummaryCard(true)}${changes}</div>
+  ${(r==='lead'||r==='compliance')?`<div class="card" style="margin-top:14px"><h2>Production blockers</h2><ul>${G.production_blockers.map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div>`:''}`;
+};
+
+function seriesCard(){
+  const rows=VINT.map(v=>{const x=R.vintages[v], s=apprStatus(v), w=propW(v), eq=grpW(w,P.groups.equity), eqn=grpW(x.neutral,P.groups.equity);
+    const fm=vFunds(v,'mutual_fund')[0], fc=vFunds(v,'cit')[0];
+    const cur=f=>f?`${pct(grpW(f.current,P.groups.equity))} <span class="small ${Math.abs(grpW(f.current,P.groups.equity)-eq)>0.01?'down':'muted'}">${dpp(grpW(f.current,P.groups.equity)-eq)}</span>`:'—';
+    return `<tr class="click" data-open="${v}"><td style="white-space:nowrap"><b>${v}</b> <span class="muted small">${x.years_to_target.toFixed(0)} yrs</span></td>
+      ${PR?`<td class="num">${fm?money(fm.nav):'—'}</td><td class="num">${fc?money(fc.nav):'—'}</td>`:''}
+      <td class="num">${pct(eqn)}</td><td class="num">${pct(eq)}</td><td class="num">${dpp(eq-eqn)}</td>
+      ${PR?`<td class="num">${cur(fm)}</td><td class="num">${cur(fc)}</td>`:''}
+      <td style="min-width:120px">${rbBar(x.risk?x.risk.used_pct:null)}</td><td>${apprChip(s.st)}</td><td>${chip(x.compliance_summary.overall)}</td></tr>`}).join('');
+  const tot=f=>FUNDS.filter(f).reduce((s,x)=>s+x.nav,0);
+  return `<div class="card"><h2>The series at a glance</h2><p class="small muted">Equity share by vintage: the strategic glide path, this run's proposal, and what each fund holds today (difference from the proposal in brackets). Click a vintage to open its proposal.</p>
+  <div class="scroll" style="max-height:none"><table><tr><th>Vintage</th>${PR?'<th class="num">Mutual fund assets</th><th class="num">CIT assets</th>':''}<th class="num">Glide path equity</th><th class="num">Proposed equity</th><th class="num">Tilt</th>${PR?'<th class="num">Mutual fund holds</th><th class="num">CIT holds</th>':''}<th>Risk budget used</th><th>Approval</th><th>Compliance</th></tr>${rows}
+  ${PR?`<tr class="lvl0"><td>Total</td><td class="num">${money(tot(f=>f.vehicle==='mutual_fund'))}</td><td class="num">${money(tot(f=>f.vehicle==='cit'))}</td><td colspan="8"></td></tr>`:''}</table></div></div>`;
+}
+
+// --------------------------------------------------------------- Funds & vintages (by product line)
+V.products = () => {
+  if(!PR) return `<div class="card"><h2>Funds & vintages</h2><p class="muted">Product-line data is not available. Showing vintages only.</p>${seriesCard()}</div>`;
+  const lines=PR.products.filter(p=>state.pl==='all'||p.vehicle===state.pl);
+  const all=plFunds(), tot=all.reduce((s,f)=>s+f.nav,0), cur=aumW(all,'current'), gl=aumW(all,'glide'), pr=seriesW(all,f=>propW(f.vintage));
+  const k=kpi('Assets',money(tot),`${all.length} funds in ${lines.length} product line${lines.length>1?'s':''}`)
+    +GROUPS.slice(0,3).map(([g,as])=>kpi(g+' (holdings)',pct(grpW(cur,as)),`proposal ${pct(grpW(pr,as))} · glide path ${pct(grpW(gl,as))}`)).join('');
+  const open=state.prodOpen;
+  const body=lines.map(p=>{const fs=FUNDS.filter(f=>f.product===p.id).sort((a,b)=>a.vintage-b.vintage), t=fs.reduce((s,f)=>s+f.nav,0), c=aumW(fs,'current');
+    const head=`<tr class="lvl0"><td>${esc(p.name)} <span class="chip">${esc(p.vehicle_name)}</span> <span class="muted small">${fs.length} funds · rolls down ${esc(p.roll_down)}</span></td><td class="num">${money(t)}</td>${GROUPS.slice(0,3).map(([g,as])=>`<td class="num">${pct(grpW(c,as))}</td>`).join('')}<td colspan="5"></td></tr>`;
+    return head+fs.map(f=>{const x=R.vintages[f.vintage]; if(!x) return ''; const w=propW(f.vintage), eq=grpW(w,P.groups.equity), ce=grpW(f.current,P.groups.equity), o=open[f.id];
+      return `<tr class="click" data-pf="${esc(f.id)}"><td style="padding-left:22px"><button class="caret">${o?'▾':'▸'}</button><span class="mono">${esc(f.id)}</span> ${f.vintage} <span class="muted small">${x.years_to_target.toFixed(0)} yrs</span>${f.glide_adjusted?' <span class="chip warn">glide path adjusted</span>':''}</td>
+      <td class="num">${money(f.nav)}</td>${GROUPS.slice(0,3).map(([g,as])=>`<td class="num">${pct(grpW(f.current,as))}</td>`).join('')}
+      <td class="num">${pct(grpW(f.glide,P.groups.equity))}</td><td class="num">${pct(eq)}</td><td class="num">${dpp(ce-eq)}</td>
+      <td style="min-width:110px">${rbBar(x.risk?x.risk.used_pct:null)}</td><td>${chip(x.compliance_summary.overall)}</td></tr>
+      ${o?`<tr><td colspan="10" style="padding:6px 0 12px 22px;background:var(--surface-2)">${fundCompare(f.vintage,[f])}<div style="margin-top:8px"><button class="btn" data-goto-pos="${f.vintage}">Open ${f.vintage} positioning</button> <button class="btn" data-open="${f.vintage}">Open ${f.vintage} proposal</button></div></td></tr>`:''}`}).join('')}).join('');
+  return `${plSeg()}<div class="grid g4">${k}</div>
+  <div class="card" style="margin-top:14px"><h2>Funds by product line</h2><p class="small muted">Each vintage is offered as a mutual fund (MTRS) and a CIT (MTRT). They share one proposal per vintage, but each fund has its own size, holdings and glide path, because each product line rolls down on its own schedule and glide-path adjustments can apply to one line only. Holdings columns show what the fund owns today.</p>
+  <div class="scroll" style="max-height:none"><table><tr><th>Fund</th><th class="num">Assets</th><th class="num">Equity held</th><th class="num">Fixed income held</th><th class="num">Real assets held</th><th class="num">Glide path equity</th><th class="num">Proposed equity</th><th class="num">Equity drift</th><th>Risk budget used</th><th>Compliance</th></tr>${body}</table></div>
+  <p class="small muted">Equity drift = equity held − proposed equity. Risk budget and compliance are for the vintage's proposal.</p></div>`;
+};
+
+// asset-class comparison: glide path (fund), proposal, holdings and drift, for one or more funds of a vintage
+function fundCompare(v,fs){
+  const x=R.vintages[v], w=propW(v); fs=fs||vFunds(v,'all');
+  const row=(label,as,cls)=>`<tr class="${cls||''}"><td style="${cls?'':'padding-left:18px'}">${label}</td><td class="num">${pct(grpW(x.neutral,as))}</td>${fs.map(f=>`<td class="num">${pct(grpW(f.glide,as))}</td>`).join('')}<td class="num"><b>${pct(grpW(w,as))}</b></td>${fs.map(f=>`<td class="num">${pct(grpW(f.current,as))}</td><td class="num">${dpp(grpW(f.current,as)-grpW(w,as))}</td>`).join('')}</tr>`;
+  return `<div class="scroll" style="max-height:none"><table><tr><th>Asset class</th><th class="num">IPS glide path (run)</th>${fs.map(f=>`<th class="num">Glide path ${esc(VEH_SHORT[f.vehicle])}</th>`).join('')}<th class="num">Proposed</th>${fs.map(f=>`<th class="num">${esc(VEH_SHORT[f.vehicle])} holds</th><th class="num">Drift</th>`).join('')}</tr>
+  ${GROUPS.map(([g,as])=>row(g,as,'lvl0')+(as.length>1?as.map(a=>row(esc(nm(a)),[a])).join(''):'')).join('')}</table></div>
+  <p class="small muted">Glide path per fund = the IPS glide path on that product line's roll-down date, plus any approved glide-path adjustments. Drift = holdings − proposal.</p>`;
+}
+
+// --------------------------------------------------------------- Positioning: series summary + vintage detail
+const V_positioningDetail = V.positioning;
+V.positioning = () => {
+  const modes=`<div class="row" style="margin-bottom:10px"><div class="vt-tabs" style="margin:0">${[['series','Series summary'],['vintage','Vintage detail']].map(([k,l])=>`<button class="${k===state.posMode?'active':''}" data-posmode="${k}">${l}</button>`).join('')}</div></div>`;
+  if(state.posMode==='vintage'){ const v=state.vintage;
+    return modes+V_positioningDetail()+(PR?`<div class="card" style="margin-top:14px"><h2>${v} by fund: mutual fund and CIT</h2>${plSeg()}${fundCompare(v,vFunds(v))}</div>`:''); }
+  return modes+plSeg()+positionSeries();
+};
+function positionSeries(){
+  const m=state.posMeasure, fs=plFunds();
+  const val=(v,as)=>{const x=R.vintages[v], w=propW(v);
+    if(m==='active') return grpW(w,as)-grpW(x.neutral,as);
+    if(m==='weight') return grpW(w,as);
+    const f=vFunds(v); const c=aumW(f,'current'); return c?grpW(c,as)-grpW(w,as):null; };
+  const ser=as=>{ if(!PR) { const vals=VINT.map(v=>val(v,as)); return vals.reduce((s,x)=>s+(x||0),0)/vals.length; }
+    const t=fs.reduce((s,f)=>s+f.nav,0); return fs.reduce((s,f)=>{const x=R.vintages[f.vintage], w=propW(f.vintage);
+      const d=m==='active'?grpW(w,as)-grpW(x.neutral,as):m==='weight'?grpW(w,as):grpW(f.current,as)-grpW(w,as); return s+d*f.nav/t},0); };
+  const fmt=x=>m==='weight'?pct(x):(x==null?'—':Math.abs(x)<0.0005?'<span class="muted">0.0pp</span>':pp(x));
+  const cell=(x)=>`<td class="num" style="${m==='weight'?'':heat(x,m==='active'?0.03:0.01)}">${fmt(x)}</td>`;
+  const rows=GROUPS.map(([g,as])=>`<tr class="lvl0"><td>${g}</td>${VINT.map(v=>cell(val(v,as))).join('')}${cell(ser(as))}</tr>`+(as.length>1?as.map(a=>`<tr><td style="padding-left:18px">${esc(nm(a))}</td>${VINT.map(v=>cell(val(v,[a]))).join('')}${cell(ser([a]))}</tr>`).join(''):'')).join('');
+  const tot=fs.reduce((s,f)=>s+f.nav,0), pr=PR?seriesW(fs,f=>propW(f.vintage)):null, gl=PR?seriesW(fs,f=>R.vintages[f.vintage].neutral):null, cu=PR?aumW(fs,'current'):null;
+  const big=VINT.map(v=>topMoves(propW(v),R.vintages[v].neutral,1)[0]).filter(Boolean).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
+  const sum=PR?kpi('Assets',money(tot),`${fs.length} funds · ${PL_LABEL[state.pl]}`)+kpi('Equity, proposed',pct(grpW(pr,P.groups.equity)),`glide path ${pct(grpW(gl,P.groups.equity))} · tilt ${pp(grpW(pr,P.groups.equity)-grpW(gl,P.groups.equity))}`)
+      +kpi('Equity, held today',pct(grpW(cu,P.groups.equity)),`drift vs proposal ${pp(grpW(cu,P.groups.equity)-grpW(pr,P.groups.equity))}`)+kpi('Largest single tilt',big?pp(big[1]):'—',big?esc(nm(big[0])):'')
+    :'';
+  const label={active:'Proposed minus glide path (tilt)',weight:'Proposed weight',drift:'Held today minus proposed (drift)'}[m];
+  return `${sum?`<div class="grid g4">${sum}</div>`:''}
+  <div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Series positioning: ${label}</h2>
+    <div class="vt-tabs" style="margin:0">${[['active','Tilt vs glide path'],['weight','Proposed weights'],['drift','Holdings drift']].map(([k,l])=>`<button class="${k===m?'active':''}" data-posmeasure="${k}">${l}</button>`).join('')}</div></div>
+  <p class="small muted" style="margin:6px 0 10px">Every vintage side by side. Blue = more than the reference, orange = less. The last column is the series total, weighted by fund assets${PR?' in the selected product line':''}.${m==='drift'?' Drift uses each vintage\'s funds in the selected product line, weighted by assets.':''} Click a vintage to see its detail.</p>
+  <div class="scroll" style="max-height:none"><table><tr><th>Asset class</th>${VINT.map(v=>`<th class="num click" data-posv="${v}" style="cursor:pointer">${v}</th>`).join('')}<th class="num">Series</th></tr>${rows}</table></div></div>`;
+}
+
+// --------------------------------------------------------------- Portfolios & proposals
+V.portfolios = () => {
+  const v=state.vintage, x=R.vintages[v], dr=cioRec(v), role=ROLES[state.role], s=apprStatus(v), ps=propSummary(v), w=propW(v);
+  const needed=role.approverRole&&s.need.includes(role.approverRole), holds=!LIVE||(LIVE.user.roles||[]).includes(role.approverRole), canApprove=needed&&holds;
+  const prev=LIVE&&LIVE.prev&&LIVE.prev.vintages[v];
+  const fs=vFunds(v,'all');
+  const vrec=L.find(r=>r.step==='pc-review.borda-vote'&&r.portfolio_scope.includes('MTRS-'+v)), bal=vrec?vrec.output.ballots:[];
+  const flags={}; bal.forEach(b=>flags[b.bottom_flag]=(flags[b.bottom_flag]||0)+1);
+  const nVoters=bal.length||Object.keys(x.candidates).length;
+  const rows=GROUPS.map(([g,as])=>{const sub=a=>`<td class="num">${pct(grpW(x.neutral,a))}</td><td class="num"><b>${pct(grpW(w,a))}</b></td><td class="num">${dpp(grpW(w,a)-grpW(x.neutral,a))}</td>${prev?`<td class="num">${dpp(grpW(w,a)-grpW(prev.final,a))}</td>`:''}`;
+    return `<tr class="lvl0"><td>${g}</td>${sub(as)}</tr>`+(as.length>1?as.map(a=>`<tr${Math.abs((w[a]||0)-(x.neutral[a]||0))>=0.01?' class="sel"':''}><td style="padding-left:18px">${esc(nm(a))}</td>${sub([a])}</tr>`).join(''):'');}).join('');
+  const warnRules=(x.adjusted?[]:x.compliance).filter(r=>r.status==='WARN'||r.status==='FAIL');
+  return `${vintageTabs()}
+  <div class="card approve-box"><div class="row" style="justify-content:space-between"><h2 style="margin:0">What is being approved: ${v} vintage</h2>${apprChip(s.st)}</div>
+    <p style="margin:8px 0">${x.adjusted?`The <b>adjusted</b> asset-class weights recorded by ${esc(x.adjusted.by)} (${esc(x.adjusted.reason)}), replacing the agents' proposal.`:`The asset-class weights below, chosen by the CIO agent using the ${ensName(x.ensemble)}.`}
+    Once ${s.need.map(roleName).join(' and ')} approve, these weights become the <b>approved target</b> for ${fs.length?fs.map(f=>`<span class="mono">${esc(f.id)}</span> (${VEH_SHORT[f.vehicle]}, ${money(f.nav)})`).join(' and '):`MTRS-${v}`}.
+    <b>Nothing is traded by this approval.</b> Trade lists that move a fund toward the target are built and approved separately on the Trading screen.</p>
+    <div class="why">${summaryLine(v)}</div>
+    <div class="row" style="margin-top:10px">${s.need.map(r=>{const d=s.by[r];return `<span class="chip ${d?(d.decision==='approve'?'good':'crit'):'warn'}">${esc(roleName(r))}: ${d?esc(d.decision.replace('_',' '))+(d.name?' by '+esc(d.name):''):'waiting'}</span>`}).join('')}</div></div>
+  <div class="grid g4" style="margin-top:14px">${kpi('Equity',pct(ps.equity),`glide path ${pct(ps.equity_glide)} · tilt ${pp(ps.tilt)}`)+kpi('Expected return',pct(x.exp_ret),'10-year, nominal')+kpi('Volatility',pct(x.vol),'expected, annual')+kpi('Risk budget used',ps.used!=null?(ps.used*100).toFixed(0)+'%':'—',`tracking error ${pct(ps.te,2)} of ${pct(ps.budget,2)}`)}</div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card"><h2>The weights</h2><p class="small muted">Highlighted rows move 1 percentage point or more from the glide path.${prev?' "Since last run" compares with the previous run\'s proposal.':''}</p>
+      <table><tr><th>Asset class</th><th class="num">Glide path</th><th class="num">Proposed</th><th class="num">Tilt</th>${prev?'<th class="num">Since last run</th>':''}</tr>${rows}</table>
+      <h3>Tilts at a glance</h3><div class="legend"><span><i style="background:var(--pos)"></i>Overweight</span><span><i style="background:var(--neg)"></i>Underweight</span></div><div class="chart" id="activeChart"></div></div>
+    <div class="card"><h2>Why the agents recommend it</h2>
+      <div class="why">${esc(x.rationale)}</div>
+      <h3>What would change the view</h3><ul>${x.invalidation_conditions.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>
+      <h3>Disagreement among the agents</h3><div class="small">${Object.keys(flags).length?Object.entries(flags).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<b>${esc(mName(k))}</b> was voted weakest by ${n} of ${nVoters}`).join('; ')+'.':'None recorded.'} ${role.tabs.includes('agents')?'<a href="#" data-go="agents">See how the agents voted</a>':''}</div>
+      <h3>Compliance</h3><div>${chip((x.adjusted?x.adjusted.compliance_summary:x.compliance_summary).overall)} <span class="small muted">${x.compliance_summary.PASS} pass · ${x.compliance_summary.WARN} warn · ${x.compliance_summary.FAIL} fail · ${x.compliance_summary.ATTEST} need a human attestation</span></div>
+      ${warnRules.length?`<ul class="small">${warnRules.map(r=>`<li>${chip(r.status)} ${esc(r.rule_id)}: ${fmtRule(r)}</li>`).join('')}</ul>`:''}
+      <h3>Evidence</h3><div class="small">Decision record <a href="#" data-dr="${dr&&dr.dr_id}" class="mono">${dr?dr.dr_id:'—'}</a> ${whyBtn('proposal',v)}</div>
+    </div></div>
+  <div class="card" style="margin-top:14px">${canApprove?approvalForm(v,role.approverRole):`<h2>Decision</h2><div class="small muted">${needed&&!holds?`Your account doesn't have the <b>${esc(roleName(role.approverRole))}</b> permission; ask an admin to switch it on.`:`Approval by ${s.need.map(roleName).join(' and ')}. ${role.approverRole?'':'Your workspace views this proposal; it does not approve it.'}`}</div>`}</div>`;
+};
+
+// --------------------------------------------------------------- Approval queue
+V.approvals = () => {
+  const role=ROLES[state.role], mine=attention({expand:true}).filter(i=>['Proposal','Risk budget','Glide path'].includes(i.kind)&&!/warning level/.test(i.title));
+  const props=VINT.map(v=>{const s=apprStatus(v), x=R.vintages[v];
+    return `<tr class="click" data-open="${v}"><td><b>${v}</b>${x.adjusted?' <span class="chip warn">adjusted</span>':''}</td><td class="small">${fundsLine(v)}</td><td class="small">${summaryLine(v)}</td>
+    <td class="small">${s.need.map(r=>{const d=s.by[r];return `<div>${esc(roleName(r))}${r===role.approverRole?' <span class="chip info">you</span>':''}: ${d?chip(d.decision.toUpperCase())+(d.name?' '+esc(d.name):''):'<span class="chip warn">waiting</span>'}</div>`}).join('')}</td><td>${apprChip(s.st)}</td></tr>`}).join('');
+  const crs=(D.change_requests||[]).filter(c=>c.status==='pending');
+  const gps=PR?(PR.glide.requests||[]).filter(r=>r.status==='pending'):[];
+  const cmds=LIVE?'':state.approvals.map(cmdFor).join('\n');
+  return `<div class="card"><h2>Waiting for you</h2>${attentionList(mine,'Nothing is waiting for your decision.')}</div>
+  <div class="card" style="margin-top:14px"><h2>Proposals in this run</h2>
+  <p class="small muted">Approving a proposal makes its asset-class weights the approved target for that vintage's mutual fund and CIT. It does not place trades; trade lists are approved separately on the Trading screen. Who must approve follows the IPS approval matrix (§10.4). ${LIVE?'Decisions are written to the ledger as they are made.':''} Click a row to review the proposal and decide.</p>
+  <div class="scroll" style="max-height:none"><table><tr><th>Vintage</th><th>Funds affected</th><th>Summary</th><th>Approvals</th><th>Status</th></tr>${props}</table></div></div>
+  <div class="grid g2" style="margin-top:14px">
+   <div class="card"><h2>Risk budget changes</h2>${crs.length?`<table><tr><th>Request</th><th>Change</th><th>Why</th><th>Needs</th></tr>${crs.map(c=>`<tr class="click" data-go="riskbudget"><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}: ${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td class="small">${esc(c.reason)} — ${esc(c.requested_by.name)}</td><td class="small">${c.required_approvals.filter(r=>!c.approvals.some(a=>a.role===r)).map(roleName).join(', ')}</td></tr>`).join('')}</table>`:'<div class="muted small">No pending requests.</div>'}</div>
+   <div class="card"><h2>Glide-path changes</h2>${gps.length?`<table><tr><th>Request</th><th>Change</th><th>Why</th><th>Needs</th></tr>${gps.map(r=>`<tr class="click" data-go="glide"><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpShiftText(r.shifts)}</td><td class="small">${esc(r.reason)} — ${esc(r.requested_by.name)}</td><td class="small">Investment Committee</td></tr>`).join('')}</table>`:`<div class="muted small">${PR?'No pending requests.':'Available in the hosted app.'}</div>`}</div></div>
+  ${cmds?`<div class="card" style="margin-top:14px"><h2>Commands to record your decisions</h2><pre>${esc(cmds)}</pre></div>`:''}`;
+};
+
+// --------------------------------------------------------------- Glide path
+function gpShiftText(sh){ return (sh||[]).map(s=>`${s.pp>0?'+':''}${(+s.pp).toFixed(2)}pp ${esc(nm(s.asset_class))} from ${esc(nm(s.from))}`).join('; '); }
+V.glide = () => {
+  const gs=PR?PR.glide:{adjustments:[],requests:[]}, act=(gs.adjustments||[]).filter(a=>a.status==='active'), pend=(gs.requests||[]).filter(r=>r.status==='pending'), past=(gs.requests||[]).filter(r=>r.status!=='pending').slice(-6).reverse();
+  const canReq=LIVE&&LIVE.can_glide_request, canDec=LIVE&&LIVE.can_glide_decide;
+  const today=PR?VINT.map(v=>{const fm=vFunds(v,'mutual_fund')[0], fc=vFunds(v,'cit')[0], x=R.vintages[v];
+    const c=f=>f?`${pct(grpW(f.glide,P.groups.equity))}${f.glide_adjusted?' <span class="chip warn">adj.</span>':''}`:'—';
+    return `<tr><td>${v}</td><td class="num">${x.years_to_target.toFixed(1)}</td><td class="num">${pct(x.equity_neutral)}</td><td class="num">${c(fm)}</td><td class="num">${c(fc)}</td><td class="num small">${fm?pct(grpW(fm.glide,P.groups.fixed_income)):'—'} / ${fc?pct(grpW(fc.glide,P.groups.fixed_income)):'—'}</td><td class="num small">${fm?pct(grpW(fm.glide,P.groups.real_assets)):'—'} / ${fc?pct(grpW(fc.glide,P.groups.real_assets)):'—'}</td></tr>`}).join(''):'';
+  const scopeOpts=[['*','All funds'],['vehicle:mutual_fund','All mutual funds'],['vehicle:cit','All CITs']].concat(FUNDS.map(f=>[f.id,`${f.id} (${VEH_SHORT[f.vehicle]} ${f.vintage})`]));
+  const aOpts=sel=>P.assets.map(a=>`<option value="${a}" ${a===sel?'selected':''}>${esc(nm(a))}</option>`).join('');
+  const form=canReq?`<div class="card" style="margin-top:14px"><h2>Propose a glide-path adjustment</h2>
+    <p class="small muted">Move weight between asset classes on the glide path for a set of funds. It must stay inside the IPS bands (±3pp per asset class, ±5pp total equity from the IPS glide path); anything larger needs an IPS amendment. The Investment Committee approves it, and the requester can't approve their own request.</p>
+    <div class="grid g3"><div><label class="small">Apply to</label><select id="gpScope">${scopeOpts.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></div>
+     <div><label class="small">From vintage (optional)</label><select id="gpVf"><option value="">First</option>${VINT.map(v=>`<option>${v}</option>`).join('')}</select></div>
+     <div><label class="small">To vintage (optional)</label><select id="gpVt"><option value="">Last</option>${VINT.map(v=>`<option>${v}</option>`).join('')}</select></div></div>
+    <h3>Moves</h3>${state.gpShifts.map((s,i)=>`<div class="row" style="margin-bottom:6px"><span class="small">Move</span><input type="number" step="0.25" value="${s.pp}" data-gpi="${i}" data-gpk="pp" style="width:90px"><span class="small">pp into</span><select data-gpi="${i}" data-gpk="asset_class" style="width:auto">${aOpts(s.asset_class)}</select><span class="small">from</span><select data-gpi="${i}" data-gpk="from" style="width:auto">${aOpts(s.from)}</select>${state.gpShifts.length>1?`<button class="btn" data-gpdel="${i}">Remove</button>`:''}</div>`).join('')}
+    <div class="row"><button class="btn" id="gpAdd">Add a move</button><button class="btn primary" id="gpPrev">Preview</button></div>
+    <div id="gpOut">${state.gpPrev?gpPreviewHtml(state.gpPrev):''}</div></div>`
+    :`<div class="card" style="margin-top:14px"><h2>Propose a glide-path adjustment</h2><p class="small muted">${LIVE?'Portfolio managers and analysts can propose adjustments here; the Investment Committee approves them.':'Available in the hosted app.'}</p></div>`;
+  return `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)})</h2>
+  <p class="small muted">The glide path sets each vintage's long-term mix as it approaches its target date. The agents' proposals tilt around it within the IPS bands. Approved adjustments below change the glide path used for the funds in their scope.</p>
+  <div class="legend">${[['Equity','--s1'],['Real assets','--s2'],['Fixed income','--s3'],['Cash','--s4']].map(([l,c])=>`<span><i style="background:var(${c})"></i>${l}</span>`).join('')}<span class="muted">· dots mark each vintage today</span></div>
+  <div class="chart" id="glideChart"></div></div>
+  ${PR?`<div class="card" style="margin-top:14px"><h2>Glide path today, by fund</h2><p class="small muted">Mutual funds roll down ${esc((PR.products.find(p=>p.vehicle==='mutual_fund')||{}).roll_down||'')}; CITs roll down ${esc((PR.products.find(p=>p.vehicle==='cit')||{}).roll_down||'')}, so the same vintage can sit at slightly different points on the path. "adj." marks a fund with an approved adjustment.</p>
+   <table><tr><th>Vintage</th><th class="num">Yrs to target</th><th class="num">Equity, IPS (this run)</th><th class="num">Equity, mutual fund</th><th class="num">Equity, CIT</th><th class="num">Fixed income MF / CIT</th><th class="num">Real assets MF / CIT</th></tr>${today}</table></div>`:''}
+  <div class="grid g2" style="margin-top:14px">
+   <div class="card"><h2>Approved adjustments in force</h2>${act.length?`<table><tr><th>ID</th><th>Applies to</th><th>Moves</th><th>Approved by</th>${canReq?'<th></th>':''}</tr>${act.map(a=>`<tr><td class="mono small">${esc(a.id)}</td><td class="small">${esc(a.scope_label)} (${a.funds.length} funds)</td><td class="small">${gpShiftText(a.shifts)}</td><td class="small">${esc((a.approved_by||{}).name||'')}</td>${canReq?`<td><button class="btn" data-gpretire="${esc(a.id)}">Request removal</button></td>`:''}</tr>`).join('')}</table>`:'<div class="muted small">None. Every fund follows the IPS glide path.</div>'}</div>
+   <div class="card"><h2>Requests awaiting the Investment Committee</h2>${pend.length?pend.map(r=>`<div class="att"><span class="chip warn">${esc(r.kind==='retire'?'removal':'change')}</span><div><b class="mono">${esc(r.id)}</b> ${esc(r.scope_label)} (${r.funds.length} funds)<div class="small">${gpShiftText(r.shifts)}</div><div class="small muted">${esc(r.reason)} — ${esc(r.requested_by.name)}</div>
+     ${canDec?`<textarea rows="2" id="gpr-${esc(r.id)}" placeholder="Reason for your decision" style="margin:6px 0"></textarea><div class="row"><button class="btn primary" data-gpdec="approve" data-gpid="${esc(r.id)}">Approve</button><button class="btn" data-gpdec="reject" data-gpid="${esc(r.id)}">Reject</button></div>`:''}</div></div>`).join(''):'<div class="muted small">None pending.</div>'}
+     ${past.length?`<h3>Recent decisions</h3><table>${past.map(r=>`<tr><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpShiftText(r.shifts)}</td><td>${chip(r.status)}</td></tr>`).join('')}</table>`:''}</div></div>
+  ${form}
+  <p class="small muted" style="margin-top:10px">Approved adjustments apply now to the funds' glide-path (Neutral) trading targets. The agents' proposals in a run are measured against the IPS glide path shown in the run.</p>
+  <details class="card" style="margin-top:14px"><summary><b>Glide path anchors (% of fund)</b></summary><div class="scroll"><table><tr><th class="num">Yrs to target</th>${GROUPS.map(([g])=>`<th class="num">${g}</th>`).join('')}${P.assets.map(a=>`<th class="num small">${esc(nm(a))}</th>`).join('')}</tr>${P.anchors.map(r=>{const w={};P.assets.forEach((a,i)=>w[a]=r[i+1]/100);return `<tr><td class="num">${r[0]}</td>${GROUPS.map(([g,as])=>`<td class="num"><b>${pct(grpW(w,as))}</b></td>`).join('')}${r.slice(1).map(x=>`<td class="num small">${x}</td>`).join('')}</tr>`}).join('')}</table></div></details>`;
+};
+function gpPreviewHtml(p){
+  const rows=p.funds.map(f=>{const eqb=grpW(f.current,P.groups.equity), eqa=grpW(f.new,P.groups.equity);
+    const ch=P.assets.filter(a=>Math.abs((f.new[a]||0)-(f.current[a]||0))>1e-9).map(a=>`${esc(nm(a))} ${pct(f.current[a])} → ${pct(f.new[a])}`).join('<br>');
+    return `<tr><td class="mono small">${esc(f.fund_id)}</td><td class="num">${pct(eqb)} → ${pct(eqa)}</td><td class="small">${ch}</td><td>${f.ok?chip('PASS'):chip('FAIL')+'<div class="small">'+f.problems.map(esc).join('<br>')+'</div>'}</td></tr>`}).join('');
+  return `<h3>Preview: ${p.funds.length} funds</h3><div class="scroll" style="max-height:340px"><table><tr><th>Fund</th><th class="num">Equity</th><th>Changes</th><th>IPS bands</th></tr>${rows}</table></div>
+  ${p.ok?`<label class="small" style="margin-top:8px;display:block">Reason</label><textarea id="gpReason" rows="2" placeholder="Why this change (sent to the Investment Committee)"></textarea><div style="margin-top:8px"><button class="btn primary" id="gpSubmit">Submit for Investment Committee approval</button></div>`:'<div class="banner" style="margin-top:8px">Some funds would leave the IPS bands. Reduce the moves or narrow the funds.</div>'}`;
+}
+
+// --------------------------------------------------------------- Agent votes (plain-language)
+V.agents = () => {
+  const s=R.strategy_review, v=state.vintage, x=R.vintages[v];
+  const vote=L.find(r=>r.step==='pc-review.borda-vote'&&r.portfolio_scope.includes('MTRS-'+v));
+  const perV=`<details class="card" style="margin-top:14px"><summary><b>Vote results by vintage</b> <span class="small muted">how the votes and the metric score combined for each vintage</span></summary>${vintageTabs()}
+    <p class="small muted">Each ballot gives 3, 2 and 1 points to its top three and −2 to the one it flags as weakest. The final score blends those points with a metric score (Sharpe ratio, tracking error, drawdown, diversification, compliance), weighted ${R.macro.regime==='late_cycle'||R.macro.regime==='recession'?'40/60':'50/50'} in the current regime.</p>
+    <table><tr><th>#</th><th>Method</th><th class="num">Vote points</th><th class="num">Final score</th></tr>${x.ranking.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(mName(r.method))} <span class="muted small mono">${esc(r.method)}</span></td><td class="num">${r.votes>0?'+':''}${r.votes}</td><td class="num">${r.composite.toFixed(2)}</td></tr>`).join('')}</table>
+    <h3>Ballots</h3><table><tr><th>Voter</th><th>Cast by</th><th>Top 3</th><th>Weakest</th></tr>${(vote?vote.output.ballots:[]).map(b=>`<tr title="${esc(b.rationale||'')}"><td>${esc(mName(b.voter))}</td><td class="small">${b.source&&b.source!=='lens'?'agent':'rule'}</td><td class="small">${b.top.map(mName).map(esc).join(', ')}</td><td class="small">${esc(mName(b.bottom_flag))}</td></tr>`).join('')}</table></details>`;
+  if(!s) return `<div class="card"><h2>How the agents voted</h2><p class="small muted">This run predates the agents' strategy review; only the rule-based vote is available.</p></div>${perV}`;
+  const ms=Object.keys(s.theses||{});
+  const pts={}, bottom={}, top1={}; ms.forEach(k=>{pts[k]=0;bottom[k]=0;top1[k]=0});
+  const agentB=Object.values(s.ballots||{}), useB=agentB.length?agentB:(vote?vote.output.ballots:[]);
+  useB.forEach(b=>{b.top.forEach((t,i)=>{pts[t]=(pts[t]||0)+(3-i);if(i===0)top1[t]=(top1[t]||0)+1});pts[b.bottom_flag]=(pts[b.bottom_flag]||0)-2;bottom[b.bottom_flag]=(bottom[b.bottom_flag]||0)+1});
+  const recv={}; ms.forEach(k=>recv[k]=[]); Object.entries(s.reviews||{}).forEach(([rv,d])=>(d.reviews||[]).forEach(r=>recv[r.peer]&&recv[r.peer].push({by:rv,...r})));
+  const avg=k=>recv[k].length?recv[k].reduce((a,r)=>a+r.score,0)/recv[k].length:null;
+  const cro={}; ((s.risk_commentary||{}).comments||[]).forEach(c=>cro[c.method]=c);
+  const order=[...ms].sort((a,b)=>pts[b]-pts[a]);
+  const nB=useB.length, most=order[0], weakest=[...ms].sort((a,b)=>bottom[b]-bottom[a])[0];
+  const flagChip=f=>!f||f==='none'?'<span class="chip good">ok</span>':`<span class="chip ${f==='concern'?'crit':'warn'}">${esc(f)}</span>`;
+  const revs=Object.entries(s.revisions||{});
+  const sel=state.agSel&&ms.includes(state.agSel)?state.agSel:null;
+  const story=`<ol class="story">
+    <li><b>Seven methods each built a portfolio.</b> Each one's agent explained its case and its own weaknesses.</li>
+    <li><b>A neutral risk officer reviewed all seven</b> and flagged ${ms.filter(k=>cro[k]&&cro[k].risk_flag!=='none').map(k=>`${esc(mName(k))} (${esc(cro[k].risk_flag)})`).join(', ')||'none'}. It does not vote.</li>
+    <li><b>Each agent reviewed two others</b> and scored them 1 to 5. Average score received: ${order.map(k=>`${esc(mName(k))} ${avg(k)!=null?avg(k).toFixed(1):'—'}`).join(', ')}.</li>
+    <li>${agentB.length?`<b>All seven voted</b> after reading every review${agentB.length<ms.length?` (${ms.length-agentB.length} ballot${ms.length-agentB.length>1?'s':''} fell back to a rule)`:''}.`:`<b>No agent ballots in this run</b>, so each method's rule-based lens voted. Counts below are for the ${v} vintage.`} Most support: <b>${esc(mName(most))}</b> (${pts[most]} points). Most often voted weakest: <b>${esc(mName(weakest))}</b> (${bottom[weakest]} of ${nB}).</li>
+    <li><b>The top three revised their portfolios</b> in response to the reviews: ${revs.map(([k,r])=>`${esc(mName(k))}: ${esc(r.note)}`).join('; ')||'none'}.</li>
+    <li><b>The CIO agent then blended the methods for each vintage.</b> For ${v} it chose the ${ensName(x.ensemble)}. ${ROLES[state.role].tabs.includes('portfolios')?'<a href="#" data-open="'+v+'">See the proposal</a>':''}</li></ol>`;
+  const board=`<table><tr><th>Method</th><th>Approach</th><th>Risk officer</th><th class="num">Peer score</th><th class="num">Vote points</th><th class="num">Voted best</th><th class="num">Voted weakest</th><th>Outcome</th></tr>
+    ${order.map(k=>`<tr class="click${sel===k?' sel':''}" data-agsel="${k}"><td><b>${esc(mName(k))}</b><div class="small muted">${esc(FAMILY[s.families[k]]||s.families[k])}</div></td><td class="small">${esc(mDesc(k))}</td><td>${flagChip(cro[k]&&cro[k].risk_flag)}</td>
+    <td class="num">${avg(k)!=null?avg(k).toFixed(1)+' / 5':'—'}</td><td class="num">${pts[k]>0?'+':''}${pts[k]}</td><td class="num">${top1[k]}</td><td class="num">${bottom[k]}</td>
+    <td class="small">${(s.shortlist||[]).includes(k)?`<span class="chip good">shortlisted</span>${s.revisions[k]&&s.revisions[k].applied?' revised':''}`:'—'}</td></tr>`).join('')}</table>
+    <p class="small muted">Click a method to read its case, the reviews it received and how it voted. Peer score = average of the two reviews it received. Vote points = 3, 2, 1 for each first, second and third place, −2 each time it was voted weakest.</p>`;
+  const detail=sel?(()=>{const t=s.theses[sel], b=(s.ballots||{})[sel], rv=(s.revisions||{})[sel], c=cro[sel];
+    return `<div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(mName(sel))} <span class="muted small mono">${esc(sel)}</span></h2><button class="btn" data-agsel="">Close</button></div>
+    <div class="grid g2" style="margin-top:10px"><div><h3>Its case</h3><div class="why">${esc(t.thesis)}</div>${(t.weaknesses||[]).length?`<h3>Weaknesses it admits</h3><ul class="small">${t.weaknesses.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}
+      <h3>Risk officer</h3><div class="small">${flagChip(c&&c.risk_flag)} ${esc(c?c.comment:'')}</div>
+      ${rv?`<h3>Revision</h3><div class="small"><b>${esc(rv.note)}</b><br>${esc(rv.response_to_reviews||'')}</div>`:''}</div>
+     <div><h3>Reviews it received</h3>${recv[sel].map(r=>`<div class="dr-item"><b>${esc(mName(r.by))}</b> scored it ${r.score}/5<div class="small">${esc(r.assessment)}</div>${(r.concerns||[]).length?`<div class="small muted">Concerns: ${r.concerns.map(esc).join('; ')}</div>`:''}</div>`).join('')||'<span class="muted small">None.</span>'}
+      <h3>How it voted</h3>${b?`<div class="small">Best: ${b.top.map(mName).map(esc).join(', ')}. Weakest: ${esc(mName(b.bottom_flag))}.</div><div class="small muted" style="margin-top:4px">${esc(b.rationale||'')}</div>`:'<div class="small muted">Its ballot was not usable; a rule voted for it.</div>'}</div></div></div>`})():'';
+  return `<div class="card"><h2>How the agents decided</h2>${story}<p class="small muted">Agents supply judgment and words. Every weight, risk number, vote count and compliance result is computed by code.</p></div>
+  <div class="card" style="margin-top:14px"><h2>Scoreboard</h2>${board}</div>${detail}${perV}`;
+};
+
+// --------------------------------------------------------------- Risk budget
+function rbSummaryCard(compact){
+  const rows=VINT.map(v=>{const x=R.vintages[v], r=x.risk; if(!r) return ''; const warn=r.warn_at||0.8, scale=Math.max(1.2,...VINT.map(u=>(R.vintages[u].risk||{}).used_pct||0));
+    const ad=x.adjusted, st=r.used_pct>1?['Over','crit']:r.used_pct>=warn?['Warning','warn']:['OK','good'];
+    return `<div class="rbrow" data-rbv="${v}"><span class="rbv">${v}</span><div class="rbtrack"><div class="rbfill ${st[1]}" style="width:${Math.min(100,r.used_pct/scale*100)}%"></div><i style="left:${warn/scale*100}%" title="warning ${(warn*100).toFixed(0)}%"></i><i class="lim" style="left:${100/scale}%" title="budget"></i>${ad?`<b style="left:${Math.min(100,ad.risk_budget_used/scale*100)}%" title="with adjustment ${(ad.risk_budget_used*100).toFixed(0)}%"></b>`:''}</div><span class="num rbpct">${(r.used_pct*100).toFixed(0)}%</span>${compact?'':`<span class="small muted rbte">${pct(r.te,2)} of ${pct(r.budget,2)}</span>`}<span class="chip ${st[1]}">${st[0]}</span></div>`}).join('');
+  return `<div class="card"><h2>Risk budget used across the series</h2><p class="small muted">Tracking error versus the glide path as a share of each vintage's budget. Dotted line = warning at 80%, solid line = 100% of budget${VINT.some(v=>R.vintages[v].adjusted)?'; diamond = with a recorded adjustment':''}.</p>${rows}${compact&&ROLES[state.role].tabs.includes('riskbudget')?'<button class="btn" data-go="riskbudget" style="margin-top:8px">Risk budget detail</button>':''}</div>`;
+}
+V.riskbudget = () => {
+  const v=state.vintage, x=R.vintages[v], canReq=['pm','risk'].includes(state.role), crs=(D.change_requests||[]), pol=D.risk_budget_policy;
+  const rs=VINT.map(u=>R.vintages[u].risk).filter(Boolean), used=rs.map(r=>r.used_pct), hi=Math.max(...used), hiV=VINT.find(u=>R.vintages[u].risk&&R.vintages[u].risk.used_pct===hi);
+  const aum=PR?VINT.reduce((s,u)=>s+vFunds(u,'all').reduce((t,f)=>t+f.nav,0),0):0;
+  const aw=PR&&aum?VINT.reduce((s,u)=>s+(R.vintages[u].risk?R.vintages[u].risk.used_pct:0)*vFunds(u,'all').reduce((t,f)=>t+f.nav,0)/aum,0):null;
+  const k=kpi('Highest use',(hi*100).toFixed(0)+'%',`${hiV} vintage`)+kpi('Average use',(used.reduce((a,b)=>a+b,0)/used.length*100).toFixed(0)+'%',aw!=null?`asset-weighted ${(aw*100).toFixed(0)}%`:'across vintages')
+    +kpi('At or above warning',`${used.filter(u=>u>=(pol.warn_at_pct_used||0.8)).length} of ${used.length}`,`warning at ${((pol.warn_at_pct_used||0.8)*100).toFixed(0)}% used`)+kpi('IPS hard limit',pct(pol.hard_max,2),'tracking error; budgets can be set below it');
+  const assets=[...new Set(rs.flatMap(r=>r.contributors.slice(0,4).map(c=>c.asset)))];
+  const mat=`<table><tr><th>Asset class</th>${VINT.map(u=>`<th class="num">${u}</th>`).join('')}</tr>${assets.map(a=>`<tr><td>${esc(nm(a))}</td>${VINT.map(u=>{const c=((R.vintages[u].risk||{}).contributors||[]).find(z=>z.asset===a);return `<td class="num" style="${c?heat(c.budget_used,0.4):''}">${c?(Math.abs(c.budget_used)<0.005?'0':(c.budget_used*100).toFixed(0))+'%':'—'}</td>`}).join('')}</tr>`).join('')}
+    <tr class="lvl0"><td>Total used</td>${VINT.map(u=>`<td class="num">${R.vintages[u].risk?(R.vintages[u].risk.used_pct*100).toFixed(0)+'%':'—'}</td>`).join('')}</tr></table>`;
+  const curB=x.risk_budget;
+  const form=canReq?`<h3>1. Which budget</h3><select id="rbV"><option value="default">Default for vintages without their own budget</option>${VINT.map(u=>`<option value="${u}" ${u===v?'selected':''}>${u} (now ${pct(R.vintages[u].risk_budget,2)})</option>`).join('')}</select>
+    <h3>2. New budget (tracking error, %)</h3><div class="row"><input id="rbTe" type="number" step="0.05" min="0.1" max="${pol.hard_max*100}" value="${(curB*100).toFixed(2)}" style="width:120px"><span class="small muted">IPS hard limit ${pct(pol.hard_max,2)}</span></div>
+    <div id="rbPrev" style="margin:8px 0"></div>
+    <h3>3. Why</h3><textarea id="rbReason" rows="2" placeholder="Reason for the change"></textarea>
+    <div style="margin-top:8px"><button class="btn primary" id="rbGo">${LIVE?'Submit for approval':'Prepare change request'}</button></div><pre id="rbCmd" style="display:none"></pre>
+    <p class="small muted">What happens next: ${D.policy.approvals.risk_budget_change.map(roleName).join(' and ')} must approve, and the requester can't approve their own request. The new budget applies to the next agent run and every risk check after approval.</p>`
+    :'<p class="small muted">View only. Portfolio managers and Risk can request a budget change.</p>';
+  return `<div class="grid g4">${k}</div>
+  <div style="margin-top:14px">${rbSummaryCard(false)}</div>
+  <div class="card" style="margin-top:14px"><h2>Where the budget goes, across the series</h2><p class="small muted">Share of each vintage's budget used by its largest contributors (the asset classes it is most tilted in). Negative values reduce active risk.</p><div class="scroll" style="max-height:none">${mat}</div></div>
+  <div class="card" style="margin-top:14px"><h2>Changing how much risk is used</h2>
+   <div class="grid g2"><div class="choice"><b>Use less (or more) of the budget</b><p class="small">Change the weights. This is a portfolio decision for one run: adjust the proposal on the Positioning screen, and it is re-checked against the budget and approved as usual.</p>${['pm','research'].includes(state.role)?`<button class="btn" data-goto-pos="${v}" data-posdetail="1">Adjust ${v} weights</button>`:''}</div>
+    <div class="choice"><b>Change the budget itself</b><p class="small">Change the limit a vintage may use. This is a policy change that lasts until changed again, and needs two approvals.</p>${canReq?'<span class="small muted">Use the form below.</span>':''}</div></div></div>
+  <div class="grid g2" style="margin-top:14px"><div class="card"><h2>Request a budget change</h2>${form}</div>
+   <div class="card"><h2>Requests</h2>${crs.length?`<table><tr><th>Request</th><th>Change</th><th>Requested by</th><th>Status</th><th></th></tr>${crs.map(c=>{
+      const mine=LIVE&&c.status==='pending'?c.required_approvals.filter(rl=>LIVE.user.roles.includes(rl)&&!c.approvals.some(a=>a.role===rl)):[];
+      return `<tr><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}: ${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td class="small">${esc(c.requested_by.name)}<br><span class="muted">${esc(c.reason)}</span></td><td>${chip(c.status)}<div class="small">${c.approvals.map(a=>esc(roleName(a.role)+': '+a.decision+' ('+a.name+')')).join('<br>')}</div><div class="small muted">${c.status==='pending'?'Waiting for '+c.required_approvals.filter(r=>!c.approvals.some(a=>a.role===r)).map(roleName).join(', '):''}</div></td>
+      <td>${mine.map(rl=>`<div class="row" style="gap:4px;margin-bottom:4px"><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="approve">Approve as ${esc(roleName(rl))}</button><button class="btn" data-cr="${esc(c.id)}" data-crrole="${rl}" data-crdec="reject">Reject</button></div>`).join('')}</td></tr>`}).join('')}</table>`:'<div class="muted small">None.</div>'}</div></div>
+  <div class="card" style="margin-top:14px"><h2>${v} in detail</h2>${vintageTabs()}
+   <table><tr><th>Asset class</th><th class="num">Active weight</th><th class="num">Tracking-error contribution</th><th>% of budget</th></tr>${(x.risk?x.risk.contributors:[]).map(c=>`<tr><td>${esc(nm(c.asset))}</td><td class="num">${pp(c.active_weight)}</td><td class="num">${pct(c.te_contribution,3)}</td><td style="min-width:140px">${rbBar(c.budget_used)}</td></tr>`).join('')}</table></div>`;
+};
+
+function bindNew(){
+  const go=(tab,v)=>{if(v)state.vintage=+v;state.tab=tab;render();window.scrollTo(0,0)};
+  document.querySelectorAll('[data-go]').forEach(e=>e.onclick=(ev)=>{ev.preventDefault();ev.stopPropagation();go(e.dataset.go,e.dataset.gov)});
+  document.querySelectorAll('[data-pl]').forEach(e=>e.onclick=()=>{state.pl=e.dataset.pl;render()});
+  document.querySelectorAll('[data-pf]').forEach(e=>e.onclick=(ev)=>{if(ev.target.closest('button:not(.caret)'))return;state.prodOpen[e.dataset.pf]=!state.prodOpen[e.dataset.pf];render()});
+  document.querySelectorAll('[data-posmode]').forEach(e=>e.onclick=()=>{state.posMode=e.dataset.posmode;render()});
+  document.querySelectorAll('[data-posmeasure]').forEach(e=>e.onclick=()=>{state.posMeasure=e.dataset.posmeasure;render()});
+  document.querySelectorAll('[data-posv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.posv;state.posMode='vintage';render()});
+  document.querySelectorAll('[data-posdetail]').forEach(e=>e.addEventListener('click',()=>{state.posMode='vintage'}));
+  document.querySelectorAll('[data-agsel]').forEach(e=>e.onclick=()=>{state.agSel=e.dataset.agsel||null;render()});
+  document.querySelectorAll('[data-gpi]').forEach(e=>e.onchange=()=>{const s=state.gpShifts[+e.dataset.gpi];s[e.dataset.gpk]=e.dataset.gpk==='pp'?parseFloat(e.value):e.value;state.gpPrev=null});
+  document.querySelectorAll('[data-gpdel]').forEach(e=>e.onclick=()=>{state.gpShifts.splice(+e.dataset.gpdel,1);state.gpPrev=null;render()});
+  const ga=$('#gpAdd'); if(ga) ga.onclick=()=>{state.gpShifts.push({asset_class:'us_core_bond',from:'us_large_cap',pp:0.5});state.gpPrev=null;render()};
+  const gscope=()=>({scope:$('#gpScope').value,vintage_from:$('#gpVf').value||null,vintage_to:$('#gpVt').value||null,shifts:state.gpShifts});
+  if($('#gpScope')&&state.gpScopeSel){$('#gpScope').value=state.gpScopeSel.scope;$('#gpVf').value=state.gpScopeSel.vintage_from||'';$('#gpVt').value=state.gpScopeSel.vintage_to||''}
+  ['#gpScope','#gpVf','#gpVt'].forEach(id=>{const el=$(id);if(el)el.onchange=()=>{state.gpPrev=null;state.gpScopeSel=gscope();render()}});
+  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const body=gscope();state.gpScopeSel=body;gp.disabled=true;
+    api('/api/trading/glide-path/preview',body).then(r=>{state.gpPrev=r;render()}).catch(e=>{gp.disabled=false;toast(e.message,'error')})};
+  const gsub=$('#gpSubmit'); if(gsub) gsub.onclick=()=>{const reason=$('#gpReason').value.trim();if(reason.length<10){toast('Please give a reason (10+ characters).');return}
+    gsub.disabled=true; api('/api/trading/glide-path/requests',{...state.gpScopeSel,reason}).then(r=>{toast(`Request ${r.id} sent to the Investment Committee (${r.funds} funds).`);setTimeout(()=>location.reload(),900)}).catch(e=>{gsub.disabled=false;toast(e.message,'error')})};
+  document.querySelectorAll('[data-gpretire]').forEach(b=>b.onclick=()=>{const reason=prompt?null:null;
+    const box=document.createElement('div');box.innerHTML=`<div class="card" style="position:fixed;inset:auto 20px 20px auto;z-index:9;width:360px"><b>Request removal of ${esc(b.dataset.gpretire)}</b><textarea id="gpRetReason" rows="3" placeholder="Reason (required)" style="margin:8px 0"></textarea><div class="row"><button class="btn primary" id="gpRetOk">Send to the Investment Committee</button><button class="btn" id="gpRetCancel">Cancel</button></div></div>`;
+    document.body.appendChild(box);$('#gpRetCancel').onclick=()=>box.remove();
+    $('#gpRetOk').onclick=()=>{const rs=$('#gpRetReason').value.trim();if(rs.length<10){toast('Please give a reason (10+ characters).');return}
+      api('/api/trading/glide-path/requests',{kind:'retire',adjustment_id:b.dataset.gpretire,reason:rs}).then(r=>{toast(`Removal request ${r.id} sent.`);setTimeout(()=>location.reload(),800)}).catch(e=>toast(e.message,'error'))}});
+  document.querySelectorAll('[data-gpdec]').forEach(b=>b.onclick=()=>{const id=b.dataset.gpid, ta=document.getElementById('gpr-'+id), rs=ta?ta.value.trim():'';
+    if(rs.length<10){toast('Please give a reason (10+ characters).');return}
+    b.disabled=true; api(`/api/trading/glide-path/requests/${encodeURIComponent(id)}/decide`,{decision:b.dataset.gpdec,reason:rs}).then(r=>{toast(`${id}: ${r.status}`);setTimeout(()=>location.reload(),800)}).catch(e=>{b.disabled=false;toast(e.message,'error')})});
+}
+
+function render(){renderShell();$('#view').innerHTML=V[state.tab]();bind();bindNew();bindExceptions();bindSearch();bindRisk();glideChart();activeChart();riskCharts()}
 document.addEventListener('click',e=>{const b=e.target.closest('#copyCmd');if(!b)return;});
 function bind(){
   document.querySelectorAll('[data-open]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.open;state.tab=ROLES[state.role].tabs.includes('portfolios')?'portfolios':ROLES[state.role].tabs.includes('risk')?'risk':state.tab;render()});
@@ -930,7 +1232,7 @@ function bind(){
   const vs=$('#viewSel'); if(vs) vs.onchange=()=>{state.view=vs.value;render()};
   document.querySelectorAll('[data-prod]').forEach(e=>e.onclick=()=>{state.prodOpen.mtrs=state.prodOpen.mtrs===false?true:false;render()});
   document.querySelectorAll('[data-pv]').forEach(e=>e.onclick=(ev)=>{if(ev.target.closest('[data-goto-pos]'))return;const k='v'+e.dataset.pv;state.prodOpen[k]=!state.prodOpen[k];render()});
-  document.querySelectorAll('[data-goto-pos]').forEach(e=>e.onclick=(ev)=>{ev.stopPropagation();state.vintage=+e.dataset.gotoPos;state.tab='positioning';render()});
+  document.querySelectorAll('[data-goto-pos]').forEach(e=>e.onclick=(ev)=>{ev.stopPropagation();state.vintage=+e.dataset.gotoPos;state.posMode='vintage';state.tab='positioning';render();window.scrollTo(0,0)});
   document.querySelectorAll('[data-rbv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.rbv;render()});
   document.querySelectorAll('[data-mv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.mv;render()});
   document.querySelectorAll('[data-mwin]').forEach(e=>e.onclick=()=>{state.mwin=e.dataset.mwin;render()});
@@ -944,7 +1246,10 @@ function bind(){
       .catch(e=>{as.disabled=false;toast(e.message,'error')})};
   const rbTe=$('#rbTe'), rbV=$('#rbV');
   const rbPreview=()=>{if(!rbTe)return;const b=parseFloat(rbTe.value)/100;const vv=rbV.value;const list=vv==='default'?VINT.filter(x=>!(D.risk_budget_policy.vintages||{})[x]):[+vv];
-    $('#rbPrev').innerHTML=b>D.risk_budget_policy.hard_max+1e-9?'<span class="chip crit">Above IPS hard limit — needs an IPS amendment</span>':list.map(x=>`${x}: ${(R.vintages[x].risk.te/b*100).toFixed(0)}% used`).join(' · ')};
+    if(isNaN(b)||b<=0){$('#rbPrev').innerHTML='';return}
+    const warn=D.risk_budget_policy.warn_at_pct_used||0.8, st=u=>u>1?'<span class="chip crit">over budget: the proposal would fail</span>':u>=warn?'<span class="chip warn">warning</span>':'<span class="chip good">ok</span>';
+    $('#rbPrev').innerHTML=b>D.risk_budget_policy.hard_max+1e-9?'<span class="chip crit">Above the IPS hard limit: that needs an IPS amendment</span>'
+      :`<table class="small"><tr><th>Vintage</th><th class="num">Budget</th><th class="num">Tracking error now</th><th class="num">Used now</th><th class="num">Used after</th><th>After the change</th></tr>${list.map(x=>{const r=R.vintages[x].risk;return `<tr><td>${x}</td><td class="num">${pct(r.budget,2)} → <b>${pct(b,2)}</b></td><td class="num">${pct(r.te,2)}</td><td class="num">${(r.used_pct*100).toFixed(0)}%</td><td class="num"><b>${(r.te/b*100).toFixed(0)}%</b></td><td>${st(r.te/b)}</td></tr>`}).join('')}</table>`};
   if(rbTe){rbTe.oninput=rbPreview;rbV.onchange=rbPreview;rbPreview();}
   const rg=$('#rbGo'); if(rg) rg.onclick=()=>{const r=$('#rbReason').value.trim();if(r.length<10){toast('Please give a reason (10+ characters).');return}
     const role=state.role==='pm'?'portfolio_manager':'risk';
