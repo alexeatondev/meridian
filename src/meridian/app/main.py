@@ -197,9 +197,17 @@ def console(request: Request, run_id: str):
     live["prev"] = previous_summary(st, run)
     live["exceptions"] = list_cases()
     live["governance"] = [r for r in st.ledger("governance") if r.get("dr_type") == "exception"][-300:]
+    try:
+        from .trading import PREPARE_ROLES, console_products
+        products = console_products()
+        live["can_glide_request"] = any(r in user["roles"] for r in PREPARE_ROLES)
+        live["can_glide_decide"] = "investment_committee" in user["roles"]
+    except Exception:  # product-line detail is optional; the console works without it
+        products = None
     from .shell import wrap
     return HTMLResponse(wrap(console_html(run.results, ledger, {"ok": ok, "message": msg}, run.board_memo,
-                                          run.compliance_report, st.change_requests(), pol, live), user, "console"))
+                                          run.compliance_report, st.change_requests(), pol, live, products=products),
+                             user, "console"))
 
 
 def _verify_records(records: list[dict]) -> tuple[bool, str]:

@@ -16,9 +16,19 @@ from ..policy import load_policy, load_universe
 TEMPLATE = Path(__file__).with_name("console_template.html")
 
 
+def _example_products(policy) -> dict | None:
+    """Product lines and funds from config/trading.yaml with example positions (offline console)."""
+    try:
+        from ..trading.model import load_model
+        from ..trading.overview import product_overview
+        return product_overview(load_model(policy=policy))
+    except Exception:  # the console still works without product-line detail
+        return None
+
+
 def console_html(results: dict, ledger: list[dict], ledger_verification: dict, board_memo_md: str,
                  compliance_report_md: str, change_requests: list[dict] | None = None,
-                 policy=None, live: dict | None = None) -> str:
+                 policy=None, live: dict | None = None, products: dict | None = None) -> str:
     policy = policy or load_policy()
     universe, reg = load_universe(), resolve()
     pre = next((r for r in ledger if r["step"] == "preflight.entity_regime"), None)
@@ -34,6 +44,7 @@ def console_html(results: dict, ledger: list[dict], ledger_verification: dict, b
         "board_memo_md": board_memo_md, "compliance_report_md": compliance_report_md,
         "risk_budget_policy": policy.raw.get("risk_budgets", {}),
         "change_requests": change_requests or [],
+        "products": products if products is not None else _example_products(policy),
     }
     html = TEMPLATE.read_text().replace("/*__MERIDIAN_DATA__*/null", json.dumps(data, default=str).replace("</", "<\\/"))
     return html.replace("/*__MERIDIAN_LIVE__*/null", json.dumps(live).replace("</", "<\\/") if live else "null")

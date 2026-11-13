@@ -277,6 +277,19 @@ def _table_or_error(s, fund_id: str, strategy: str) -> dict:
     return t
 
 
+def console_products() -> dict | None:
+    """Product-line overview for the console, from this app's positions and approved glide-path adjustments."""
+    from ..trading.overview import product_overview
+    m = model()
+    with _store().Session() as s:
+        get_settings(s)
+        glide = {fid: neutral_aw(s, fid) for fid in m.funds}
+        gs = glide_state(s)
+    sources = {fid: positions(fid) for fid in m.funds}
+    return product_overview(m, positions_fn=sources.__getitem__, glide_fn=glide.__getitem__, glide_state=gs,
+                            example=any("Example" in str(p.get("source", "")) for p in sources.values()))
+
+
 # ---------------------------------------------------------------------------------------------- page and state
 @router.get("/trading")
 def trading_page(request: Request):

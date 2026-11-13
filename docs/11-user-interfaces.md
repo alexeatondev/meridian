@@ -27,6 +27,22 @@ Every screen (console, Trading, Regulations, User access, Help) now shares one a
 | **Session expiry** | A 401 from any call opens "Your session has expired" with **Sign in** or **Stay on page**, instead of a failed action |
 | **Accessibility** | Skip link, visible focus outline, tab bars exposed as ARIA tablists with ←/→/Home/End, `aria-current` on navigation, live regions for messages, honours dark mode and reduced motion |
 
+## Console update (product owner feedback, 2026-11-13)
+
+| Screen | What changed |
+|---|---|
+| Home | Every workspace opens on: four headline numbers (assets by product line, proposals approved, highest risk-budget use, compliance); **Needs your attention** (proposals awaiting your role with a one-line summary, risk-budget and glide-path requests you can decide, open exceptions, risk-budget warnings, hard-limit failures); **The series at a glance** (each vintage's mutual fund and CIT assets, glide path vs proposed equity, what each fund holds today, risk budget used, approval and compliance); risk budget across the series; changes since the last run. Leadership and Compliance also see production blockers |
+| Funds & vintages | Grouped by product line (mutual funds `MTRS`, CITs `MTRT`) with a product-line filter. Each fund shows its assets, holdings by asset class, its own glide path, the proposal and equity drift. Expanding a fund compares glide path, proposal and holdings by asset class |
+| Positioning | Opens on a **series summary**: every vintage side by side with a series total weighted by fund assets, in three measures (tilt vs glide path, proposed weights, holdings drift). **Vintage detail** keeps the drill-down and weight adjustments and adds a mutual fund vs CIT comparison |
+| Portfolios & proposals | Starts with **What is being approved**: the weights, which funds they become the approved target for, that no trades are placed, a one-line summary and each approver's status. Then the weights table (grouped, with tilt and change since last run), the agents' reasoning, disagreement in words, compliance with any warnings, and the decision |
+| Approvals | **Waiting for you** first, then every proposal with the funds affected, a short summary (equity tilt, largest tilts, tracking error and budget used, compliance) and each approver's status; pending risk-budget and glide-path requests |
+| Glide path | Glide path today by fund (mutual funds roll down monthly, CITs semiannually), approved adjustments in force, requests awaiting the Investment Committee (approve or reject here), and a form to propose an adjustment with a preview against the IPS bands. Uses the same API and approval rules as the Trading screen |
+| Agent votes | A six-step plain-language account of how the agents decided, a scoreboard (plain method names, risk officer flag, peer score, vote points, times voted best and weakest, shortlist and revision) and a detail panel per method. Per-vintage vote results are folded into a section below |
+| Risk budget | Series summary (highest, average and asset-weighted use; vintages at warning), a bar per vintage against the warning line and the budget, a matrix of where the budget goes across vintages, and an explanation of the two ways to change risk use (adjust weights vs change the budget). The budget request shows each vintage's use before and after |
+| Look-through & search | Typing shows a suggestion list under the box without moving the page; pick one security with the mouse or arrow keys and Enter. The chosen security is shown in a highlighted "Selected" bar with a Clear button, and selected rows are highlighted in the drill-down tables |
+
+Product-line data comes from `config/trading.yaml` and, in the hosted app, from uploaded or booked positions and approved glide-path adjustments (`meridian.trading.overview`). Holdings remain example data until custodian or transfer-agent files are loaded.
+
 ## Console — what each role sees
 | Role (sign-in group) | Workspace tabs | Home page shows | Can act |
 |---|---|---|---|

@@ -10,7 +10,8 @@ def test_pm_01_sees_only_pm_workspace(sign_in):
     assert [o.get_attribute("value") for o in p.query_selector_all("#role option")] == ["pm"]
     assert sorted(tabs(p)) == sorted(PM_TABS)  # grouped sidebar: order follows the section headings
     assert "Maya Chen" in p.inner_text(".mbar") and p.text_content("#nav .navh") == "Overview"
-    assert "Proposals awaiting you" in p.inner_text("#view")
+    view = p.inner_text("#view")
+    assert "Needs your attention" in view and "proposals await your approval" in view and "The series at a glance" in view
 
 
 def test_pm_02_approval_needs_acknowledgement_and_reason(sign_in):
@@ -30,7 +31,8 @@ def test_pm_03_review_and_approve_a_vintage(sign_in):
     open_tab(p, "Portfolios & proposals")
     p.click("[data-vt='2050']")
     view = p.inner_text("#view")
-    for section in ("Why this proposal?", "What would make this wrong", "Dissent", "Compliance"):
+    for section in ("What is being approved", "Nothing is traded by this approval", "Why the agents recommend it",
+                    "What would change the view", "Disagreement among the agents", "Compliance"):
         assert section in view
     p.check("#ack")
     p.fill("#reason", "Tilts are small, TE well inside budget, no FAILs.")
@@ -39,13 +41,14 @@ def test_pm_03_review_and_approve_a_vintage(sign_in):
     p.reload()
     p.wait_for_selector("#nav button")
     open_tab(p, "Approvals")
-    row = p.locator("#view tr", has_text="2050").filter(has_text="portfolio_manager")
-    assert "approve" in row.first.inner_text().lower()
+    row = p.locator("#view tr", has_text="2050").filter(has_text="Portfolio manager")
+    assert "approve" in row.first.inner_text().lower() and "MTRT-2050" in row.first.inner_text()
 
 
 def test_pm_04_adjust_weights_recomputes_risk_and_compliance(sign_in):
     p = sign_in("Maya Chen", "portfolio_manager")
     open_tab(p, "Positioning")
+    p.click("[data-posmode='vintage']")
     p.click("[data-vt='2045']")
     nodes = [o.get_attribute("value") for o in p.query_selector_all("#adjNode option")]
     target = next(n for n in nodes if "Short-dated" in n)
@@ -66,4 +69,4 @@ def test_pm_05_explain_largest_change(sign_in):
     open_tab(p, "Portfolios & proposals")
     p.click("[data-vt='2050']")
     view = p.inner_text("#view")
-    assert "Active weights vs glide path" in view and "Ensemble chosen" in view
+    assert "The weights" in view and "Tilts at a glance" in view and "chosen by the CIO agent using the" in view
