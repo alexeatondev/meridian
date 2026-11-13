@@ -168,6 +168,7 @@ def test_agent_sdk_pipeline(monkeypatch, tmp_path):
     assert by["pc-max_sharpe_tilt.thesis"]["actor"]["id"] == "pc-max_sharpe_tilt" and by["pc-max_sharpe_tilt.thesis"]["output"]["judge_path"] == "agent"
     assert by["cro.commentary"]["output"]["judge_path"] == "agent" and by["cro.commentary"]["actor"]["model"] == "claude-test-model"
     assert by["pc-review.assignments"]["output"]["seed"] == sr["seed"]
+    assert by["pc-review.fact-sheet"]["actor"]["kind"] == "system" and sr["fact_sheet"]["compliance"]["passing"]
     for k, peers in sr["assignments"].items():                               # two different peers, never itself
         assert len(set(peers)) == 2 and k not in peers
         fam = sr["families"]
@@ -290,3 +291,16 @@ def test_strategy_review_rules():
     assert out.sum() == pytest.approx(1.0) and np.allclose(out, 0.5 * (n + 0.5 * (w - n)) + 0.5 * peer)
     assert np.all(np.abs(out - n) <= np.maximum(np.abs(w - n), np.abs(peer - n)) + 1e-12)   # never further from the glide path
     assert D.shortlist({"a1": 0.9, "a2": 0.8, "b1": 0.5, "solo": 0.4, "b2": 0.1}, fam, 2) == ["a1", "b1"]   # family diversity
+
+
+def test_fact_sheet_rankings():
+    from meridian.pipelines.deliberation import fact_sheet
+    base = dict(volatility=0.12, tracking_error=0.01, effective_n=4.0, worst_drawdown=-0.5, distance_to_consensus=0.2)
+    summ = {"gp": {**base, "family": "heuristic", "expected_return": 0.0773, "sharpe": 0.31, "compliance_worst": "PASS (attestations pending)"},
+            "rb": {**base, "family": "risk", "expected_return": 0.078, "sharpe": 0.32, "volatility": 0.11, "compliance_worst": "PASS (attestations pending)"},
+            "ad": {**base, "family": "adv", "expected_return": 0.078, "sharpe": 0.30, "worst_drawdown": -0.51, "compliance_worst": "WARN"}}
+    f = fact_sheet(summ)
+    assert f["expected_return"]["best"] == ["rb", "ad"] and "gp" not in f["expected_return"]["best"]   # ties share first place
+    assert f["volatility"]["best"] == ["rb"] and f["worst_drawdown"]["worst"] == ["ad"]
+    assert f["compliance"]["passing"] == ["gp", "rb"] and f["compliance"]["with_warnings"] == ["ad"]  # two pass, not "only one"
+    assert f["family_members"]["heuristic"] == ["gp"]

@@ -157,6 +157,36 @@ def series_summary(ctx: dict, assets: list, names: dict) -> dict:
     return T._r(out)
 
 
+FACT_MEASURES = [  # (key in the summary, label, True if higher is better)
+    ("expected_return", "expected return", True), ("volatility", "volatility", False), ("sharpe", "Sharpe ratio", True),
+    ("tracking_error", "tracking error versus the glide path", False), ("effective_n", "effective number of assets", True),
+    ("worst_drawdown", "worst simulated drawdown", True), ("distance_to_consensus", "distance to consensus", False)]
+
+
+def fact_sheet(summ: dict) -> dict:
+    """Rankings computed by code so agents quote them instead of working them out. Ties share a place."""
+    out = {"note": ("Computed by code from the series-average metrics. Quote these rankings rather than deriving your own. "
+                    "'Best' means highest for return, Sharpe, effective N and drawdown (least negative), and lowest for "
+                    "volatility, tracking error and distance to consensus. The glide path is the policy benchmark, not a tilt.")}
+    for key, label, high in FACT_MEASURES:
+        vals = {k: round(float(s[key]), 4) for k, s in summ.items()}
+        order = sorted(vals, key=lambda k: -vals[k] if high else vals[k])
+        best, worst = vals[order[0]], vals[order[-1]]
+        out[key] = {"measure": label, "ranking_best_first": [{"method": k, "value": vals[k]} for k in order],
+                    "best": [k for k in order if vals[k] == best], "worst": [k for k in order if vals[k] == worst]}
+    by_status: dict = {}
+    for k, s in summ.items():
+        by_status.setdefault(s["compliance_worst"], []).append(k)
+    out["compliance"] = {"by_status": {st: sorted(ks) for st, ks in sorted(by_status.items())},
+                         "passing": sorted(k for k, s in summ.items() if s["compliance_worst"].startswith("PASS")),
+                         "with_warnings": sorted(by_status.get("WARN", [])), "failing": sorted(by_status.get("FAIL", [])),
+                         "note": "Status is the worst result across the vintages. 'PASS (attestations pending)' counts as passing."}
+    out["family_members"] = {}
+    for k, s in summ.items():
+        out["family_members"].setdefault(s["family"], []).append(k)
+    return out
+
+
 # ------------------------------------------------------------------------------------------ deterministic fallbacks
 def offline_thesis(k: str, s: dict, regime: str) -> dict:
     return {"thesis": (f"{k} ({s['family'].replace('_', '-')}): average expected return {s['expected_return']:.2%}, volatility "
@@ -188,7 +218,8 @@ def deliberate(llm, L, run_id: str, pv: str, mv: dict, ctx: dict, assets: list, 
     fam = {k: ctx[vs[0]]["cand"][k]["family"] for k in methods}
     summ = series_summary(ctx, assets, names)
     scope = [f"MTRS-{v}" for v in vs]
-    base = {"regime": {"regime": mv["regime"], "confidence": mv["confidence"]}, "vintages": vs, "candidates": summ}
+    facts = fact_sheet(summ)
+    base = {"regime": {"regime": mv["regime"], "confidence": mv["confidence"]}, "vintages": vs, "fact_sheet": facts, "candidates": summ}
     detail = T.deliberation_tools(ctx, assets, names)
 
     def pc_actor(k, path):
@@ -207,12 +238,17 @@ def deliberate(llm, L, run_id: str, pv: str, mv: dict, ctx: dict, assets: list, 
     def traced(output, path):
         return {**output, "judge_path": path, **({"agent_trace": llm.last_trace} if llm.last_trace else {})}
 
+    rec("pc-review.fact-sheet", {"kind": "system", "id": "orchestrator", "version": "0.1.0"},
+        "Fact sheet for the strategy review: best " + ", ".join(f"{m[1]} {'/'.join(facts[m[0]]['best'])}" for m in FACT_MEASURES[:3])
+        + f"; passing: {', '.join(facts['compliance']['passing']) or 'none'}", facts)
+
     # 1. thesis --------------------------------------------------------------------------------
     theses = {}
     for k in methods:
         j = llm.judge(pc, persona(k) + "Write the thesis for your proposal across the series: why this method suits the "
                       "current regime and capital market assumptions, and where it is weakest. Three or four sentences. "
-                      "Use only numbers given in the context or returned by a tool.",
+                      "Use only numbers given in the context or returned by a tool. For any claim that a method is highest, "
+                      "lowest, best, worst or the only one passing, check the fact_sheet and state it exactly as it says.",
                       {**base, "your_method": k}, '{"thesis": str, "fits_regime": "well|partly|poorly", "weaknesses": [str]}',
                       tools=detail, schema=T.THESIS_SCHEMA)
         ok = isinstance(j, dict) and isinstance(j.get("thesis"), str) and j["thesis"].strip()
@@ -226,7 +262,7 @@ def deliberate(llm, L, run_id: str, pv: str, mv: dict, ctx: dict, assets: list, 
     # 2. risk officer commentary (neutral; no vote) ----------------------------------------------
     j = llm.judge(cro, "Write the standardized risk commentary on every candidate for the series. One or two sentences per "
                   "method and a risk flag. You are a neutral assessor: you do not rank or vote, and you report compliance "
-                  "results exactly as given.", base,
+                  "results exactly as given. Any 'highest', 'lowest' or 'only' statement must match the fact_sheet.", base,
                   '{"overview": str, "comments": [{"method": str, "comment": str, "risk_flag": "none|watch|concern"}]}',
                   tools=detail, schema=T.cro_schema(methods))
     got = {c["method"]: c for c in (j.get("comments") or []) if isinstance(c, dict) and c.get("method") in methods} if isinstance(j, dict) else {}
@@ -258,7 +294,9 @@ def deliberate(llm, L, run_id: str, pv: str, mv: dict, ctx: dict, assets: list, 
         peers = assign[k]
         j = llm.judge(pc, persona(k) + f"Review these two peers: {peers[0]} and {peers[1]}. For each give an assessment "
                       "(strengths, weaknesses, fit with the policy, estimation risk, one concrete improvement), a short list "
-                      "of concerns, and a score from 1 (weak) to 5 (strong). Be specific and critical; do not review yourself.",
+                      "of concerns, and a score from 1 (weak) to 5 (strong). Be specific and critical; do not review yourself. "
+                      "Check every ranking or 'only' claim, yours and the peer's, against the fact_sheet; call out a peer's claim "
+                      "that the fact_sheet contradicts.",
                       {**base, "your_method": k, "peers_to_review": {p: {"thesis": theses[p]["thesis"], "weaknesses": theses[p]["weaknesses"],
                                                                          "risk_officer": cro_by[p]} for p in peers}},
                       '{"reviews": [{"peer": str, "assessment": str, "concerns": [str], "score": 1-5}]}',
@@ -337,7 +375,7 @@ def deliberate(llm, L, run_id: str, pv: str, mv: dict, ctx: dict, assets: list, 
         rec(f"pc-{k}.revision", pc_actor(k, path), f"{k}: {note}", traced({x: revisions[k][x] for x in ("tilt_scale", "blend_with", "blend_weight", "applied", "note")}, path),
             rationale=revisions[k]["response_to_reviews"] or None, dr_type="decision")
 
-    return {"seed": seed, "assignments": assign, "theses": theses, "risk_commentary": cro_out, "reviews": reviews,
+    return {"seed": seed, "fact_sheet": facts, "assignments": assign, "theses": theses, "risk_commentary": cro_out, "reviews": reviews,
             "ballots": ballots, "shortlist": short, "revisions": revisions, "families": fam,
             "by_agents": sum(1 for d in list(theses.values()) + list(reviews.values()) + list(ballots.values()) + list(revisions.values())
                              if d.get("source") not in (None, "offline")) + (cro_out["source"] != "offline")}

@@ -543,19 +543,25 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     flagged = {}
     for b_ in delib["ballots"].values():
         flagged[b_["bottom_flag"]] = flagged.get(b_["bottom_flag"], 0) + 1
-    memo_ctx = {"regime": {"regime": mv["regime"], "confidence": mv["confidence"]}, "contains_synthetic_data": bool(synthetic_detail),
+    memo_ctx = {"how_to_read": ("The glide path is the series' strategic policy, set by the IPS; this run does not change it. "
+                                "The recommendation is the proposed weights for each vintage, which tilt around the glide path within "
+                                "the tactical bands and the tracking-error budget. equity_proposed versus equity_glide_path shows the tilt."),
+                "regime": {"regime": mv["regime"], "confidence": mv["confidence"]}, "contains_synthetic_data": bool(synthetic_detail),
                 "vintages": {str(v): {"equity_glide_path": round(d["equity_neutral"], 4), "equity_proposed": round(d["equity_final"], 4),
                                       "tracking_error": round(d["te"], 4), "ensemble": d["ensemble"], "compliance": d["compliance_summary"]["overall"],
                                       "top_ranked_method": d["ranking"][0]["method"]} for v, d in vint_out.items()},
-                "strategy_review": {"shortlist": delib["shortlist"], "bottom_flags_received": flagged,
+                "strategy_review": {"fact_sheet": {k: delib["fact_sheet"][k]["best"] for k in ("expected_return", "volatility", "sharpe")}
+                                    | {"passing": delib["fact_sheet"]["compliance"]["passing"]},
+                                    "shortlist": delib["shortlist"], "bottom_flags_received": flagged,
                                     "revisions": {k: r["note"] for k, r in delib["revisions"].items()},
                                     "risk_flags": {c["method"]: c["risk_flag"] for c in delib["risk_commentary"]["comments"] if c["risk_flag"] != "none"}},
                 "compliance_review": {"status": co["status"], "findings": co["findings"][:6]},
                 "invalidation_conditions": next(iter(vint_out.values()))["invalidation_conditions"][:4]}
     mj = llm.judge(memo_spec, "Write the opening summary of the board memo for non-technical readers, in 150 to 220 words of plain "
                    "prose: what is recommended, why, how the agents decided (including dissent), the main risks, and what would "
-                   "change the view. Use only numbers from the context. Say plainly if the run contains synthetic data. Do not "
-                   "present simulated results as actual performance.", memo_ctx, '{"narrative": str}', schema=T.MEMO_SCHEMA)
+                   "change the view. Use only numbers from the context. Read how_to_read first: describe the recommendation as "
+                   "tilts around the glide path, never as a new or changed glide path. Say plainly if the run contains synthetic "
+                   "data. Do not present simulated results as actual performance.", memo_ctx, '{"narrative": str}', schema=T.MEMO_SCHEMA)
     narrative = mj["narrative"].strip()[:3000] if isinstance(mj, dict) and isinstance(mj.get("narrative"), str) and mj["narrative"].strip() else None
     memo_path = llm.path_name if narrative else "offline"
     if llm.enabled or llm.last_trace:
