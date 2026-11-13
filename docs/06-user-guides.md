@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 0.8 · 2026-11-13 (step-by-step rewrite; new Trading screens) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 0.9 · 2026-11-13 (Approver permission; vintage picker; Proposals tab) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -158,8 +158,8 @@ The side bar groups these under Overview, Portfolio, Risk and Governance, so the
 
 | Workspace | Tabs |
 |---|---|
-| Portfolio Manager | Home · Funds & vintages · Positioning · Portfolios & proposals · Changes since last run · Fund risk · Risk budget · Metrics · Look-through & search · Glide path · Approvals · Exceptions · Agent votes |
-| Risk Analytics | Home · Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk · Positioning · Portfolios & proposals · Approvals · Exceptions |
+| Portfolio Manager | Home · Funds & vintages · Positioning · Proposals · Changes since last run · Fund risk · Risk budget · Metrics · Look-through & search · Glide path · Approvals · Exceptions · Agent votes |
+| Risk Analytics | Home · Fund risk · Factor risk · Stress tests · Risk history · Look-through & search · Risk budget · Metrics · Candidate risk · Positioning · Proposals · Approvals · Exceptions |
 | Research / Analyst | Home · Positioning · Changes since last run · Metrics · Factor risk · Look-through & search · Capital market assumptions · Agent votes · Glide path |
 | Manager Selection | Home · Funds & vintages · Underlying funds · Look-through & search · Positioning |
 | Leadership | Home · Funds & vintages · Board memo · Changes since last run · Fund risk · Stress tests · Risk budget · Metrics · Glide path · Approvals · Exceptions |
@@ -167,7 +167,9 @@ The side bar groups these under Overview, Portfolio, Risk and Governance, so the
 | Audit (read-only) | Home · Decision ledger · Exceptions · Compliance · Compliance report |
 | Admin | User access screen, plus the read-only Audit view |
 
-**Permissions** sit on top of workspaces and are switched on per person by an admin: **Investment Committee member** (record committee decisions; needs the Leadership workspace), **Chief Compliance Officer** (accept exceptions, approve policy changes; needs the Compliance workspace; only for the named CCO), **Trade route manager** (change order routes on Trading).
+**Permissions** sit on top of workspaces and are switched on per person by an admin: **Investment Committee member** (record committee decisions; needs the Leadership workspace), **Chief Compliance Officer** (accept exceptions, approve policy changes; needs the Compliance workspace; only for the named CCO), **Trade route manager** (change order routes on Trading), **Approver** (record approval decisions on proposals, risk-budget changes and trade lists; works with the Portfolio Manager or Risk workspace).
+
+**Approving needs the Approver permission.** A Portfolio Manager or Risk user without it can open and read everything, but sees *"Your account doesn't have the Approver permission"* where the decision buttons would be, and nothing waits for them in **My work** or **Approvals**. An admin switches it on or off in **User access** (11.2); every change is in the access log with who, when and why. Analysts don't approve, with or without it.
 
 ---
 
@@ -197,7 +199,9 @@ The side bar groups these under Overview, Portfolio, Risk and Governance, so the
 3. Click **Close** (or press **Esc**).
 
 ### 2.2 Approving (the same steps everywhere)
-1. Open the item (e.g. **Portfolios & proposals** → pick a vintage).
+**Before you start:** your account has the **Approver** permission (1.9). Without it the buttons below don't appear.
+
+1. Open the item (e.g. **Proposals** → pick a vintage).
 2. Read the summary, *Why the agents recommend it*, *What would change the view*, *Disagreement among the agents* and *Compliance*. Use **Why?** for the evidence.
 3. Tick the box that starts **I reviewed…**.
 4. Write a reason of at least 10 characters.
@@ -220,13 +224,13 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 3. Scroll to **The series at a glance**: one row per vintage with mutual fund and CIT assets, glide-path equity, proposed equity, tilt, what each fund holds today, risk budget used, approval status and compliance. Click a vintage to open its proposal.
 
 ### 3.2 Review and approve a vintage's proposal
-**Who:** Portfolio Manager (and Risk, as the second approver). **Where:** Console → **Portfolios & proposals**.
-**Before you start:** the run you want is selected in **Run** in the side bar.
+**Who:** Portfolio Manager (and Risk, as the second approver), each with the **Approver** permission. **Where:** Console → **Proposals**.
+**Before you start:** the run you want is selected in **Run** in the side bar, and you hold the Approver permission (1.9).
 
 ![Proposal for 2050: what is being approved, the weights, why the agents recommend it](img/guide/pm-02-proposal.png)
 *Image: `pm-02-proposal.png`*
 
-1. Click **Portfolios & proposals** in the side bar.
+1. Click **Proposals** in the side bar.
 2. Under **Proposals in this run**, click the vintage (e.g. **2050**). The heading changes to **What is being approved: 2050 vintage**. It names both funds the decision covers (the mutual fund and the CIT) and says **Nothing is traded by this approval.**
 3. Read **The weights**: for every asset class, the glide path, the proposed weight, the tilt and the change **Since last run**. Rows highlighted in blue move 1pp or more from the glide path.
 4. Read **Tilts at a glance**: blue bars are overweights, orange underweights.
@@ -312,7 +316,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 1. Click **Glide path**. **Glide path today, by fund** lists every vintage with years to retirement, the IPS equity, each product line's equity, and fixed income and real assets.
 2. Check **Approved adjustments in force** and **Requests awaiting the Investment Committee** so you don't duplicate one.
 3. In **Propose a glide-path adjustment**, set **Apply to**: **All funds**, **All mutual funds**, **All CITs** or one fund.
-4. Optional: choose **From vintage** and **To vintage** to limit the range (e.g. 2030 to 2045).
+4. **2. Vintages**: every vintage starts selected (dark). Click a vintage to leave it out, click again to put it back. Shortcuts: **All**, **2030–2045**, **2050–2070**, **Clear**. The line under the buttons says how many vintages and funds are in scope (e.g. "3 vintages selected · 3 funds in scope"). If you chose one fund in step 3, its own vintage applies and the buttons are hidden.
 5. Under **Moves**, type the size in pp, choose the asset class it goes **into**, and the one it comes **from** (e.g. Move `0.5` pp into **US Core Bond (Aggregate)** from **US Large Cap Equity**). Click **Add a move** for more.
 6. Click **Preview**.
 
@@ -334,7 +338,7 @@ The same request can also be made from Trading → **Glide path & bulk changes**
 
 1. Click **Approvals**. **Waiting for you** lists what needs your decision.
 2. Further down, each vintage row shows the funds affected with their assets, a one-paragraph summary (equity vs glide path, largest tilts, tracking error against the budget, compliance, what changed since the last run), who has decided (**you**, **Risk**) and the status.
-3. Click **Open** on a line to go to that vintage on **Portfolios & proposals** and decide (3.2).
+3. Click **Open** on a line to go to that vintage on **Proposals** and decide (3.2).
 4. **Risk budget changes** and **Glide-path changes** at the bottom list pending policy requests.
 
 ### 3.8 Other PM screens
@@ -397,7 +401,7 @@ US Treasury securities are grouped under one issuer, **UNITED STATES TREASURY**.
 1. **Risk history**: pick a metric; each month shows whether it is a recorded snapshot or reconstructed.
 2. **Risk budget**: as 3.5; you approve or reject PM budget requests from **Approvals → Risk budget changes**.
 3. **Candidate risk**: each construction method's ex-ante volatility, TE vs limit and compliance before the CIO blend.
-4. **Approvals** and **Portfolios & proposals**: co-approve as Risk after the PM (3.2 and 3.7). You can't decide the same vintage twice in two roles.
+4. **Approvals** and **Proposals**: co-approve as Risk after the PM (3.2 and 3.7). You can't decide the same vintage twice in two roles.
 5. Deeper work: `notebooks/04_risk_analytics_workbench.ipynb` reproduces every figure.
 
 ---
@@ -583,7 +587,7 @@ Open **Trading** in the dark bar (or go to `/trading`). Everything is shadow mod
 
 | Who | Can |
 |---|---|
-| Portfolio Manager | Everything below, including **Rebalance to a target**, approving trade lists, strategic tables, tilts, exits, buffer and exclusions |
+| Portfolio Manager | Everything below, including **Rebalance to a target**, strategic tables, tilts, exits, buffer and exclusions; approving trade lists also needs the **Approver** permission |
 | Analyst | Load cashflows; **Invest cashflows**, **Trade a security**, **Exit a position**; tranche and cancel drafts; download the Charles River file after approval |
 | Trade route manager (permission) | Change order routes |
 | Admin | Buffer and exclusions |
@@ -797,7 +801,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 **You're done when** **Bucket by date** shows totals per date and each order shows "1 of n". Meridian checks every series totals 100%, dates are weekdays and not market holidays, in order and not before the trade date, quantities respect lot sizes and add back exactly, and no tranche is empty. Tranches can be changed until the list is approved.
 
 ### 10.9 Approve a trade list and export it to Charles River
-**Who:** PM approves; PM or analyst downloads. **Where:** Trading → **Trade lists**.
+**Who:** a PM with the **Approver** permission approves; PM or analyst downloads. **Where:** Trading → **Trade lists**.
 
 ![A saved trade list, opened on its impact](img/guide/trd-05-trade-list.png)
 *Image: `trd-05-trade-list.png`*
@@ -808,7 +812,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 ![Orders by destination](img/guide/trd-06-orders.png)
 *Image: `trd-06-orders.png`*
 
-3. Scroll to **Approve**. Tick **I reviewed the orders, the impact (now vs after), the compliance check and the notes**.
+3. Scroll to **Approve**. If you see a note about the **Approver** permission instead of a checkbox, your account doesn't have it; ask an admin (11.2). Tick **I reviewed the orders, the impact (now vs after), the compliance check and the notes**.
 
 ![Approve the trade list](img/guide/trd-09-approve.png)
 *Image: `trd-09-approve.png`*
@@ -861,7 +865,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 ![Apply to: scope and glide-path shifts](img/guide/trd-17-glide-path.png)
 *Image: `trd-17-glide-path.png`*
 
-1. **Apply to:** choose **All funds**, **All mutual funds**, **All CITs** or one fund, and optionally a vintage range. The page shows how many funds that is.
+1. **Apply to:** choose **All funds**, **All mutual funds**, **All CITs** or one fund in **Funds**. Then, under **Vintages**, click the vintages to include or leave out (all start selected; shortcuts **All**, **2030–2045**, **2050–2070**, **Clear**). Beside **Funds** it says how many funds and vintages that is, e.g. "Applies to 4 funds · 4 vintages". With nothing selected it says **Pick at least one vintage** and refuses every change on the tab.
 2. Type one reason; it is recorded with every change made on this tab.
 3. **Glide path** (needs Investment Committee approval; same as 3.6):
    - Add one or more shifts: asset class, ± pp, funded from another asset class.
@@ -881,7 +885,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 ![Tilts, exclusions, exits, roll-down and buffer in bulk](img/guide/trd-20-bulk-tilts.png)
 *Image: `trd-20-bulk-tilts.png`*
 
-5. **Tilts** (PM): an asset class (spread over each fund's securities in that class) or a security, ± bp, optional end date; click **Apply tilt**. For the same item the most specific scope wins: one fund, then a vintage range, then all CITs or all mutual funds, then all funds.
+5. **Tilts** (PM): an asset class (spread over each fund's securities in that class) or a security, ± bp, optional end date; click **Apply tilt**. For the same item the most specific scope wins: one fund, then chosen vintages, then all CITs or all mutual funds, then all funds.
 6. **Exclusions and full exits**: a security, exclude or flag for exit, optional end date; click **Apply**.
 7. **Roll-down schedule and cash buffer**: set the roll-down frequency and/or a stricter ETF buffer for every fund in scope; click **Apply**.
 
@@ -930,7 +934,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 
 1. Click **Add user**.
 2. Type the email (also the username) and full name (shown on every decision).
-3. Tick **Workspaces**; switch **Permissions** on as needed (Investment Committee member, Chief Compliance Officer, Trade route manager).
+3. Tick **Workspaces**; switch **Permissions** on as needed (Investment Committee member, Chief Compliance Officer, Trade route manager, **Approver**). A Portfolio Manager or Risk user needs **Approver** to record approvals; without it they review only.
 4. Read any **Check before saving** warnings (e.g. a permission without its workspace, a proposer who can also approve, more than one CCO).
 5. Type a reason (at least 10 characters) and click **Send invitation**.
 
@@ -938,6 +942,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 
 ### 11.2 Edit, disable, delete
 1. **Edit**: click **Edit** on a person; change workspaces, permissions or name; type a reason; click **Save**. The person is signed out at once and the new access applies.
+   - **To give someone approval authority:** Edit → switch **Approver** on (they also need the Portfolio Manager or Risk workspace) → reason (e.g. "Approver per IC minute 12") → **Save**. To take it away, switch it off the same way. Both show in the **Access log** (11.3) with who changed it, when, before and after, and the reason, and in the **Access review** CSV.
 2. **Disable** blocks sign-in (history is kept); **Enable** reverses it; **Resend invitation** re-sends the email.
 3. **Delete account…** works only on a disabled account. Type the person's email in the box; **Delete account** stays greyed out until it matches.
 4. You can't remove your own admin role, disable or delete yourself, or remove the last enabled admin.
@@ -1030,7 +1035,9 @@ Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · re
 | Reason must be at least 10 characters / Give a reason of at least 10 characters | The reason box is too short | Write a fuller reason; watch the counter under the box |
 | Tick the review box (or the approve button does nothing) | The **I reviewed…** box isn't ticked | Tick it, then click again |
 | Segregation of duties | You already decided this vintage in another role, or you are deciding your own request | Ask another approver |
-| Needs the portfolio manager role / Portfolio managers only | The action is PM-only (e.g. rebalance, approve) | Prepare what you can; ask a PM |
+| Needs the portfolio manager role / Portfolio managers only | The action is PM-only (e.g. rebalance) | Prepare what you can; ask a PM |
+| Recording an approval needs the Approver permission / "Your account doesn't have the Approver permission" | You have the PM or Risk workspace but not the Approver permission | Ask an admin to switch it on in User access (11.2) |
+| Pick at least one vintage | Every vintage button is cleared on a glide-path or bulk change | Click the vintages you want, or **All** |
 | No cashflows to invest | No **New** cashflows for that date and product line | Load them on **Cashflows**, or switch **All funds** at the top right |
 | Choose a fund / Add at least one security | The setup is incomplete | Pick a fund; click **Add** on a security |
 | Not enough cash (in the ticket) / Cash would go negative | Buys exceed the fund's uninvested cash | Add a sell or lower the buy (10.5 step 7) |

@@ -12,10 +12,10 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 
 | Person | Title | Workspace roles | Permissions | Notes |
 |---|---|---|---|---|
-| Maya Chen | Senior Portfolio Manager, Target-Date | `portfolio_manager` | — | Primary PM approver |
-| Jordan Ellis | Portfolio Manager | `portfolio_manager` | — | Second PM: approves risk-budget changes Maya requests (requester can't self-approve) |
-| Daniel Okafor | Investment Risk Manager | `risk` | — | Risk co-approver |
-| Kenji Watanabe | Investment Risk Analyst | `risk` | — | Builds risk packs; backup risk approver |
+| Maya Chen | Senior Portfolio Manager, Target-Date | `portfolio_manager` | `approver` | Primary PM approver |
+| Jordan Ellis | Portfolio Manager | `portfolio_manager` | `approver` | Second PM: approves risk-budget changes Maya requests (requester can't self-approve) |
+| Daniel Okafor | Investment Risk Manager | `risk` | `approver` | Risk co-approver |
+| Kenji Watanabe | Investment Risk Analyst | `risk` | `approver` | Builds risk packs; backup risk approver |
 | Priya Raman | Multi-Asset Research Analyst (CMAs) | `analyst` | — | Proposes weight adjustments for approval |
 | Marcus Webb | Manager Research Analyst | `manager_selection` | — | |
 | Elena Rossi | Chief Investment Officer, IC Chair | `leadership` | `investment_committee` | |
@@ -27,6 +27,8 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 | Sam Patel | Platform Admin & Model Risk Owner | `admin` | — | Read-only Console; manages users and deploys |
 
 **Segregation of duties in the roster.** No one holds both a proposing role (PM, analyst) and the committee or CCO permission; Risk is held by different people from the PMs.
+
+**Approver.** Since 2026-11-13 approval authority is its own permission (`approver`): a Portfolio Manager or Risk user without it reviews but can't decide. Every grant and removal is in the access log.
 
 **Permissions vs workspaces.** Workspace roles decide which screens a person sees. Permissions (`investment_committee`, `chief_compliance_officer`) are switched on or off per person on top of that and allow recording decisions that need that authority (IPS §10.4). A permission alone gives no screens: an IC member also needs the `leadership` workspace.
 
@@ -261,7 +263,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - Access review report (who has which roles).
 - Health and cost dashboard.
 
-**Covered today:** User access screen (add, edit, permissions on/off including Investment Committee, CCO and Trade route manager, disable/enable, delete, access review with CSV, append-only access log, immediate sign-out on access changes); deploys and runs through GitHub Actions; cost guard; runbooks (doc 14).
+**Covered today:** User access screen (add, edit, permissions on/off including Investment Committee, CCO, Trade route manager and Approver, disable/enable, delete, access review with CSV, append-only access log, immediate sign-out on access changes); deploys and runs through GitHub Actions; cost guard; runbooks (doc 14).
 **Gaps:** No agent registry or model inventory; no alarms (deferred for cost).
 **UAT top tasks:** (1) add a user with specific roles and confirm what they see; (2) disable a user and confirm sign-in is blocked; (3) find the deploy that changed the app last and what it changed.
 

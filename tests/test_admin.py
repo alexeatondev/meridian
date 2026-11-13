@@ -35,7 +35,7 @@ def seed_admin(c):
 
 
 def test_only_admins_can_change_access(client):
-    h = login(client, "Maya Chen", "portfolio_manager")
+    h = login(client, "Maya Chen", "portfolio_manager", "approver")
     assert client.get("/api/admin/users").status_code == 403
     assert client.post("/api/admin/users", json={}, headers=h).status_code == 403
     h = login(client, "Grace Liu", "audit")
@@ -166,3 +166,25 @@ def test_cognito_adapter_lists_and_changes_only_the_difference():
     d.set_roles("a@example.com", ["leadership", "investment_committee"])
     assert sorted(d.c.calls) == [("add", "investment_committee"), ("remove", "portfolio_manager")]
     assert sorted(d.get("a@example.com")["roles"]) == ["investment_committee", "leadership"]
+
+
+def test_approver_permission_is_switched_on_and_off_and_logged(client):
+    """Approver is a permission like the others: granted and removed in User access, each change in the access log."""
+    h = seed_admin(client)
+    assert client.post("/api/admin/users", json={"email": "maya@example.com", "name": "Maya Chen",
+                       "roles": ["portfolio_manager"], "reason": R}, headers=h).status_code == 200
+    w = client.post("/api/admin/check", json={"roles": ["portfolio_manager"]}, headers=h).json()["warnings"]
+    assert any("No Approver permission" in x for x in w)
+    w = client.post("/api/admin/check", json={"roles": ["analyst", "approver"]}, headers=h).json()["warnings"]
+    assert any("Approver permission without" in x for x in w)
+    for roles, reason in ((["portfolio_manager", "approver"], "UAT: grant Approver to Maya per IC minute 12"),
+                          (["portfolio_manager"], "UAT: remove Approver from Maya, moved to a review-only seat")):
+        assert client.put("/api/admin/users/maya@example.com", json={"roles": roles, "reason": reason},
+                          headers=h).status_code == 200
+    ev = [e for e in client.get("/api/admin/access-log").json()["events"] if e["action"] == "set_access"][:2]
+    removed, granted = ev                                      # newest first
+    assert "approver" in granted["after"]["roles"] and "approver" not in granted["before"]["roles"]
+    assert "approver" in removed["before"]["roles"] and "approver" not in removed["after"]["roles"]
+    assert granted["actor"] and "IC minute 12" in granted["reason"]
+    review = client.get("/api/admin/users").json()
+    assert "approver" in review["permissions"]

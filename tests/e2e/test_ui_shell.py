@@ -6,7 +6,7 @@ from conftest import trade_create, trade_preview, trade_setup
 
 def test_ux_01_app_bar_on_every_screen_filtered_by_role(sign_in, app_url):
     """UX-1: the same app bar on every screen; links follow the person's access; the current screen is marked."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     bar = page.locator(".mbar")
     expect(bar.locator("nav")).to_have_text("ConsoleTradingRegulations")
     expect(bar.locator("nav a[aria-current=page]")).to_have_text("Console")
@@ -28,7 +28,7 @@ def test_ux_01_app_bar_on_every_screen_filtered_by_role(sign_in, app_url):
 
 def test_ux_02_my_work_opens_the_item(sign_in, app_url):
     """UX-2: My work lists a draft trade list for a PM and opens it on Trading → Trades."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     page.click(".tabs button:text-is('Cashflows')")
     page.select_option("#cfFund", "MTRS-2060")
@@ -70,7 +70,7 @@ def test_ux_02_my_work_opens_the_item(sign_in, app_url):
 
 def test_ux_03_messages_reason_counter_and_keyboard(sign_in, app_url):
     """UX-3: errors stay until dismissed; reason fields count characters; tabs work with the arrow keys; skip link."""
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     trade_setup(page, "rebalance", strat="neutral")
     trade_preview(page)

@@ -101,7 +101,7 @@ def test_adm_14_audit_sees_read_only_screen(sign_in, app_url):
 
 
 def test_adm_15_pm_cannot_open_user_access(sign_in, app_url):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     assert "User access" not in p.inner_text(".mbar nav")
     r = p.request.get(app_url + "/admin")
     assert r.status == 403

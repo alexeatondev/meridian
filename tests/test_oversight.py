@@ -47,7 +47,7 @@ def test_lifecycle_rules_and_governance_chain(client):
     assert act(h, {"action": "close", "reason": R}).status_code == 400                 # opener alone can't close
     h2 = login(client, "Robert Hayes", "compliance")
     assert act(h2, {"action": "close", "reason": R}).status_code == 200
-    h3 = login(client, "Maya Chen", "portfolio_manager")
+    h3 = login(client, "Maya Chen", "portfolio_manager", "approver")
     assert act(h3, {"action": "reopen", "reason": R}).status_code == 403
     from meridian.app.main import _verify_records, store
     gov = store().ledger("governance")
@@ -66,5 +66,5 @@ def test_search_filters_and_roles(client):
     assert j["matches"] == 1 and j["results"][0]["step"] == "exception.open"
     assert client.get("/api/ledger/search", params={"vintage": "2030"}).json()["matches"] == 0
     assert client.get("/api/ledger/search", params={"format": "csv"}).text.startswith("run_id,")
-    login(client, "Maya Chen", "portfolio_manager")
+    login(client, "Maya Chen", "portfolio_manager", "approver")
     assert client.get("/api/ledger/search").status_code == 403

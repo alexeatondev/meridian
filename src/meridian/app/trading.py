@@ -38,7 +38,7 @@ router = APIRouter()
 
 VIEW_ROLES = ("portfolio_manager", "analyst", "risk", "compliance", "audit", "admin", "leadership")
 PREPARE_ROLES = ("portfolio_manager", "analyst")          # load cashflows, generate trade lists
-APPROVE_ROLES = ("portfolio_manager",)                    # approve trade lists, change target tables
+APPROVE_ROLES = ("portfolio_manager",)                    # approve trade lists (plus the Approver permission), change target tables
 SETTINGS_ROLES = ("portfolio_manager", "admin")           # buffer, exclusions
 ROUTE_PERMISSION = "route_manager"                        # permission flag: may change order routes (logged)
 CF_TYPES = ("subscription", "redemption")
@@ -128,31 +128,49 @@ def _apply_roll_down(overrides: dict) -> None:
 SCOPES = {"*": "All funds", "vehicle:mutual_fund": "All mutual funds", "vehicle:cit": "All CITs"}
 
 
+def _vintage_list(vs) -> list[int]:
+    """Chosen vintages for a scope (empty = every vintage). Unknown vintages are refused."""
+    if not vs:
+        return []
+    if isinstance(vs, (int, str)):
+        vs = [vs]
+    out = sorted({int(v) for v in vs})
+    bad = [v for v in out if v not in model().policy.vintages]
+    if bad:
+        raise HTTPException(400, f"Unknown vintage {', '.join(map(str, bad))}")
+    return [] if out == sorted(model().policy.vintages) else out
+
+
 def scope_label(e: dict) -> str:
     lab = SCOPES.get(e.get("fund", "*"), e.get("fund", "*"))
+    if e.get("vintages"):
+        vs = sorted(int(v) for v in e["vintages"])
+        return lab + (f", vintage {vs[0]}" if len(vs) == 1 else f", vintages {', '.join(map(str, vs))}")
     vf, vt = e.get("vintage_from"), e.get("vintage_to")
     return lab + (f", vintages {vf or '…'}–{vt or '…'}" if vf or vt else "")
 
 
 def in_scope(e: dict, fund_id: str) -> bool:
     """Does a setting entry apply to a fund? fund: a fund id, "*", "vehicle:mutual_fund" or "vehicle:cit";
-    optional vintage_from / vintage_to narrow it to a range of vintages."""
+    optional vintages (a list) or vintage_from / vintage_to (a range, older entries) narrow it."""
     f = model().funds[fund_id]
     sc = e.get("fund", "*")
     if not (sc == "*" or sc == fund_id or (sc.startswith("vehicle:") and sc[8:] == f.vehicle)):
         return False
+    if e.get("vintages"):
+        return f.vintage in {int(v) for v in e["vintages"]}
     vf, vt = e.get("vintage_from"), e.get("vintage_to")
     return (not vf or f.vintage >= int(vf)) and (not vt or f.vintage <= int(vt))
 
 
 def _specificity(e: dict) -> int:
     sc = e.get("fund", "*")
-    return (0 if sc == "*" else 1 if sc.startswith("vehicle:") else 3) + (1 if e.get("vintage_from") or e.get("vintage_to") else 0)
+    return (0 if sc == "*" else 1 if sc.startswith("vehicle:") else 3) + (1 if e.get("vintages") or e.get("vintage_from") or e.get("vintage_to") else 0)
 
 
-def scope_funds(scope: str, vintage_from=None, vintage_to=None) -> list[str]:
+def scope_funds(scope: str, vintage_from=None, vintage_to=None, vintages=None) -> list[str]:
     m = model()
-    e = {"fund": scope or "*", "vintage_from": vintage_from, "vintage_to": vintage_to}
+    e = {"fund": scope or "*", "vintage_from": vintage_from, "vintage_to": vintage_to, "vintages": _vintage_list(vintages)}
     if e["fund"] not in SCOPES and e["fund"] not in m.funds:
         raise HTTPException(400, f"Unknown scope {scope}")
     return [fid for fid in m.funds if in_scope(e, fid)]
@@ -302,6 +320,7 @@ def trading_page(request: Request):
     roles = user["roles"]
     boot = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": roles}, "csrf": user["csrf"],
             "can_prepare": any(r in roles for r in PREPARE_ROLES), "can_approve": any(r in roles for r in APPROVE_ROLES),
+            "can_approve_lists": any(r in roles for r in APPROVE_ROLES) and auth.APPROVER in roles,
             "can_settings": any(r in roles for r in SETTINGS_ROLES), "can_routes": ROUTE_PERMISSION in roles,
             "can_glide": "investment_committee" in roles}
     from .shell import wrap
@@ -601,12 +620,15 @@ def set_settings(request: Request, body: dict = Body(...)):
                     raise HTTPException(400, f"Unknown vintage {v}")
             if vf and vt and int(vf) > int(vt):
                 raise HTTPException(400, "Vintage range is back to front")
+            vl = _vintage_list(e.get("vintages"))
             ent = {"fund": e.get("fund", "*"), "reason": str(e.get("reason", "")).strip() or reason,
                    "until": e.get("until") or "", "by": e.get("by") or _who(user), "at": e.get("at") or _ts(),
                    **({"asset_class": ac} if ac else {"instrument": e["instrument"]}), **extra(e)}
-            if vf:
+            if vl:
+                ent["vintages"] = vl
+            elif vf:
                 ent["vintage_from"] = int(vf)
-            if vt:
+            if vt and not vl:
                 ent["vintage_to"] = int(vt)
             out.append(ent)
         return out
@@ -986,6 +1008,7 @@ def approve(request: Request, tid: str, body: dict = Body(...)):
     user = auth.require_user(request)
     auth.check_csrf(request, user)
     auth.require_role(user, *APPROVE_ROLES)
+    auth.require_approver(user)
     if not body.get("checked"):
         raise HTTPException(400, "Confirm you reviewed the post-trade preview and compliance")
     reason = _reason(body)
@@ -1423,13 +1446,13 @@ def _band_rules() -> tuple[float, str, float]:
     return a / 100, g.get("group", "equity"), float(g.get("pp", 5.0)) / 100
 
 
-def _glide_preview(s, scope: str, vf, vt, deltas: dict) -> list[dict]:
+def _glide_preview(s, scope: str, vf, vt, deltas: dict, vintages=None) -> list[dict]:
     """Per fund: current glide path (with approved adjustments), proposed, and the check against the IPS bands."""
     m = model()
     band, group, gband = _band_rules()
     members = set(m.policy.groups.get(group, []))
     out = []
-    for fid in scope_funds(scope, vf, vt):
+    for fid in scope_funds(scope, vf, vt, vintages):
         ips = m.neutral_asset_weights(fid)
         cur = neutral_aw(s, fid)
         new = {a: cur.get(a, 0.0) + deltas.get(a, 0.0) for a in m.policy.assets}
@@ -1453,7 +1476,8 @@ def glide_preview(request: Request, body: dict = Body(...)):
     deltas = _shift_deltas(body.get("shifts") or [])
     with _store().Session() as s:
         get_settings(s)
-        rows = _glide_preview(s, body.get("scope", "*"), body.get("vintage_from"), body.get("vintage_to"), deltas)
+        rows = _glide_preview(s, body.get("scope", "*"), body.get("vintage_from"), body.get("vintage_to"), deltas,
+                              body.get("vintages"))
     if not rows:
         raise HTTPException(400, "No funds in that scope")
     return {"funds": rows, "ok": all(r["ok"] for r in rows)}
@@ -1481,16 +1505,18 @@ def glide_request(request: Request, body: dict = Body(...)):
         else:
             scope, vf, vt = body.get("scope", "*"), body.get("vintage_from") or None, body.get("vintage_to") or None
             deltas = _shift_deltas(body.get("shifts") or [])
-            prev = _glide_preview(s, scope, vf, vt, deltas)
+            vl = _vintage_list(body.get("vintages"))
+            prev = _glide_preview(s, scope, vf, vt, deltas, vl)
             if not prev:
                 raise HTTPException(400, "No funds in that scope")
             bad = [f"{r['fund_id']}: {'; '.join(r['problems'])}" for r in prev if not r["ok"]]
             if bad:
                 raise HTTPException(400, "Outside the IPS glide-path bands; that needs an IPS amendment. "
                                     + " | ".join(bad[:4]) + (" …" if len(bad) > 4 else ""))
-            req = {"id": rid, "kind": "add", "fund": scope, "vintage_from": int(vf) if vf else None,
-                   "vintage_to": int(vt) if vt else None, "scope_label": scope_label({"fund": scope, "vintage_from": vf,
-                                                                                      "vintage_to": vt}),
+            req = {"id": rid, "kind": "add", "fund": scope, "vintages": vl,
+                   "vintage_from": int(vf) if vf and not vl else None, "vintage_to": int(vt) if vt and not vl else None,
+                   "scope_label": scope_label({"fund": scope, "vintages": vl, "vintage_from": vf if not vl else None,
+                                               "vintage_to": vt if not vl else None}),
                    "shifts": _clean_shifts(body["shifts"]), "funds": [r["fund_id"] for r in prev],
                    "effective": str(body.get("effective") or date.today().isoformat())[:10]}
         req.update(status="pending", requested_by=_who(user), requested_at=_ts(), reason=reason)
@@ -1524,7 +1550,7 @@ def glide_decide(request: Request, rid: str, body: dict = Body(...)):
                    decided_at=_ts(), decision_reason=reason)
         if decision == "approve":
             if req["kind"] == "add":
-                gs["adjustments"].append({k: req[k] for k in ("fund", "vintage_from", "vintage_to", "shifts", "funds",
+                gs["adjustments"].append({k: req.get(k) for k in ("fund", "vintages", "vintage_from", "vintage_to", "shifts", "funds",
                                                               "effective", "scope_label")}
                                          | {"id": rid, "status": "active", "requested_by": req["requested_by"],
                                             "approved_by": _who(user), "approved_at": _ts(), "reason": req["reason"]})
@@ -1552,7 +1578,7 @@ def strategic_bulk(request: Request, body: dict = Body(...)):
     deltas = {} if follows else _shift_deltas(body.get("shifts") or [])
     with _store().Session.begin() as s:
         get_settings(s)
-        fids = scope_funds(body.get("scope", "*"), body.get("vintage_from"), body.get("vintage_to"))
+        fids = scope_funds(body.get("scope", "*"), body.get("vintage_from"), body.get("vintage_to"), body.get("vintages"))
         if not fids:
             raise HTTPException(400, "No funds in that scope")
         done = {}
@@ -1572,8 +1598,8 @@ def strategic_bulk(request: Request, body: dict = Body(...)):
                                          "shifts": _clean_shifts(body.get("shifts") or []) if not follows else [],
                                          "history": hist[-50:]})
             done[fid] = ver
-        lab = scope_label({"fund": body.get("scope", "*"), "vintage_from": body.get("vintage_from"),
-                           "vintage_to": body.get("vintage_to")})
+        lab = scope_label({"fund": body.get("scope", "*"), "vintages": _vintage_list(body.get("vintages")),
+                           "vintage_from": body.get("vintage_from"), "vintage_to": body.get("vintage_to")})
         dr = _record(s, _who(user), "targets.strategic-bulk",
                      f"Strategic table for {lab} ({len(fids)} funds): "
                      + ("follows the glide path" if follows else "glide path plus shifts"),

@@ -10,8 +10,8 @@ def expect_toast(p, text):
 
 
 def test_ovs_01_why_panel_on_a_proposal(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
-    open_tab(p, "Portfolios & proposals")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
+    open_tab(p, "Proposals")
     p.click("[data-vt='2050']")
     p.click("button[data-why=proposal]")
     box = p.inner_text("#whyModal")
@@ -64,7 +64,7 @@ def test_ovs_05_exception_lifecycle_with_separation_of_duties(sign_in):
     assert "Maya Chen" in row.inner_text()
 
     # the owner (a PM) remediates
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Exceptions")
     p.locator("#view tr[data-exc]", has_text="EM debt above sleeve guideline").click()
     p.fill("#excNote", "UAT: trimmed EM debt back inside the guideline")
@@ -72,7 +72,7 @@ def test_ovs_05_exception_lifecycle_with_separation_of_duties(sign_in):
     expect_toast(p, "status remediated")
 
     # risk can't close; compliance (a different person from the opener) can
-    p = sign_in("Daniel Okafor", "risk")
+    p = sign_in("Daniel Okafor", "risk", "approver")
     open_tab(p, "Exceptions")
     p.select_option("#excF", "remediated")
     p.locator("#view tr[data-exc]", has_text="EM debt above sleeve guideline").click()
@@ -87,7 +87,7 @@ def test_ovs_05_exception_lifecycle_with_separation_of_duties(sign_in):
 
 
 def test_ovs_06_only_cco_accepts_and_acceptance_expires(sign_in, app_url):
-    p = sign_in("Daniel Okafor", "risk")
+    p = sign_in("Daniel Okafor", "risk", "approver")
     csrf = p.evaluate("LIVE.csrf")
     c = p.request.post(app_url + "/api/exceptions", headers={"X-CSRF-Token": csrf},
                        data={"title": "UAT: TE close to budget on 2070", "severity": "warn", "vintage": 2070,
@@ -125,7 +125,7 @@ def test_ovs_07_ledger_search_csv_and_evidence(sign_in, app_url):
     href = p.get_attribute("#lsCsv a", "href")
     r = p.request.get(app_url + href)
     assert r.status == 200 and r.text().startswith("run_id,") and "approval.pending" in r.text()
-    p2 = sign_in("Maya Chen", "portfolio_manager")
+    p2 = sign_in("Maya Chen", "portfolio_manager", "approver")
     assert p2.request.get(app_url + "/api/ledger/search?q=x").status == 403
 
 
@@ -144,7 +144,7 @@ def test_ovs_08_round1_fixes(sign_in):
 
 
 def test_ovs_09_tabs_per_role(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     assert "Changes since last run" in tabs(p) and "Exceptions" in tabs(p)
     p = sign_in("Grace Liu", "audit")
     assert "Exceptions" in tabs(p)

@@ -33,7 +33,7 @@ PAGES = [  # key, label, href, roles that see it
 ]
 HELP_SECTION = {"console": "1", "trading": "10", "regulations": "12", "admin": "11"}  # user guide (doc 06) section numbers
 PERMISSION_LABELS = {"investment_committee": "Investment Committee", "chief_compliance_officer": "CCO",
-                     "route_manager": "Route manager"}
+                     "route_manager": "Route manager", "approver": "Approver"}
 
 
 def nav_for(user: dict, current: str) -> dict:
@@ -88,7 +88,7 @@ def my_work(request: Request):
         if roles & {"portfolio_manager", "analyst"}:
             for t in s.execute(select(trading.TradeList).where(trading.TradeList.status.in_(("draft", "exported")))).scalars():
                 b = t.body
-                if b["status"] == "draft" and "portfolio_manager" in roles:
+                if b["status"] == "draft" and "portfolio_manager" in roles and auth.APPROVER in roles:
                     items.append(_item("Trade list", f"Approve {b['id']}", f"{b['strategy_name']} · {b['order_count']} orders"
                                        + (" · blocked" if b["blocked_funds"] else ""), "/trading",
                                        severity="warn" if b["blocked_funds"] else "info",

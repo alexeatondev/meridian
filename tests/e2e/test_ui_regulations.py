@@ -45,7 +45,7 @@ def test_reg_02_ucits_blocks_trade_list(sign_in, app_url):
     page.fill("#rgReason", R)
     page.click("#rgAdd")
     _toast(page, "added to 1 funds")
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     trade_setup(page, "rebalance", strat="neutral")
     page.select_option("#ntFunds", "MTRT-2060")
@@ -58,7 +58,7 @@ def test_reg_02_ucits_blocks_trade_list(sign_in, app_url):
 
 
 def test_trd_14_rebalance_export_and_fills(sign_in, app_url):
-    page = sign_in("Maya Chen", "portfolio_manager")
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     trade_setup(page, "rebalance", strat="neutral")
     page.select_option("#ntFunds", "MTRS-2055")

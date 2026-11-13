@@ -202,7 +202,7 @@ The pilot runs a deliberately smaller stack than the recommendation above. Detai
 | Edge | CloudFront (HTTPS) → Application Load Balancer that only accepts CloudFront's secret origin header |
 | App | FastAPI + server-rendered Meridian Console on ECS Fargate (1 task) |
 | Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger (append-only triggers), governance ledger (exceptions, trading, regulations), access log (append-only), exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings (incl. positions, glide-path adjustments), fund regulations, compliance obligations |
-| Identity | Amazon Cognito (admin-created users; groups = eight workspaces plus three permissions: `investment_committee`, `chief_compliance_officer`, `route_manager`; optional TOTP MFA). Managed in the app's **User access** screen; any access change signs the person out at once |
+| Identity | Amazon Cognito (admin-created users; groups = eight workspaces plus four permissions: `investment_committee`, `chief_compliance_officer`, `route_manager`, `approver`; optional TOTP MFA). Managed in the app's **User access** screen; any access change signs the person out at once |
 | Secrets | AWS Secrets Manager (app); GitHub secrets (Anthropic and FRED keys) |
 | Orchestration | GitHub Actions: `ci`, `deploy`, `manage-users`, `agent-run` (live model judgment; Claude Agent SDK backend by default, see §4a), `data-refresh` (monthly). Temporal is not used yet |
 | CI/CD auth | GitHub OIDC → IAM role `meridian-github-deploy`; no long-lived keys |
@@ -245,7 +245,7 @@ Charles River import file (mock CSV; one row per order or tranche; destination p
 Fills (file or "mark all filled") ── booked to positions and cash ── positions also loadable from files
 ```
 - **Other trade-list sources:** rebalance to a target table (approved proposal, neutral or strategic), single-security tickets, full exits.
-- **Glide path and bulk changes:** settings carry a scope (all funds, all mutual funds, all CITs, one fund, optional vintage range). Glide-path adjustments are asset-class shifts within the IPS bands, applied to the Neutral table only after Investment Committee approval.
+- **Glide path and bulk changes:** settings carry a scope (all funds, all mutual funds, all CITs, one fund, optionally a list of chosen vintages; older entries may carry a vintage range). Glide-path adjustments are asset-class shifts within the IPS bands, applied to the Neutral table only after Investment Committee approval.
 - **Regulations (doc 18):** `regimes/fund_regulations.yaml` (US and international); `src/meridian/regulations.py` (controls, schedules); `src/meridian/app/regulations.py` + `regulations.html` (tags, obligation tasks, escalation to exceptions).
 - **Model:** `config/trading.yaml` (product lines, funds, roll-down schedules, security master, routes, buffer); `src/meridian/trading/` (model, allocation, tilts, tickets, tranches, Charles River rows); `src/meridian/app/trading.py` + `trading.html` (API and screen).
 - **Records:** every load, setting, route change, table change, trade list, approval, tranche plan, cancel and export is a governance ledger record (`dr_type` "trading").

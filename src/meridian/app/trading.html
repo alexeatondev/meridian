@@ -47,7 +47,7 @@ select,input[type=number],input[type=date]{padding:7px 9px;border:1px solid var(
 .tile{display:flex;flex-direction:column;gap:4px;text-align:left;border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;background:var(--surface);color:var(--text);cursor:pointer;font:inherit}
 .tile:hover:not(:disabled){border-color:var(--accent)}.tile.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset;background:var(--info-bg)}.tile:disabled{opacity:.55;cursor:not-allowed}
 .tile input{position:absolute;opacity:0;pointer-events:none}label.tile{position:relative}
-.scroll{overflow-x:auto}table.pick td{padding:5px 8px}.btn.small{padding:3px 9px;font-size:12px}
+.scroll{overflow-x:auto}table.pick td{padding:5px 8px}.btn.small{padding:3px 9px;font-size:12px}.vpick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 8px}.vchip{cursor:pointer;border:1px solid var(--line-strong,#c9c6bd);background:var(--surface,#fff);color:inherit;padding:5px 11px;border-radius:999px;font-weight:600;font-size:13px}.vchip.on{background:var(--accent,#1f4e8c);border-color:var(--accent,#1f4e8c);color:var(--accent-ink,#fff)}
 .legend{display:flex;gap:14px;margin:4px 0 8px}.legend .sw{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .sw.now{background:var(--line-strong)}.sw.aft{background:var(--accent)}.sw.tgt{background:var(--text);width:3px;height:12px}.sw.gp{border-left:2px dashed var(--ok);width:3px;height:12px;background:none}
 .mixrow{display:flex;align-items:center;gap:8px;padding:4px 0}.mixrow .lbl{width:150px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mixrow .v{width:120px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
@@ -230,7 +230,8 @@ function tlDetail(t){
     else h += `<table><tr><th>Security</th><th class="n">Current</th><th class="n">Current wt</th><th class="n">Trade</th><th class="n">Post-trade</th><th class="n">Post wt</th><th class="n">Target wt</th><th class="n">Post vs target</th></tr>${f.preview.map(r=>`<tr><td>${esc(r.instrument)} ${!r.has_target&&r.type!=='cash'?chip('no target','warn'):''}${r.excluded?chip('excluded','crit'):''}<br><span class="small muted">${esc(r.asset_class)}</span></td><td class="n">${musd(r.current)}</td><td class="n">${pct(r.current_w)}</td><td class="n ${sgn(r.trade)}">${r.trade?usd(r.trade):'—'}</td><td class="n">${musd(r.post)}</td><td class="n">${pct(r.post_w)}</td><td class="n">${r.target_w?pct(r.target_w):'—'}</td><td class="n">${r.target_w?((r.post_w-r.target_w)*10000).toFixed(1)+' bp':'—'}</td></tr>`).join('')}</table>`;
     h += `</details>`;
   }
-  if (t.status==='draft' && BOOT.can_approve) h += `<div class="card"><h2>Approve</h2><label class="opt"><input type="checkbox" id="taChk"> <span>I reviewed the orders, the impact (now vs after), the compliance check and the notes.</span></label><label class="f" for="taReason">Reason</label><input type="text" id="taReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="taGo" ${t.blocked_funds.length?'disabled':''}>Approve trade list</button>${t.blocked_funds.length?'<span class="small neg">Blocked by errors or a compliance FAIL</span>':''}</div></div>`;
+  if (t.status==='draft' && BOOT.can_approve && !BOOT.can_approve_lists) h += `<div class="card"><h2>Approve</h2><p class="small muted">Approving trade lists needs the <b>Approver</b> permission. An admin can switch it on in User access.</p></div>`;
+  if (t.status==='draft' && BOOT.can_approve_lists) h += `<div class="card"><h2>Approve</h2><label class="opt"><input type="checkbox" id="taChk"> <span>I reviewed the orders, the impact (now vs after), the compliance check and the notes.</span></label><label class="f" for="taReason">Reason</label><input type="text" id="taReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="taGo" ${t.blocked_funds.length?'disabled':''}>Approve trade list</button>${t.blocked_funds.length?'<span class="small neg">Blocked by errors or a compliance FAIL</span>':''}</div></div>`;
   else if (t.status==='draft') h += `<p class="small muted">A portfolio manager approves trade lists.</p>`;
   if (['approved','exported'].includes(t.status) && BOOT.can_prepare) h += `<div class="card"><h2>Charles River</h2><p class="small">Download the import file and load it into Charles River, which runs its own compliance check and executes. <b>Mock format</b>: column names are placeholders until mapped to your Charles River import specification. Each download is recorded with a fingerprint (SHA-256).</p><a class="btn primary" id="taCrd" href="/api/trading/trade-lists/${t.id}/crd.csv">Download Charles River import file</a>${(t.exports||[]).map(x=>`<div class="small muted" style="margin-top:6px">Exported ${esc(x.at.slice(0,16).replace('T',' '))} by ${esc(x.by.name)} · ${esc(x.sha256.slice(0,16))}…</div>`).join('')}</div>`;
   if (['exported','filled'].includes(t.status)) {
@@ -298,10 +299,14 @@ function vSettings(){
 }
 
 // ------------------------------------------------------------------ Glide path & bulk changes
-const scopeLabel = e => { const lab = ({'*':'All funds','vehicle:mutual_fund':'All mutual funds','vehicle:cit':'All CITs'})[e.fund||'*'] || e.fund; return lab + ((e.vintage_from||e.vintage_to)?`, vintages ${e.vintage_from||'…'}–${e.vintage_to||'…'}`:''); };
-const acName = a => a.replace(/_/g,' ');
-function bkScope(){ return {scope:$('#bkScope').value, vintage_from:+$('#bkFrom').value||null, vintage_to:+$('#bkTo').value||null}; }
-function bkFunds(){ const sc=bkScope(); return S.st.funds.filter(f=>(sc.scope==='*'||sc.scope===f.id||sc.scope==='vehicle:'+f.vehicle)&&(!sc.vintage_from||f.vintage>=sc.vintage_from)&&(!sc.vintage_to||f.vintage<=sc.vintage_to)); }
+const scopeLabel = e => { const lab = ({'*':'All funds','vehicle:mutual_fund':'All mutual funds','vehicle:cit':'All CITs'})[e.fund||'*'] || e.fund;
+  if ((e.vintages||[]).length) return lab + (e.vintages.length===1?`, vintage ${e.vintages[0]}`:`, vintages ${e.vintages.join(', ')}`);
+  return lab + ((e.vintage_from||e.vintage_to)?`, vintages ${e.vintage_from||'…'}–${e.vintage_to||'…'}`:''); };
+const acName = a => (S.st && S.st.asset_names && S.st.asset_names[a]) || a.replace(/_/g,' ');
+const bkSingle = sc => !['*','vehicle:mutual_fund','vehicle:cit'].includes(sc);
+function bkSel(){ if (!S.bkV) S.bkV = S.st.vintages.slice(); return S.bkV; }
+function bkScope(safe){ const sc=$('#bkScope').value, vs=bkSel(); if (!safe && !bkSingle(sc) && !vs.length) throw new Error('Pick at least one vintage'); return {scope:sc, vintages: bkSingle(sc)||vs.length===S.st.vintages.length ? [] : vs.slice()}; }
+function bkFunds(){ const sc=$('#bkScope').value, vs=bkSel(); return S.st.funds.filter(f=>(sc==='*'||sc===f.id||sc==='vehicle:'+f.vehicle)&&(bkSingle(sc)||vs.includes(f.vintage))); }
 function vBulk(){
   S.shifts ||= [{asset_class:'us_large_cap', from:'us_core_bond', pp:1}];
   const st=S.st, A=st.assets, V=st.vintages, g=st.glide;
@@ -309,9 +314,10 @@ function vBulk(){
   const acOpt = sel => A.map(a=>`<option value="${a}" ${a===sel?'selected':''}>${esc(acName(a))}</option>`).join('');
   let h = `<div class="card"><h2>Apply to</h2><div class="row">
    <label>Funds <select id="bkScope"><option value="*">All funds</option><option value="vehicle:mutual_fund">All mutual funds</option><option value="vehicle:cit">All CITs</option>${st.funds.map(f=>`<option value="${f.id}">${f.id}</option>`).join('')}</select></label>
-   <label>Vintages from <select id="bkFrom"><option value="">First</option>${V.map(v=>`<option>${v}</option>`).join('')}</select></label>
-   <label>to <select id="bkTo"><option value="">Last</option>${V.map(v=>`<option>${v}</option>`).join('')}</select></label>
    <span class="small" id="bkCount"></span></div>
+   <div id="bkVwrap"><label class="f" id="bkVlab">Vintages <span class="muted">(click to include or leave out)</span></label>
+   <div class="vpick" role="group" aria-labelledby="bkVlab">${V.map(v=>`<button type="button" class="vchip" data-bkv="${v}">${v}</button>`).join('')}
+   <button type="button" class="btn small" data-bkvset="all">All</button><button type="button" class="btn small" data-bkvset="near">2030–2045</button><button type="button" class="btn small" data-bkvset="far">2050–2070</button><button type="button" class="btn small" data-bkvset="none">Clear</button></div></div>
    <label class="f" for="bkReason">Reason (kept in the ledger for every change on this tab)</label><input type="text" id="bkReason" placeholder="At least 10 characters"></div>
 
   <div class="card"><h2>Glide path</h2><p class="small muted">Move weight between asset classes on the glide path of every fund in scope. Shifts stay within the IPS glide-path bands (±3pp per asset class, ±5pp equity); anything wider needs an IPS amendment. A change takes effect only after an <b>Investment Committee</b> member other than you approves it. It changes the Neutral table (and a Strategic table that follows the glide path); the IPS check still compares against the IPS glide path.</p>
@@ -322,14 +328,22 @@ function vBulk(){
    <h3>In force</h3><table><tr><th>Adjustment</th><th>Applies to</th><th>Change</th><th>Approved by</th><th></th></tr>${g.adjustments.filter(a=>a.status==='active').map(a=>`<tr><td><b>${a.id}</b><br><span class="small muted">from ${esc(a.effective)}</span></td><td>${esc(a.scope_label)} <span class="small muted">(${a.funds.length} funds)</span></td><td class="small">${a.shifts.map(x=>`${esc(acName(x.asset_class))} ${x.pp>0?'+':''}${x.pp}pp from ${esc(acName(x.from))}`).join('<br>')}</td><td>${esc(a.approved_by.name)}<br><span class="small muted">requested by ${esc(a.requested_by.name)}</span></td><td>${BOOT.can_prepare?`<button class="btn small" data-gpr="${a.id}">Request retirement</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">None: every fund follows the IPS glide path</td></tr>'}</table></div>`;
   if (BOOT.can_approve) h += `<div class="card"><h2>Strategic table</h2><p class="small muted">Set the Strategic table of every fund in scope at once: follow the glide path, or the glide path plus the shifts above (tactical, no committee approval; the IPS check runs on every trade list).</p>
    <div class="row"><button class="btn" id="stbFollow">Follow the glide path</button><button class="btn primary" id="stbShift">Glide path plus the shifts above</button></div></div>
-  <div class="card"><h2>Tilts</h2><p class="small muted">Tilt toward or away from an asset class (spread over each fund's securities in that class) or a security. For the same item, the most specific scope wins: one fund, then a vintage range, then all CITs or mutual funds, then all funds.</p>
+  <div class="card"><h2>Tilts</h2><p class="small muted">Tilt toward or away from an asset class (spread over each fund's securities in that class) or a security. For the same item, the most specific scope wins: one fund, then chosen vintages, then all CITs or mutual funds, then all funds.</p>
    <div class="row"><select id="bkTiKind"><option value="asset_class">Asset class</option><option value="instrument">Security</option></select><select id="bkTiItem"></select><input type="number" id="bkTiBps" placeholder="± bp" step="5" style="width:90px"><input type="date" id="bkTiUntil" title="Until (optional)"><button class="btn primary" id="bkTiGo">Apply tilt</button></div></div>
   <div class="card"><h2>Exclusions and full exits</h2><div class="row"><select id="bkExInst">${st.instruments.map(i=>`<option value="${i.id}">${esc(i.id)} · ${esc(i.name)}</option>`).join('')}</select><select id="bkExKind"><option value="excluded">Exclude from trading</option><option value="exits">Flag for full exit</option></select><input type="date" id="bkExUntil" title="Until (optional)"><button class="btn primary" id="bkExGo">Apply</button></div><p class="small muted">A security not held by a fund's product line has no effect there.</p></div>
   <div class="card"><h2>Roll-down schedule and cash buffer</h2><div class="row"><label>Glide-path roll-down <select id="bkRoll"><option value="">No change</option><option>monthly</option><option>quarterly</option><option>semiannual</option><option>annual</option></select></label><label>ETF cash buffer <input type="number" id="bkBuf" placeholder="No change" min="0" max="500" step="5" style="width:110px"> bp</label><button class="btn primary" id="bkRbGo">Apply</button></div><p class="small muted">The buffer can only be set stricter than the series buffer (${st.settings.buffer_bps} bp).</p></div>`;
   $('#bulk').innerHTML = h;
-  $('#bkScope').value = S.bk?.scope || def; if (S.bk){ $('#bkFrom').value=S.bk.vintage_from||''; $('#bkTo').value=S.bk.vintage_to||''; $('#bkReason').value=S.bk.reason||''; }
-  const count = ()=>{ const n=bkFunds(); $('#bkCount').innerHTML=`Applies to <b>${n.length}</b> funds`; S.bk={...bkScope(), reason:$('#bkReason').value}; };
-  ['#bkScope','#bkFrom','#bkTo'].forEach(q=>$(q).onchange=count); $('#bkReason').oninput=count; count();
+  $('#bkScope').value = S.bk?.scope || def; if (S.bk){ $('#bkReason').value=S.bk.reason||''; }
+  const count = ()=>{ const vs=bkSel(), single=bkSingle($('#bkScope').value), n=bkFunds();
+    $('#bkVwrap').style.display = single ? 'none' : '';
+    document.querySelectorAll('[data-bkv]').forEach(b=>{ const on=vs.includes(+b.dataset.bkv); b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
+    $('#bkCount').innerHTML = !single && !vs.length ? '<span class="neg">Pick at least one vintage</span>'
+      : `Applies to <b>${n.length}</b> fund${n.length===1?'':'s'}${single?'':` · ${vs.length===V.length?'all':vs.length} vintage${vs.length===1?'':'s'}`}`;
+    S.bk={...bkScope(true), reason:$('#bkReason').value}; };
+  $('#bkScope').onchange=count; $('#bkReason').oninput=count;
+  document.querySelectorAll('[data-bkv]').forEach(b=>b.onclick=()=>{ const v=+b.dataset.bkv, vs=bkSel(); S.bkV = vs.includes(v) ? vs.filter(x=>x!==v) : vs.concat(v).sort(); count(); });
+  document.querySelectorAll('[data-bkvset]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bkvset; S.bkV = k==='all'?V.slice():k==='none'?[]:V.filter(v=>k==='near'?v<=2045:v>=2050); count(); });
+  count();
   const sync = ()=>{ document.querySelectorAll('[data-sha]').forEach(e=>S.shifts[+e.dataset.sha].asset_class=e.value); document.querySelectorAll('[data-shf]').forEach(e=>S.shifts[+e.dataset.shf].from=e.value); document.querySelectorAll('[data-shp]').forEach(e=>S.shifts[+e.dataset.shp].pp=+e.value); };
   $('#shAdd').onclick=()=>{sync(); S.shifts.push({asset_class:A[0], from:A[1], pp:0.5}); vBulk()};
   document.querySelectorAll('[data-shx]').forEach(b=>b.onclick=()=>{sync(); S.shifts.splice(+b.dataset.shx,1); vBulk()});
@@ -343,11 +357,12 @@ function vBulk(){
   $('#stbFollow').onclick=()=>stb(true); $('#stbShift').onclick=()=>stb(false);
   const fillItems=()=>{ $('#bkTiItem').innerHTML = $('#bkTiKind').value==='asset_class' ? A.map(a=>`<option value="${a}">${esc(acName(a))}</option>`).join('') : st.instruments.map(i=>`<option value="${i.id}">${esc(i.id)}</option>`).join(''); };
   $('#bkTiKind').onchange=fillItems; fillItems();
-  const scoped = extra => { const sc=bkScope(); return {fund:sc.scope, ...(sc.vintage_from?{vintage_from:sc.vintage_from}:{}), ...(sc.vintage_to?{vintage_to:sc.vintage_to}:{}), ...extra}; };
+  const guard = fn => () => { try { if (!bkFunds().length) throw new Error('Pick at least one vintage'); fn() } catch(e){ toast(e.message,'error') } };
+  const scoped = extra => { const sc=bkScope(); return {fund:sc.scope, ...(sc.vintages.length?{vintages:sc.vintages}:{}), ...extra}; };
   const save = async (body, msg) => { try{ const r=await api('PUT','/api/trading/settings',{...body, reason:reason()}); S.pend=null; await load(); toast(msg+' Saved and recorded: '+r.changed.join(', ')) }catch(e){toast(e.message,'error')} };
-  $('#bkTiGo').onclick=()=>{ const bps=+$('#bkTiBps').value; if(!bps) return toast('Enter the tilt in basis points, e.g. 50 or -25'); const k=$('#bkTiKind').value; save({tilts:[...st.settings.tilts, scoped({[k]:$('#bkTiItem').value, bps, until:$('#bkTiUntil').value})]}, `Tilt applied to ${bkFunds().length} funds.`) };
-  $('#bkExGo').onclick=()=>{ const k=$('#bkExKind').value; save({[k]:[...(st.settings[k]||[]), scoped({instrument:$('#bkExInst').value, until:$('#bkExUntil').value})]}, `Applied to ${bkFunds().length} funds.`) };
-  $('#bkRbGo').onclick=()=>{ const fs=bkFunds(), body={}; if($('#bkRoll').value) body.roll_down={...(st.settings.roll_down||{}), ...Object.fromEntries(fs.map(f=>[f.id,$('#bkRoll').value]))}; if($('#bkBuf').value!=='') body.buffer_overrides={...(st.settings.buffer_overrides||{}), ...Object.fromEntries(fs.map(f=>[f.id,+$('#bkBuf').value]))}; if(!Object.keys(body).length) return toast('Choose a roll-down schedule or a buffer'); save(body, `Applied to ${fs.length} funds.`) };
+  $('#bkTiGo').onclick=guard(()=>{ const bps=+$('#bkTiBps').value; if(!bps) return toast('Enter the tilt in basis points, e.g. 50 or -25'); const k=$('#bkTiKind').value; save({tilts:[...st.settings.tilts, scoped({[k]:$('#bkTiItem').value, bps, until:$('#bkTiUntil').value})]}, `Tilt applied to ${bkFunds().length} funds.`) });
+  $('#bkExGo').onclick=guard(()=>{ const k=$('#bkExKind').value; save({[k]:[...(st.settings[k]||[]), scoped({instrument:$('#bkExInst').value, until:$('#bkExUntil').value})]}, `Applied to ${bkFunds().length} funds.`) });
+  $('#bkRbGo').onclick=guard(()=>{ const fs=bkFunds(), body={}; if($('#bkRoll').value) body.roll_down={...(st.settings.roll_down||{}), ...Object.fromEntries(fs.map(f=>[f.id,$('#bkRoll').value]))}; if($('#bkBuf').value!=='') body.buffer_overrides={...(st.settings.buffer_overrides||{}), ...Object.fromEntries(fs.map(f=>[f.id,+$('#bkBuf').value]))}; if(!Object.keys(body).length) return toast('Choose a roll-down schedule or a buffer'); save(body, `Applied to ${fs.length} funds.`) });
 }
 function renderPreview(r){
   const A=S.st.assets, changed=A.filter(a=>r.funds.some(f=>Math.abs(f.new[a]-f.current[a])>1e-9));

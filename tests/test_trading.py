@@ -130,7 +130,7 @@ def test_end_to_end_cashflows_to_charles_river_file(client):
     tl2 = client.post("/api/trading/trade-lists", headers=h,
                       json={"trade_date": "2026-11-10", "strategy": "previous_close", "vehicle": "all"}).json()
     assert sorted(f["fund_id"] for f in tl2["funds"]) == ["MTRS-2030", "MTRS-2050"]
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     assert client.post(f"/api/trading/trade-lists/{tl2['id']}/approve", headers=hp,
                        json={"checked": False, "reason": R}).status_code == 400
     ok = client.post(f"/api/trading/trade-lists/{tl2['id']}/approve", headers=hp, json={"checked": True, "reason": R})
@@ -161,18 +161,18 @@ def test_settings_and_strategic_table_are_controlled_and_logged(client):
     assert client.put("/api/trading/settings", headers=h, json={"buffer_bps": 25, "reason": R}).status_code == 403
     assert client.put("/api/trading/targets/MTRS-2050/strategic", headers=h,
                       json={"follows_glide_path": False, "reason": R}).status_code == 403
-    hp = login(client, "Maya Chen", "portfolio_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver")
     assert client.put("/api/trading/settings", headers=hp, json={"buffer_bps": 25, "reason": "short"}).status_code == 400
     assert client.put("/api/trading/settings", headers=hp,
                       json={"routes": {"etf": "Somewhere else"}, "reason": R}).status_code == 400
     # routes need the route permission, even for a PM; the permission alone covers routes only
     assert client.put("/api/trading/settings", headers=hp,
                       json={"routes": {"etf": "State Street"}, "reason": R}).status_code == 403
-    hr = login(client, "Daniel Okafor", "risk", "route_manager")
+    hr = login(client, "Daniel Okafor", "risk", "route_manager", "approver")
     assert client.put("/api/trading/settings", headers=hr, json={"buffer_bps": 10, "reason": R}).status_code == 403
     only = client.put("/api/trading/settings", headers=hr, json={"routes": {"bond": "State Street"}, "reason": R})
     assert only.status_code == 200 and only.json()["changed"] == ["routes"]
-    hp = login(client, "Maya Chen", "portfolio_manager", "route_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "route_manager", "approver")
     r = client.put("/api/trading/settings", headers=hp, json={
         "routes": {"etf": "State Street", "bond": "Internal trading desk"}, "buffer_bps": 75,
         "excluded": [{"instrument": "VNQ", "fund": "*"}], "reason": R})
@@ -200,7 +200,7 @@ def test_settings_and_strategic_table_are_controlled_and_logged(client):
     # a strategic trade list uses the custom table, excludes VNQ and routes ETFs per the new setting
     client.post("/api/trading/cashflows", headers=hp, json={"trade_date": "2026-11-10", "fund_id": "MTRS-2050",
                                                             "amount": 1e7, "type": "subscription"})
-    hp = login(client, "Maya Chen", "portfolio_manager")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver")
     tl = client.post("/api/trading/trade-lists", headers=hp, json={"trade_date": "2026-11-10", "strategy": "strategic"}).json()
     orders = {o["instrument"]: o for o in tl["funds"][0]["orders"]}
     assert "VNQ" not in orders and orders["PDBC"]["route"] == "State Street"
@@ -209,7 +209,7 @@ def test_settings_and_strategic_table_are_controlled_and_logged(client):
 
 
 def test_page_access(client):
-    login(client, "Maya Chen", "portfolio_manager")
+    login(client, "Maya Chen", "portfolio_manager", "approver")
     assert "Meridian · Trading" in client.get("/trading").text
     login(client, "x", "manager_selection")
     assert client.get("/trading").status_code == 403
@@ -248,12 +248,12 @@ def test_tranche_checks_and_split(m):
 
 
 def test_tickets_exits_tilts_and_tranches_api(client):
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     ha = login(client, "Priya Raman", "analyst", email="priya@example.com")
     # analysts can't set tilts or exits
     assert client.put("/api/trading/settings", headers=ha, json={
         "tilts": [{"instrument": "MER-EM-MF", "fund": "MTRS-2050", "bps": 100}], "reason": R}).status_code == 403
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     assert client.put("/api/trading/settings", headers=hp, json={
         "tilts": [{"instrument": "MER-EM-MF", "fund": "MTRS-2050", "bps": 900}], "reason": R}).status_code == 400
     r = client.put("/api/trading/settings", headers=hp, json={
@@ -268,7 +268,7 @@ def test_tickets_exits_tilts_and_tranches_api(client):
     client.post("/api/trading/cashflows", headers=hp, json=[
         {"trade_date": "2026-11-10", "fund_id": "MTRS-2050", "amount": 2e7, "type": "subscription"},
         {"trade_date": "2026-11-10", "fund_id": "MTRS-2040", "amount": 1e7, "type": "subscription"}])
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     tl = client.post("/api/trading/trade-lists", headers=hp, json={"trade_date": "2026-11-10", "strategy": "neutral"}).json()
     f50 = next(f for f in tl["funds"] if f["fund_id"] == "MTRS-2050")
     o = {x["instrument"]: x for x in f50["orders"]}
@@ -335,13 +335,13 @@ def test_tickets_exits_tilts_and_tranches_api(client):
 
 
 def test_route_managers_list(client):
-    login(client, "Maya Chen", "portfolio_manager")
+    login(client, "Maya Chen", "portfolio_manager", "approver")
     j = client.get("/api/trading/route-managers").json()
     assert j["permission"] == "route_manager" and isinstance(j["holders"], list)
 
 
 def test_bulk_scopes_glide_path_and_strategic(client):
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     # asset-class tilt on all CITs, 2050+ only; exclusion for all mutual funds; roll-down for all CITs
     r = client.put("/api/trading/settings", headers=hp, json={
         "tilts": [{"asset_class": "emerging_eq", "fund": "vehicle:cit", "vintage_from": 2050, "bps": 50}],
@@ -374,13 +374,13 @@ def test_bulk_scopes_glide_path_and_strategic(client):
     before = row("MTRT-2040", "MER-USLC-CIT")["t_neutral"]
     assert client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=hp,
                        json={"decision": "approve", "reason": R}).status_code == 403          # no IC permission
-    hm = login(client, "Maya Chen", "portfolio_manager", "investment_committee", email="maya@example.com")
+    hm = login(client, "Maya Chen", "portfolio_manager", "investment_committee", "approver", email="maya@example.com")
     assert client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=hm,
                        json={"decision": "approve", "reason": R}).status_code == 403          # own request
     he = login(client, "Elena Rossi", "leadership", "investment_committee", email="elena@example.com")
     ok = client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=he, json={"decision": "approve", "reason": R})
     assert ok.status_code == 200 and ok.json()["status"] == "approved"
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     after = row("MTRT-2040", "MER-USLC-CIT")["t_neutral"]
     assert after == pytest.approx(before + 0.015, abs=1e-6)
     st = client.get("/api/trading/state").json()
@@ -401,10 +401,10 @@ def test_bulk_scopes_glide_path_and_strategic(client):
 
 def test_dry_run_previews_impact_without_saving(client):
     """New trade 'See the impact': dry_run returns the impact for every kind of list and saves nothing."""
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     client.post("/api/trading/cashflows", headers=hp, json=[
         {"trade_date": "2026-11-10", "fund_id": "MTRS-2050", "amount": 2e7, "type": "subscription"}])
-    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
     before = len(client.get("/api/trading/state").json()["trade_lists"])
     ledger_before = len(client.get("/api/trading/state").json()["trading_records"])
     fd = client.get("/api/trading/funds/MTRS-2040").json()
@@ -436,3 +436,50 @@ def test_dry_run_previews_impact_without_saving(client):
     # without dry_run the reason is still required for tickets and rebalances
     assert client.post("/api/trading/rebalance", headers=hp, json={
         "strategy": "neutral", "trade_date": "2026-11-13", "fund_ids": ["MTRS-2070"]}).status_code == 400
+
+
+def test_trade_list_approval_needs_the_approver_permission(client):
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
+    t = client.post("/api/trading/rebalance", headers=hp, json={"strategy": "neutral", "trade_date": "2026-11-13",
+                    "fund_ids": ["MTRS-2070"], "reason": "UAT: rebalance for the approver check"}).json()
+    h = login(client, "Jordan Ellis", "portfolio_manager", email="jordan@example.com")
+    assert client.get("/trading").text.count('"can_approve_lists": false') == 1
+    r = client.post(f"/api/trading/trade-lists/{t['id']}/approve", headers=h,
+                    json={"checked": True, "reason": "UAT: approve without the permission"})
+    assert r.status_code == 403 and "Approver permission" in r.text
+    assert not any(i["title"] == f"Approve {t['id']}" for i in client.get("/api/my-work").json()["items"])
+    h = login(client, "Jordan Ellis", "portfolio_manager", "approver", email="jordan@example.com")
+    assert any(i["title"] == f"Approve {t['id']}" for i in client.get("/api/my-work").json()["items"])
+    assert client.post(f"/api/trading/trade-lists/{t['id']}/approve", headers=h,
+                       json={"checked": True, "reason": "UAT: approve with the permission"}).status_code == 200
+
+
+def test_glide_path_scope_by_picked_vintages(client):
+    """The vintage picker sends a list: only those vintages are in scope, the label names them, and they're kept on
+    the request and the adjustment."""
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
+    shifts = [{"asset_class": "us_large_cap", "from": "us_core_bond", "pp": 0.5}]
+    pv = client.post("/api/trading/glide-path/preview", headers=hp,
+                     json={"scope": "vehicle:mutual_fund", "vintages": [2030, 2050, 2070], "shifts": shifts}).json()
+    assert sorted(f["fund_id"] for f in pv["funds"]) == ["MTRS-2030", "MTRS-2050", "MTRS-2070"]
+    assert client.post("/api/trading/glide-path/preview", headers=hp,
+                       json={"scope": "*", "vintages": [2031], "shifts": shifts}).status_code == 400   # unknown vintage
+    req = client.post("/api/trading/glide-path/requests", headers=hp, json={
+        "scope": "*", "vintages": [2035, 2040], "shifts": shifts, "reason": "UAT: picked vintages only"}).json()
+    assert req["funds"] == 4
+    g = client.get("/api/trading/state").json()["glide"]
+    r = next(x for x in g["requests"] if x["id"] == req["id"])
+    assert r["vintages"] == [2035, 2040] and r["scope_label"] == "All funds, vintages 2035, 2040"
+    he = login(client, "Elena Rossi", "leadership", "investment_committee", email="elena@example.com")
+    assert client.post(f"/api/trading/glide-path/requests/{req['id']}/decide", headers=he,
+                       json={"decision": "approve", "reason": "UAT: approve picked vintages"}).status_code == 200
+    funds = {f["id"]: f for f in client.get("/api/trading/state").json()["funds"]}
+    adjusted = sorted(k for k, f in funds.items() if f.get("glide_adjusted"))
+    assert adjusted == ["MTRS-2035", "MTRS-2040", "MTRT-2035", "MTRT-2040"]
+    # tilts and other bulk settings accept the same list
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
+    r = client.put("/api/trading/settings", headers=hp, json={"reason": "UAT: EM tilt on two CIT vintages",
+                   "tilts": [{"asset_class": "emerging_eq", "fund": "vehicle:cit", "vintages": [2055, 2065], "bps": 25}]})
+    assert r.status_code == 200
+    t = client.get("/api/trading/state").json()["settings"]["tilts"][0]
+    assert t["vintages"] == [2055, 2065] and "vintage_from" not in t

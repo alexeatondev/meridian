@@ -1,10 +1,12 @@
 """UAT: product lines, series summaries, clearer approvals, glide-path adjustments and ticker search
 (product owner feedback, 2026-11-13)."""
+from playwright.sync_api import expect
+
 from conftest import open_tab, toast_text
 
 
 def test_ux_01_funds_split_by_product_line(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Funds & vintages")
     view = p.inner_text("#view")
     assert "Meridian Target Retirement Funds" in view and "Meridian Target Retirement Trust" in view
@@ -17,7 +19,7 @@ def test_ux_01_funds_split_by_product_line(sign_in):
 
 
 def test_ux_02_positioning_series_summary_and_fund_comparison(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Positioning")
     view = p.inner_text("#view")
     assert "Series positioning" in view and "Series" in view and "Equity, held today" in view
@@ -29,7 +31,7 @@ def test_ux_02_positioning_series_summary_and_fund_comparison(sign_in):
 
 
 def test_ux_03_approval_queue_has_summaries(sign_in):
-    p = sign_in("Daniel Okafor", "risk")
+    p = sign_in("Daniel Okafor", "risk", "approver")
     open_tab(p, "Approvals")
     view = p.inner_text("#view")
     assert "Waiting for you" in view and "awaits your approval as Risk" in view
@@ -38,7 +40,7 @@ def test_ux_03_approval_queue_has_summaries(sign_in):
 
 
 def test_ux_04_risk_budget_series_summary_and_preview(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Risk budget")
     view = p.inner_text("#view")
     assert "Risk budget used across the series" in view and "Where the budget goes, across the series" in view
@@ -58,7 +60,7 @@ def test_ux_05_agent_votes_in_plain_language(sign_in):
 
 
 def test_ux_06_ticker_search_pick_one(sign_in):
-    p = sign_in("Daniel Okafor", "risk")
+    p = sign_in("Daniel Okafor", "risk", "approver")
     open_tab(p, "Look-through & search")
     if "not loaded" in p.inner_text("#view"):
         return      # offline test data may have no look-through holdings
@@ -76,7 +78,7 @@ def test_ux_06_ticker_search_pick_one(sign_in):
 
 
 def test_ux_07_glide_path_adjustment_request_and_committee_decision(sign_in):
-    p = sign_in("Maya Chen", "portfolio_manager")
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Glide path")
     assert "Glide path today, by fund" in p.inner_text("#view")
     p.select_option("#gpScope", "vehicle:cit")
@@ -103,3 +105,24 @@ def test_ux_07_glide_path_adjustment_request_and_committee_decision(sign_in):
     open_tab(q, "Glide path")
     view = q.inner_text("#view")
     assert rid in view and "Approved adjustments in force" in view and "adj." in view
+
+
+def test_glide_path_vintage_picker(sign_in):
+    """Glide path: pick vintages by clicking them (no From/To boxes); the count and the preview follow the picks."""
+    p = sign_in("Maya Chen", "portfolio_manager", "approver")
+    open_tab(p, "Glide path")
+    assert p.locator("#gpVf").count() == 0 and p.locator("#gpVt").count() == 0
+    p.select_option("#gpScope", "vehicle:cit")
+    expect(p.locator("#gpVcount")).to_contain_text("All vintages selected · 9 funds")
+    p.click("[data-gpvset='none']")
+    expect(p.locator("#gpVcount")).to_contain_text("Pick at least one vintage")
+    for v in ("2035", "2055", "2065"):
+        p.click(f"[data-gpv='{v}']")
+    expect(p.locator("#gpVcount")).to_contain_text("3 vintages selected · 3 funds")
+    expect(p.locator("[data-gpv='2055']")).to_have_attribute("aria-pressed", "true")
+    p.fill("[data-gpi='0'][data-gpk='pp']", "0.5")
+    p.dispatch_event("[data-gpi='0'][data-gpk='pp']", "change")
+    p.click("#gpPrev")
+    expect(p.locator("#gpOut")).to_contain_text("3 funds")
+    expect(p.locator("#gpOut")).to_contain_text("MTRT-2055")
+    expect(p.locator("#gpOut")).not_to_contain_text("MTRT-2040")
