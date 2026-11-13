@@ -1,8 +1,8 @@
 # 14 — Hosting & Operations (AWS)
 
-**Version 0.4 · 2026-11-11 · Audience: platform admin, engineering, audit, compliance**
+**Version 0.5 · 2026-11-13 · Audience: platform admin, engineering, audit, compliance**
 
-How the hosted Meridian app is built, deployed and run, and what to do when something needs attention. Everything here describes what is actually deployed as of 2026-11-10 (last deploy: trading slice 2 and the route permission). Planned changes are listed separately in §12.
+How the hosted Meridian app is built, deployed and run, and what to do when something needs attention. Everything here describes what is actually deployed as of 2026-11-13 (last deploy: the Trading redesign with the New trade builder and impact view, PR #6). Planned changes are listed separately in §12.
 
 ## 1. What is running
 
@@ -124,7 +124,7 @@ Actions → agent-run → Run workflow with:
 
 The run summary shows the cost against the budget, agent turns, tool calls and how many judgments each path made. The run:
 1. Pulls approved positions, recorded risk history and policy overrides from the app (so the next run builds on human decisions).
-2. Runs the target-date pipeline with live model judgment for 24 steps (doc 02 §4a; key: GitHub secret `ANTHROPIC_API_KEY`; FRED data key: `FRED_API_KEY`).
+2. Runs the target-date pipeline with live model judgment in 50 agent sessions (doc 02 §4a; key: GitHub secret `ANTHROPIC_API_KEY`; FRED data key: `FRED_API_KEY`).
 3. Publishes the run bundle to the app (`/api/ingest`, authenticated with the ingest token) and uploads it as a workflow artifact.
 
 First hosted run: `run_tds_20261031_48d07c` (as-of 2026-10-31), published 2026-11-09.

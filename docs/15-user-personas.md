@@ -1,6 +1,6 @@
 # 15 — User Personas
 
-**Version 0.4 · 2026-11-11 · Living document: refine after every round of user testing (doc 16) and as new roles are added.**
+**Version 0.5 · 2026-11-13 · Living document: refine after every round of user testing (doc 16) and as new roles are added.**
 
 Personas describe the people Meridian must serve: what they do for the business, what their days look like, what they cannot do without, and what they need from an agentic portfolio platform. Each ends with what Meridian covers today, the gaps, and the top three tasks used for user testing (doc 16). Names are fictional.
 
@@ -97,7 +97,7 @@ Made-up people assigned to each persona, so test scripts, demo data and screensh
 - A recorded escalation or sign-off on each risk review.
 
 **Covered today:** Fund risk, factor risk with 18-month history, stress tests (12 historical, 7 hypothetical, scenario builder), risk history with point-in-time storage, look-through and ticker search, candidate risk, risk budget with proximity colors, second-approver role, exceptions (raise and work cases), read-only Trading with post-trade preview.
-**Gaps:** No liquidity metrics (days to liquidate, 22e-4 buckets), no expected shortfall or VaR backtesting, no ex-post vs ex-ante comparison (doc 13 §8, awaiting direction); no recorded "risk review" sign-off separate from approvals; no CSV export from most Console screens; Treasury issuer names split in look-through (F-4).
+**Gaps:** No liquidity metrics (days to liquidate, 22e-4 buckets), no expected shortfall or VaR backtesting, no ex-post vs ex-ante comparison (doc 13 §8, awaiting direction); no recorded "risk review" sign-off separate from approvals; no CSV export from most Console screens. (F-4, Treasury issuer names split in look-through, was fixed 2026-11-10.)
 **UAT top tasks:** (1) find the vintage closest to its tracking-error budget and explain why; (2) run a "rates +100bp, equities −20%" scenario and read the loss by vintage; (3) co-approve an adjusted proposal as Risk.
 
 ---
