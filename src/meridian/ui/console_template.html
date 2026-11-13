@@ -826,6 +826,7 @@ const ENS = {simple_average:'equal-weight blend of the shortlisted methods',inve
   sharpe_weighted:'blend weighted by expected Sharpe ratio',vote_weighted:'blend weighted by the agents\' votes',min_variance_meta:'minimum-volatility blend of the methods',
   regime_conditional:'blend chosen for the current economic regime',trimmed_mean:'trimmed-mean blend (extremes dropped)'};
 const mName = k => (METH[k]||[k])[0];
+const plainIds = t => String(t||'').replace(/\b([a-z]+(?:_[a-z]+)+)\b/g, m => METH[m] ? METH[m][0] : m);
 const mDesc = k => (METH[k]||['',''])[1];
 const ensName = k => ENS[k] ? `${esc(k.replace(/_/g,' '))} <span class="muted">(${esc(ENS[k])})</span>` : esc(k);
 state.pl = 'all'; state.posMode = 'series'; state.posMeasure = 'active'; state.agSel = null; state.gpShifts = [{asset_class:'us_core_bond',from:'us_large_cap',pp:1}]; state.gpPrev = null;
@@ -1122,7 +1123,7 @@ V.agents = () => {
     <li><b>A neutral risk officer reviewed all seven</b> and flagged ${ms.filter(k=>cro[k]&&cro[k].risk_flag!=='none').map(k=>`${esc(mName(k))} (${esc(cro[k].risk_flag)})`).join(', ')||'none'}. It does not vote.</li>
     <li><b>Each agent reviewed two others</b> and scored them 1 to 5. Average score received: ${order.map(k=>`${esc(mName(k))} ${avg(k)!=null?avg(k).toFixed(1):'—'}`).join(', ')}.</li>
     <li>${agentB.length?`<b>All seven voted</b> after reading every review${agentB.length<ms.length?` (${ms.length-agentB.length} ballot${ms.length-agentB.length>1?'s':''} fell back to a rule)`:''}.`:`<b>No agent ballots in this run</b>, so each method's rule-based lens voted. Counts below are for the ${v} vintage.`} Most support: <b>${esc(mName(most))}</b> (${pts[most]} points). Most often voted weakest: <b>${esc(mName(weakest))}</b> (${bottom[weakest]} of ${nB}).</li>
-    <li><b>The top three revised their portfolios</b> in response to the reviews: ${revs.map(([k,r])=>`${esc(mName(k))}: ${esc(r.note)}`).join('; ')||'none'}.</li>
+    <li><b>The top three revised their portfolios</b> in response to the reviews: ${revs.map(([k,r])=>`${esc(mName(k))}: ${esc(plainIds(r.note))}`).join('; ')||'none'}.</li>
     <li><b>The CIO agent then blended the methods for each vintage.</b> For ${v} it chose the ${ensName(x.ensemble)}. ${ROLES[state.role].tabs.includes('portfolios')?'<a href="#" data-open="'+v+'">See the proposal</a>':''}</li></ol>`;
   const board=`<table><tr><th>Method</th><th>Approach</th><th>Risk officer</th><th class="num">Peer score</th><th class="num">Vote points</th><th class="num">Voted best</th><th class="num">Voted weakest</th><th>Outcome</th></tr>
     ${order.map(k=>`<tr class="click${sel===k?' sel':''}" data-agsel="${k}"><td><b>${esc(mName(k))}</b><div class="small muted">${esc(FAMILY[s.families[k]]||s.families[k])}</div></td><td class="small">${esc(mDesc(k))}</td><td>${flagChip(cro[k]&&cro[k].risk_flag)}</td>
@@ -1131,11 +1132,11 @@ V.agents = () => {
     <p class="small muted">Click a method to read its case, the reviews it received and how it voted. Peer score = average of the two reviews it received. Vote points = 3, 2, 1 for each first, second and third place, −2 each time it was voted weakest.</p>`;
   const detail=sel?(()=>{const t=s.theses[sel], b=(s.ballots||{})[sel], rv=(s.revisions||{})[sel], c=cro[sel];
     return `<div class="card" style="margin-top:14px"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(mName(sel))} <span class="muted small mono">${esc(sel)}</span></h2><button class="btn" data-agsel="">Close</button></div>
-    <div class="grid g2" style="margin-top:10px"><div><h3>Its case</h3><div class="why">${esc(t.thesis)}</div>${(t.weaknesses||[]).length?`<h3>Weaknesses it admits</h3><ul class="small">${t.weaknesses.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}
-      <h3>Risk officer</h3><div class="small">${flagChip(c&&c.risk_flag)} ${esc(c?c.comment:'')}</div>
-      ${rv?`<h3>Revision</h3><div class="small"><b>${esc(rv.note)}</b><br>${esc(rv.response_to_reviews||'')}</div>`:''}</div>
-     <div><h3>Reviews it received</h3>${recv[sel].map(r=>`<div class="dr-item"><b>${esc(mName(r.by))}</b> scored it ${r.score}/5<div class="small">${esc(r.assessment)}</div>${(r.concerns||[]).length?`<div class="small muted">Concerns: ${r.concerns.map(esc).join('; ')}</div>`:''}</div>`).join('')||'<span class="muted small">None.</span>'}
-      <h3>How it voted</h3>${b?`<div class="small">Best: ${b.top.map(mName).map(esc).join(', ')}. Weakest: ${esc(mName(b.bottom_flag))}.</div><div class="small muted" style="margin-top:4px">${esc(b.rationale||'')}</div>`:'<div class="small muted">Its ballot was not usable; a rule voted for it.</div>'}</div></div></div>`})():'';
+    <div class="grid g2" style="margin-top:10px"><div><h3>Its case</h3><div class="why">${esc(plainIds(t.thesis))}</div>${(t.weaknesses||[]).length?`<h3>Weaknesses it admits</h3><ul class="small">${t.weaknesses.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:''}
+      <h3>Risk officer</h3><div class="small">${flagChip(c&&c.risk_flag)} ${esc(plainIds(c?c.comment:''))}</div>
+      ${rv?`<h3>Revision</h3><div class="small"><b>${esc(plainIds(rv.note))}</b><br>${esc(plainIds(rv.response_to_reviews||''))}</div>`:''}</div>
+     <div><h3>Reviews it received</h3>${recv[sel].map(r=>`<div class="dr-item"><b>${esc(mName(r.by))}</b> scored it ${r.score}/5<div class="small">${esc(plainIds(r.assessment))}</div>${(r.concerns||[]).length?`<div class="small muted">Concerns: ${r.concerns.map(c=>esc(plainIds(c))).join('; ')}</div>`:''}</div>`).join('')||'<span class="muted small">None.</span>'}
+      <h3>How it voted</h3>${b?`<div class="small">Best: ${b.top.map(mName).map(esc).join(', ')}. Weakest: ${esc(mName(b.bottom_flag))}.</div><div class="small muted" style="margin-top:4px">${esc(plainIds(b.rationale||''))}</div>`:'<div class="small muted">Its ballot was not usable; a rule voted for it.</div>'}</div></div></div>`})():'';
   return `<div class="card"><h2>How the agents decided</h2>${story}<p class="small muted">Agents supply judgment and words. Every weight, risk number, vote count and compliance result is computed by code.</p></div>
   <div class="card" style="margin-top:14px"><h2>Scoreboard</h2>${board}</div>${detail}${perV}`;
 };
