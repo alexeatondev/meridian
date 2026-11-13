@@ -1,6 +1,8 @@
 """UAT-REG: Regulations & obligations screen and the new trading steps (rebalance, fills)."""
 from playwright.sync_api import expect
 
+from conftest import trade_create, trade_preview, trade_setup
+
 R = "UAT: browser test reason"
 
 
@@ -45,12 +47,11 @@ def test_reg_02_ucits_blocks_trade_list(sign_in, app_url):
     _toast(page, "added to 1 funds")
     page = sign_in("Maya Chen", "portfolio_manager")
     page.goto(app_url + "/trading")
-    page.click(".tabs button:text-is('Trades')")
-    page.select_option("#rbStrat", "neutral")
-    page.select_option("#rbFunds", "MTRT-2060")
-    page.fill("#rbReason", R)
-    page.click("#rbGo")
-    _toast(page, "orders for 1 funds")
+    trade_setup(page, "rebalance", strat="neutral")
+    page.select_option("#ntFunds", "MTRT-2060")
+    trade_preview(page)
+    trade_create(page, R)
+    _toast(page, "draft created")
     det = page.locator("#tlDetail")
     expect(det).to_contain_text("UCITS-55-SINGLE")
     expect(det).to_contain_text("Blocked by errors or a compliance FAIL")
@@ -59,12 +60,11 @@ def test_reg_02_ucits_blocks_trade_list(sign_in, app_url):
 def test_trd_14_rebalance_export_and_fills(sign_in, app_url):
     page = sign_in("Maya Chen", "portfolio_manager")
     page.goto(app_url + "/trading")
-    page.click(".tabs button:text-is('Trades')")
-    page.select_option("#rbStrat", "neutral")
-    page.select_option("#rbFunds", "MTRS-2055")
-    page.fill("#rbReason", R)
-    page.click("#rbGo")
-    _toast(page, "orders for 1 funds")
+    trade_setup(page, "rebalance", strat="neutral")
+    page.select_option("#ntFunds", "MTRS-2055")
+    trade_preview(page)
+    trade_create(page, R)
+    _toast(page, "draft created")
     page.check("#taChk")
     page.fill("#taReason", R)
     page.click("#taGo")

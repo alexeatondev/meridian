@@ -337,7 +337,10 @@ def state(request: Request):
                               buffer_bps=fund_buffer(settings, fid),
                               strategic_follows=strategic_table(s, fid).get("follows_glide_path", True),
                               glide_adjusted=bool(glide_deltas(s, fid))))
+        from ..policy import load_universe
+        uni = load_universe()
         return {"as_of": m.as_of.isoformat(), "funds": funds, "glide": glide_state(s), "scopes": SCOPES,
+                "asset_names": {a: uni[a]["name"] for a in m.policy.assets}, "groups": m.policy.groups,
                 "assets": m.policy.assets, "vintages": m.policy.vintages, "instruments": list(m.instruments.values()),
                 "strategies": STRATEGIES, "vehicles": VEHICLES, "settings": settings,
                 "route_names": m.raw.get("route_names", []), "sources": m.raw.get("cashflow_sources", []),
@@ -772,6 +775,7 @@ def generate(request: Request, body: dict = Body(...)):
                               buffer_bps=fund_buffer(settings, fid))
             r["notes"] = pre + r["notes"]
             r["compliance"] = _compliance(fid, r["preview"], ctx)
+            r["impact"] = _impact(s, fid, r["preview"])
             r["vehicle"] = m.funds[fid].vehicle
             r["cashflows"] = [c.id for c in cfs if c.body["fund_id"] == fid]
             r["buffer_bps"] = fund_buffer(settings, fid)
@@ -787,6 +791,8 @@ def generate(request: Request, body: dict = Body(...)):
                        "excluded": settings.get("excluded", []), "excluded_share": settings.get("excluded_share"),
                        "tilts": settings.get("tilts", []), "exits": settings.get("exits", [])},
                    "history": [{"at": _ts(), "by": _who(user), "action": "generate", "note": ""}]}
+        if _preview_only(body):
+            return dict(body_tl, id="PREVIEW", status="preview", history=[])
         dr = _record(s, _who(user), "trades.generate",
                      f"{tl_id}: {orders} orders for {len(out_funds)} funds from {len(cfs)} cashflows ({STRATEGIES[strategy]})",
                      {"trade_list": tl_id, "trade_date": td, "strategy": strategy, "net_flow": body_tl["net_flow"],
@@ -800,6 +806,26 @@ def generate(request: Request, body: dict = Body(...)):
             c.body = dict(c.body, status="in_trade_list", trade_list=tl_id)
             c.status = "in_trade_list"
     return body_tl
+
+
+def _impact(s, fund_id: str, rows: list[dict]) -> dict:
+    """Asset-class view of a trade for the impact screen: current, post-trade, target and glide path, plus how far
+    holdings are from target before and after (half the sum of absolute weight gaps, by security)."""
+    m = model()
+    cur, post = asset_class_weights(m, rows, "current_w"), asset_class_weights(m, rows, "post_w")
+    tgt = {a: 0.0 for a in m.policy.assets}
+    for r in rows:
+        tgt[r["asset_class"] or "cash"] = tgt.get(r["asset_class"] or "cash", 0.0) + r["target_w"]
+    glide = neutral_aw(s, fund_id)
+    gap = lambda key: round(sum(abs(r[key] - r["target_w"]) for r in rows) / 2, 6)  # noqa: E731
+    return {"asset_classes": {a: {"current": round(cur.get(a, 0.0), 6), "post": round(post.get(a, 0.0), 6),
+                                  "target": round(tgt.get(a, 0.0), 6), "glide": round(glide.get(a, 0.0), 6)}
+                              for a in m.policy.assets},
+            "gap_to_target_before": gap("current_w"), "gap_to_target_after": gap("post_w")}
+
+
+def _preview_only(body: dict) -> bool:
+    return bool(body.get("dry_run"))
 
 
 def _effective_table(settings: dict, fund_id: str, table: dict) -> tuple[dict, list[str]]:
@@ -825,7 +851,7 @@ def ticket(request: Request, body: dict = Body(...)):
     fid = body.get("fund_id")
     if fid not in m.funds:
         raise HTTPException(404, "Unknown fund")
-    reason = _reason(body)
+    reason = str(body.get("reason", "")).strip() if _preview_only(body) else _reason(body)
     try:
         td = date.fromisoformat(str(body.get("trade_date", ""))[:10]).isoformat()
     except ValueError:
@@ -849,7 +875,7 @@ def ticket(request: Request, body: dict = Body(...)):
         if r["errors"]:
             raise HTTPException(400, "; ".join(r["errors"]))
         r.update(compliance=_compliance(fid, r["preview"], ctx), vehicle=m.funds[fid].vehicle, cashflows=[],
-                 buffer_bps=fund_buffer(settings, fid))
+                 buffer_bps=fund_buffer(settings, fid), impact=_impact(s, fid, r["preview"]))
         if kind == "exit":
             r["notes"].append("Sale proceeds stay in cash; reinvesting them is a rebalance decision")
         tl_id = ("EX-" if kind == "exit" else "TK-") + td.replace("-", "")[2:] + "-" + uuid.uuid4().hex[:4].upper()
@@ -861,6 +887,8 @@ def ticket(request: Request, body: dict = Body(...)):
              "settings_used": {"routes": settings["routes"], "buffer_bps": settings["buffer_bps"],
                                "excluded": settings.get("excluded", []), "exits": settings.get("exits", [])},
              "history": [{"at": _ts(), "by": _who(user), "action": kind, "note": reason}]}
+        if _preview_only(body):
+            return dict(b, id="PREVIEW", status="preview", history=[])
         dr = _record(s, _who(user), f"trades.{kind}", f"{tl_id}: {name.lower()}, {len(r['orders'])} orders in {fid}",
                      {"trade_list": tl_id, "trade_date": td, "orders": [dict(o, fund_id=fid) for o in r["orders"]],
                       "compliance": r["compliance"]["status"]}, reason, [fid])
@@ -1178,7 +1206,7 @@ def rebalance(request: Request, body: dict = Body(...)):
     user = auth.require_user(request)
     auth.check_csrf(request, user)
     auth.require_role(user, *APPROVE_ROLES)
-    reason = _reason(body)
+    reason = str(body.get("reason", "")).strip() if _preview_only(body) else _reason(body)
     m = model()
     strategy = body.get("strategy", "approved")
     if strategy not in STRATEGIES or strategy == "previous_close":
@@ -1204,7 +1232,7 @@ def rebalance(request: Request, body: dict = Body(...)):
                                buffer_bps=fund_buffer(settings, fid), min_drift_bps=md)
             r["notes"] = pre + r["notes"]
             r.update(compliance=_compliance(fid, r["preview"], ctx), vehicle=m.funds[fid].vehicle, cashflows=[],
-                     buffer_bps=fund_buffer(settings, fid))
+                     buffer_bps=fund_buffer(settings, fid), impact=_impact(s, fid, r["preview"]))
             out.append(r)
         tl_id = "RB-" + td.replace("-", "")[2:] + "-" + uuid.uuid4().hex[:4].upper()
         n = sum(len(f["orders"]) for f in out)
@@ -1218,6 +1246,8 @@ def rebalance(request: Request, body: dict = Body(...)):
                                "excluded": settings.get("excluded", []), "tilts": settings.get("tilts", []),
                                "exits": settings.get("exits", [])},
              "history": [{"at": _ts(), "by": _who(user), "action": "rebalance", "note": reason}]}
+        if _preview_only(body):
+            return dict(b, id="PREVIEW", status="preview", history=[])
         dr = _record(s, _who(user), "trades.rebalance", f"{tl_id}: rebalance of {len(out)} funds to "
                      f"{STRATEGIES[strategy]}, {n} orders", {"trade_list": tl_id, "strategy": strategy,
                      "min_drift_bps": md, "orders": [dict(o, fund_id=f["fund_id"]) for f in out for o in f["orders"]],

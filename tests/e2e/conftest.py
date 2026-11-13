@@ -103,3 +103,35 @@ def tabs(page) -> list[str]:
 def toast_text(page, timeout: int = 5000) -> str:
     page.wait_for_selector("#mtoasts .mtoast", state="visible", timeout=timeout)
     return page.inner_text("#mtoasts .mtoast:last-child")
+
+
+# ---- Trading → New trade builder (task tiles → setup → impact → draft) ----
+def trading_tab(page, label: str):
+    page.click(f".tabs button:text-is('{label}')")
+    page.wait_for_selector(f".tabs button.active:text-is('{label}')")
+
+
+def trade_setup(page, task: str, strat: str | None = None, fund: str | None = None):
+    """Open New trade, pick a task tile, optionally a strategy (invest/rebalance) or a fund (security/exit)."""
+    trading_tab(page, "New trade")
+    page.click(f"[data-task='{task}']")
+    if strat:
+        page.click(f"label.tile:has(input[name=ntStrat][value='{strat}'])")
+        page.wait_for_selector(f"input[name=ntStrat][value='{strat}']:checked")
+    if fund:
+        page.select_option("#ntFund", fund)
+        page.wait_for_selector("#ntQ" if task == "security" else "#ntPrev")
+
+
+def trade_preview(page):
+    """Click 'See the impact' and wait for the now-vs-after panel."""
+    page.click("#ntPrev")
+    page.wait_for_selector("#ntCreate")
+
+
+def trade_create(page, reason: str):
+    """Fill the reason and create the draft; lands on Trade lists with the new list open."""
+    page.fill("#ntReason", reason)
+    page.click("#ntCreate")
+    page.wait_for_selector(".tabs button.active:text-is('Trade lists')")
+    page.wait_for_selector("#tlDetail h2")
