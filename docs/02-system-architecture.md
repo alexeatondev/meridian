@@ -235,7 +235,7 @@ Allocation engine (meridian.trading, deterministic)
   → exits removed → tilts applied → no-target / excluded skipped → pro rata split → ETF cash buffer → lot rounding
         │
         ▼
-Trade list (draft) ── preview (current vs post-trade) ── IPS engine + regulation controls on post-trade weights ── tranches
+Trade list (draft, or dry-run preview that stores nothing) ── impact (now vs after: asset mix vs target and glide path, off target) ── IPS engine + regulation controls on post-trade weights ── tranches
         │ PM approval (checkbox + reason; FAIL blocks)
         ▼
 Charles River import file (mock CSV; one row per order or tranche; destination per security type)

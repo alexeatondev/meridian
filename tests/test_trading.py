@@ -397,3 +397,42 @@ def test_bulk_scopes_glide_path_and_strategic(client):
     from meridian.app.main import store
     steps = [x["step"] for x in store().ledger("governance") if x["dr_type"] == "trading"]
     assert {"glidepath.request", "glidepath.approve", "targets.strategic-bulk", "settings.change"} <= set(steps)
+
+
+def test_dry_run_previews_impact_without_saving(client):
+    """New trade 'See the impact': dry_run returns the impact for every kind of list and saves nothing."""
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    client.post("/api/trading/cashflows", headers=hp, json=[
+        {"trade_date": "2026-11-10", "fund_id": "MTRS-2050", "amount": 2e7, "type": "subscription"}])
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    before = len(client.get("/api/trading/state").json()["trade_lists"])
+    ledger_before = len(client.get("/api/trading/state").json()["trading_records"])
+    fd = client.get("/api/trading/funds/MTRS-2040").json()
+    big = max((r for r in fd["rows"] if r["value"] > 0 and r["type"] != "cash"), key=lambda r: r["value"])
+    previews = {
+        "cashflow": client.post("/api/trading/trade-lists", headers=hp,
+                                json={"trade_date": "2026-11-10", "strategy": "previous_close", "dry_run": True}),
+        "rebalance": client.post("/api/trading/rebalance", headers=hp,
+                                 json={"strategy": "neutral", "trade_date": "2026-11-13", "fund_ids": ["MTRS-2070"], "dry_run": True}),
+        "ticket": client.post("/api/trading/tickets", headers=hp,
+                              json={"fund_id": "MTRS-2040", "trade_date": "2026-11-13", "dry_run": True,
+                                    "orders": [{"instrument": big["instrument"], "side": "SELL", "amount": 1e7}]}),
+    }
+    for kind, r in previews.items():
+        assert r.status_code == 200, (kind, r.text)
+        b = r.json()
+        assert b["id"] == "PREVIEW" and b["status"] == "preview", kind
+        f = b["funds"][0]
+        imp = f["impact"]
+        assert set(imp) >= {"asset_classes", "gap_to_target_before", "gap_to_target_after"}, kind
+        ac = imp["asset_classes"]
+        assert abs(sum(v["current"] for v in ac.values()) - 1) < 1e-4 and abs(sum(v["post"] for v in ac.values()) - 1) < 1e-4
+    reb = previews["rebalance"].json()["funds"][0]["impact"]
+    assert reb["gap_to_target_after"] <= reb["gap_to_target_before"] + 1e-9           # rebalance closes gaps
+    st = client.get("/api/trading/state").json()
+    assert len(st["trade_lists"]) == before                                            # nothing saved
+    assert len(st["trading_records"]) == ledger_before                                     # nothing recorded
+    assert all(c["status"] == "new" for c in st["cashflows"])                          # cashflows not consumed
+    # without dry_run the reason is still required for tickets and rebalances
+    assert client.post("/api/trading/rebalance", headers=hp, json={
+        "strategy": "neutral", "trade_date": "2026-11-13", "fund_ids": ["MTRS-2070"]}).status_code == 400

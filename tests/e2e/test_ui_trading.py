@@ -1,8 +1,11 @@
 """UAT-TRD: Trading workspace (doc 17) driven in the browser."""
 import csv
+import re
 import io
 
 from playwright.sync_api import expect
+
+from conftest import trade_create, trade_preview, trade_setup, trading_tab
 
 R = "UAT: browser test reason"
 
@@ -15,6 +18,7 @@ def test_trd_01_vehicle_toggle_and_universe(sign_in, app_url):
     """TRD-1/2: vehicle toggle shows all, mutual funds or CITs; fund detail shows held, no-target and candidates."""
     page = sign_in("Maya Chen", "portfolio_manager")
     page.click("a[href='/trading']")
+    trading_tab(page, "Funds & securities")
     page.wait_for_selector("[data-fund]")
     assert page.locator("[data-fund]").count() == 18
     page.click("#veh button:text-is('CITs')")
@@ -45,17 +49,23 @@ def test_trd_02_cashflow_to_charles_river(sign_in, app_url):
     page.click("#cfAdd")
     _toast(page, "Cashflow added")
     page.click("#veh button:text-is('CITs')")
-    page.click(".tabs button:text-is('Trades')")
-    page.select_option("#tgStrat", "previous_close")
-    page.click("#tgGo")
-    _toast(page, "orders for 1 funds")
+    trade_setup(page, "invest", strat="previous_close")
+    trade_preview(page)
+    imp = page.locator("#trade")
+    expect(imp).to_contain_text("Impact: now vs after")
+    expect(imp).to_contain_text("MTRT-2045")
+    expect(imp).not_to_contain_text("MTRS-2045")
+    trade_create(page, R)
+    _toast(page, "draft created")
     det = page.locator("#tlDetail")
+    page.click("#tlv button:text-is('Orders')")
     expect(det).to_contain_text("MTRT-2045")
     expect(det).to_contain_text("State Street")
     expect(det).not_to_contain_text("MTRS-2045")
     expect(det).to_contain_text("PASS")
-    page.click("#tlv button:text-is('Current vs post-trade')")
-    expect(det).to_contain_text("Post vs target")
+    page.click("#tlv button:text-is('Impact: now vs after')")
+    expect(det.locator(".mixrow").first).to_be_visible()
+    expect(det).to_contain_text("Off target")
     page.click("#taGo")
     _toast(page, "Confirm you reviewed")
     page.check("#taChk")
@@ -122,23 +132,29 @@ def test_trd_04_tilt_exit_ticket_and_tranches(sign_in, app_url):
     d = page.locator("#fundDetail")
     expect(d).to_contain_text("Tilt +50 bp")
     expect(d).to_contain_text("Exiting")
-    # manual ticket: buy the candidate ETF
-    page.select_option("[data-tki='0']", "IEFA")
-    page.fill("[data-tka='0']", "2000000")
-    page.fill("#tkReason", R)
-    page.click("#tkGo")
-    _toast(page, "ticket created")
+    # manual ticket from the fund page: buy the candidate ETF
+    page.click("#fdTrade")
+    page.fill("#ntQ", "IEFA")
+    page.click("[data-add='IEFA']")
+    page.fill("[data-oval='0']", "2000000")
+    page.locator("[data-oval='0']").dispatch_event("change")
+    expect(page.locator("#trade")).to_contain_text("Buy $2.0m")
+    trade_preview(page)
+    trade_create(page, R)
+    _toast(page, "draft created with 1 orders")
     det = page.locator("#tlDetail")
+    page.click("#tlv button:text-is('Orders')")
     expect(det).to_contain_text("IEFA")
     expect(det).to_contain_text("Internal trading desk")
     # exit trade list, then tranche it 25/75 over two days
-    page.click(".tabs button:text-is('Funds & securities')")
+    trading_tab(page, "Funds & securities")
     page.click("[data-fund='MTRS-2060']")
-    page.wait_for_selector("#tkExit")
-    page.wait_for_timeout(400)
-    page.fill("#tkReason", R)
-    page.click("#tkExit")
-    _toast(page, "exit trade list created")
+    page.click("#fdExit")
+    expect(page.locator("#trade")).to_contain_text("MER-LISC-MF")
+    trade_preview(page)
+    trade_create(page, R)
+    _toast(page, "draft created")
+    page.click("#tlv button:text-is('Orders')")
     expect(det).to_contain_text("MER-LISC-MF")
     page.click("#tlv button:has-text('Tranches')")
     page.fill("[data-sp='0']", "25")
@@ -185,3 +201,72 @@ def test_trd_17_bulk_glide_path_and_tilt(sign_in, app_url):
     expect(page.locator("#bulk")).to_contain_text("All CITs")
     page.click(".tabs button:text-is('Funds & securities')")
     expect(page.locator("[data-fund='MTRT-2050']")).to_contain_text("Glide path adjusted")
+
+
+def test_trd_20_new_trade_tasks_and_roles(sign_in, app_url):
+    """TRD-20: New trade opens first with four task tiles; analysts prepare but can't rebalance; preview saves nothing."""
+    page = sign_in("Priya Raman", "analyst")
+    page.goto(app_url + "/trading")
+    expect(page.locator(".tabs button.active")).to_have_text("New trade")
+    expect(page.locator("[data-task]")).to_have_count(4)
+    assert page.locator("[data-task='rebalance']").is_disabled()
+    assert not page.locator("[data-task='security']").is_disabled()
+    before = page.evaluate("S.st.trade_lists.length")
+    trade_setup(page, "security", fund="MTRS-2050")
+    expect(page.locator("[data-add]")).not_to_have_count(0)
+    page.locator("[data-add]").first.click()
+    page.select_option("[data-oact='0']", "weight")
+    trade_preview(page)
+    assert page.evaluate("S.st.trade_lists.length") == before        # dry run: nothing saved
+
+
+def test_trd_21_trade_to_weight_shows_now_vs_after(sign_in, app_url):
+    """TRD-21: trade one security to a target weight (cash warning when buys exceed cash); impact shows now, after, target and glide path by asset class."""
+    page = sign_in("Maya Chen", "portfolio_manager")
+    page.goto(app_url + "/trading")
+    trade_setup(page, "security", fund="MTRS-2040")
+    held = page.evaluate("S.nt.fd.rows.filter(r=>r.value>0 && r.type!=='cash' && !r.excluded).sort((a,b)=>b.value-a.value)[0]")
+    page.fill("#ntQ", held["instrument"])
+    page.click(f"[data-add='{held['instrument']}']")
+    page.select_option("[data-oact='0']", "weight")
+    page.fill("[data-oval='0']", str(round(held["weight"] * 100 + 5.0, 2)))
+    page.locator("[data-oval='0']").dispatch_event("change")
+    expect(page.locator("#ntCashWarn")).to_contain_text("Not enough cash")
+    new_w = round(held["weight"] * 100 - 1.0, 2)
+    page.fill("[data-oval='0']", str(new_w))
+    page.locator("[data-oval='0']").dispatch_event("change")
+    expect(page.locator("#trade")).to_contain_text(f"{new_w:.2f}%")
+    trade_preview(page)
+    imp = page.locator("#trade")
+    for text in ("Off target", "Now", "After", "Target", "Glide path", "Compliance"):
+        expect(imp).to_contain_text(text)
+    expect(imp.locator(".mixrow").first).to_be_visible()
+    order = page.evaluate("S.nt.prev.funds[0].orders[0]")
+    assert order["instrument"] == held["instrument"] and order["side"] == "SELL"
+
+
+def test_trd_22_rebalance_toward_glide_path_reduces_gap(sign_in, app_url):
+    """TRD-22: rebalance toward the glide path (neutral) closes the gap: off target after ≤ before, per fund."""
+    page = sign_in("Maya Chen", "portfolio_manager")
+    page.goto(app_url + "/trading")
+    trade_setup(page, "rebalance", strat="neutral")
+    page.select_option("#ntFunds", "MTRS-2070")
+    trade_preview(page)
+    f = page.evaluate("S.nt.prev.funds[0]")
+    assert f["fund_id"] == "MTRS-2070"
+    assert f["impact"]["gap_to_target_after"] <= f["impact"]["gap_to_target_before"] + 1e-9
+    expect(page.locator("#trade")).to_contain_text("Off target")
+
+
+def test_trd_23_goal_shortcuts(sign_in, app_url):
+    """TRD-23: 'Start from your goal' sets up the right task and strategy (glide path, night close, strategic)."""
+    page = sign_in("Maya Chen", "portfolio_manager")
+    page.goto(app_url + "/trading")
+    page.locator("tr", has_text="Get back to the glide path").locator("[data-goal]").click()
+    expect(page.locator("[data-task='rebalance']")).to_have_class(re.compile(r"\bon\b"))
+    expect(page.locator("input[name=ntStrat][value='neutral']")).to_be_checked()
+    page.click("[data-task='invest']")
+    page.goto(app_url + "/trading")
+    page.evaluate("S.nt.task=null; vTrade()")
+    page.locator("tr", has_text="stay as positioned last night").locator("[data-goal]").click()
+    expect(page.locator("input[name=ntStrat][value='previous_close']")).to_be_checked()

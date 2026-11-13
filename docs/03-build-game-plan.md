@@ -1,14 +1,14 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.8 · 2026-11-11 (UX update)**
+**Version 0.9 · 2026-11-13 (console UX, Trading redesign, step-by-step guide)**
 
-## Status (2026-11-10)
+## Status (2026-11-13)
 - **Repo:** github.com/alexeatondev/meridian · **App:** https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK, GitHub OIDC, no stored keys) · **Cost:** about $1 spent so far (product owner's Cost Explorer check, 2026-11-10); budget $75/month with alerts and an automatic spend block.
 - **Agent pipeline (Phase 1):** macro regime, 13 asset classes with CMA judge, covariance, 7 construction methods, peer review and Borda vote, CRO, CIO ensemble, board memo; real public data with synthetic only for some non-US valuations (flagged); live LLM judgment in the `agent-run` workflow; runs are ad hoc.
 - **Governance (Phase 2):** deterministic compliance engine, Agentic Compliance Officer (draft only), hash-chained ledger that the database refuses to edit, approvals with reason and segregation of duties, Investment Committee / CCO / Trade route manager permissions, exceptions workflow, ledger search across runs, evidence pack. Not yet: kill switch, autonomy controls, WORM copy.
 - **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 135 automated tests (65 in the browser). One shared app shell on every screen (app bar, My work inbox, in-app Help, in-page confirmations, persistent error messages, keyboard and screen-reader support; doc 11). Not yet: Ask Meridian.
-- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, post-trade preview with IPS check, approval, mock Charles River file, rebalance, positions upload, fills and booking, bulk changes across product lines and IC-approved glide-path adjustments (doc 17); fund-level regulations with controls and obligations (doc 18). Positions, prices and the CIT line are example data.
-- **Docs:** all 18 docs checked and current on 2026-11-11; repository docs use the Project's numbers; user guide (doc 06) step by step with 58 screenshots, published as an illustrated page and served in the app under **Help**.
+- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, a task-based **New trade** builder with goal shortcuts and a now-vs-after impact view before saving (2026-11-13), IPS check, approval, mock Charles River file, rebalance, positions upload, fills and booking, bulk changes across product lines and IC-approved glide-path adjustments (doc 17); fund-level regulations with controls and obligations (doc 18). Positions, prices and the CIT line are example data.
+- **Docs:** all docs checked and current on 2026-11-13; repository docs use the Project's numbers; user guide (doc 06 v0.8) rewritten so every task is numbered start-to-finish steps with "you're done when" and "if something goes wrong", 75 screenshots regenerated from the app, published as an illustrated page and served in the app under **Help**.
 
 ## Assessment (2026-11-10)
 | Area | State | Comment |
@@ -24,8 +24,8 @@
 | Phase 8 Production readiness | Not started | Needs named people (CCO, IC sponsor, model-risk owner), counsel review, security hardening, WORM, parallel run ≥ 2 quarters |
 
 **Main risks right now**
-1. **Trading runs on example data.** Until real positions and cashflows arrive from SS&C and State Street, every trade list is a demonstration; exported trades also don't change holdings (no booking or fills yet).
-2. **The trading targets aren't linked to the approved agent proposal.** Neutral follows the glide path and Strategic is a separate table; an approved tactical proposal doesn't yet feed trading. This is the main seam between the agent pipeline and implementation.
+1. **Trading runs on example data.** Until real positions and cashflows arrive from SS&C and State Street (uploads work today), every trade list is a demonstration; fills are booked from a file or marked filled in shadow mode.
+2. **The agent pipeline doesn't read approved glide-path adjustments.** Trading can now target the approved proposal (**Approved proposal** table) and the adjusted glide path, but the agents still build one proposal per vintage against the IPS glide path, shared by both product lines.
 3. **One person holds every role.** Segregation of duties is enforced in code but has only been exercised with test logins.
 4. **Security hardening is held** (admin deploy role, no MFA). Acceptable with test users only.
 5. **No human CCO or counsel review.** Blocks production, not development.
@@ -43,6 +43,12 @@
 - **Feedback and safety:** in-page confirmation dialogs replace browser prompts (cancel cashflow, cancel trade list, delete account with typed email); error messages stay until dismissed; live character counters on reason fields; busy state prevents double submission; session-expiry dialog.
 - **Navigation and accessibility:** console tabs grouped under Overview, Portfolio, Risk and Governance with an open-exceptions count; skip link, focus outlines, ARIA tablists with arrow keys, live regions, dark mode and reduced motion respected.
 - Docs 06 (§1 rewritten, v0.7), 11 (v0.5), 16 (UX-1 to UX-8) updated; 5 new screenshots.
+
+## Built 2026-11-12 and 2026-11-13
+- **Agents on the Agent SDK**, cheapest model by default with one-line model switching (`config/models.yaml`, workflow dropdown), spend caps; **strategy review by agents** (thesis, risk officer, peer review, vote, revision, memo summary) with a code-computed fact sheet (doc 02 §4a).
+- **Console UX (product-owner feedback):** a Home with series tiles, "needs your attention" and the series at a glance; mutual funds vs CITs on Funds & vintages and Positioning; series summaries; "What is being approved" on proposals; an approval queue with summaries; Agent votes in plain words; risk budget across the series with a before/after preview; glide-path adjustments from the console; ticker search that doesn't move the page.
+- **Trading redesign:** **New trade** with four tasks (invest cashflows, rebalance, trade a security, exit) and **Start from your goal** shortcuts; tickets by amount or **to a target weight** with a live cash check; **See the impact** (dry run, nothing saved) showing totals, off-target bars by fund and each fund's asset mix now vs after against target and glide path; the same impact view on saved lists (doc 17, doc 06 §10).
+- **Docs:** doc 06 rewritten step by step (v0.8) with 75 regenerated screenshots; docs 00, 02, 03, 11, 15, 16 (TRD-19 to TRD-23), 17 updated.
 
 ## Next steps (not blocked, in order)
 1. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.

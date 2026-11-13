@@ -1,6 +1,8 @@
 """UAT-UX: shared app bar, My work, Help, in-page confirmations, messages, keyboard and session expiry (2026-11-11)."""
 from playwright.sync_api import expect
 
+from conftest import trade_create, trade_preview, trade_setup
+
 
 def test_ux_01_app_bar_on_every_screen_filtered_by_role(sign_in, app_url):
     """UX-1: the same app bar on every screen; links follow the person's access; the current screen is marked."""
@@ -33,10 +35,10 @@ def test_ux_02_my_work_opens_the_item(sign_in, app_url):
     page.fill("#cfAmt", "1000000")
     page.click("#cfAdd")
     expect(page.locator("#mtoasts")).to_contain_text("Cashflow added")
-    page.click(".tabs button:text-is('Trades')")
-    page.select_option("#tgStrat", "neutral")
-    page.click("#tgGo")
-    expect(page.locator("#mtoasts")).to_contain_text("orders for")
+    trade_setup(page, "invest", strat="neutral")
+    trade_preview(page)
+    trade_create(page, "UAT: draft for the My work check")
+    expect(page.locator("#mtoasts")).to_contain_text("draft created")
     tl = page.evaluate("S.tl")
     page.goto(app_url + "/runs/latest")
     page.wait_for_function("document.getElementById('mworkN').textContent !== '·'")
@@ -48,7 +50,7 @@ def test_ux_02_my_work_opens_the_item(sign_in, app_url):
     page.click("#mwork")
     item.click()
     page.wait_for_url("**/trading")
-    expect(page.locator(".tabs button.active")).to_have_text("Trades")
+    expect(page.locator(".tabs button.active")).to_have_text("Trade lists")
     expect(page.locator("#tlDetail")).to_contain_text(tl)
     # tidy up: cancel through the in-page confirmation (Go back first leaves it unchanged)
     page.click("#taCancel")
@@ -70,11 +72,12 @@ def test_ux_03_messages_reason_counter_and_keyboard(sign_in, app_url):
     """UX-3: errors stay until dismissed; reason fields count characters; tabs work with the arrow keys; skip link."""
     page = sign_in("Maya Chen", "portfolio_manager")
     page.goto(app_url + "/trading")
-    page.click(".tabs button:text-is('Trades')")
-    page.fill("#rbReason", "abc")
-    expect(page.locator("#rbReason + .mcount")).to_have_text("3/10 characters minimum")
-    page.fill("#rbReason", "")
-    page.click("#rbGo")
+    trade_setup(page, "rebalance", strat="neutral")
+    trade_preview(page)
+    page.fill("#ntReason", "abc")
+    expect(page.locator("#ntReason + .mcount")).to_have_text("3/10 characters minimum")
+    page.fill("#ntReason", "")
+    page.click("#ntCreate")
     err = page.locator("#mtoasts .mtoast.error")
     expect(err).to_have_count(1)
     page.wait_for_timeout(5000)
@@ -82,12 +85,14 @@ def test_ux_03_messages_reason_counter_and_keyboard(sign_in, app_url):
     err.locator(".mx").click()
     expect(err).to_have_count(0)
     tabs = page.locator(".tabs[role=tablist] button[role=tab]")
-    expect(tabs.first).to_have_attribute("aria-selected", "false")
+    expect(tabs.first).to_have_attribute("aria-selected", "true")
     page.focus(".tabs button.active")
     page.keyboard.press("ArrowRight")
-    expect(page.locator(".tabs button.active")).to_have_text("Glide path & bulk changes")
+    expect(page.locator(".tabs button.active")).to_have_text("Trade lists")
+    page.keyboard.press("End")
+    expect(page.locator(".tabs button.active")).to_have_text("Routing & settings")
     page.keyboard.press("Home")
-    expect(page.locator(".tabs button.active")).to_have_text("Funds & securities")
+    expect(page.locator(".tabs button.active")).to_have_text("New trade")
     page.goto(app_url + "/trading")
     page.keyboard.press("Tab")
     expect(page.locator(".mskip")).to_be_focused()

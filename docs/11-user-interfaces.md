@@ -1,6 +1,6 @@
 # 11 — User Interfaces
 
-**Version 0.5 · 2026-11-11 (UX update)**
+**Version 0.6 · 2026-11-13 (Trading redesign: New trade builder and impact view)**
 
 Meridian has three interfaces over the same data and the same decision ledger. Each user gets the one that fits how they work.
 
@@ -68,8 +68,18 @@ Design rules applied across every view:
 - **Synthetic-data and compliance status banners** appear on every page.
 - The ledger opens only in the Compliance and Audit workspaces; other roles see record IDs.
 
-## Trading screen (`/trading`, built 2026-11-10)
-A separate page in the app bar, for the implementation workflow in doc 17: **Funds & securities** (incl. positions upload), **Cashflows**, **Trades** (cashflow trade lists, rebalance, tranches, approval, Charles River file, fills), **Glide path & bulk changes** (scope: all funds, all mutual funds, all CITs or one fund, optional vintage range), **Routing & settings**, with an **All funds / Mutual funds / CITs** toggle on every tab. PMs and analysts prepare; PMs approve; glide-path changes need an Investment Committee member's approval; route changes need the `route_manager` permission; Risk, Compliance, Audit, Leadership and Admin see it read-only. Step-by-step use with screenshots: doc 06 §10.
+## Trading screen (`/trading`, built 2026-11-10; redesigned 2026-11-13)
+A separate page in the app bar, for the implementation workflow in doc 17. Tabs: **New trade** (opens first), **Trade lists**, **Funds & securities** (incl. positions upload and strategic tables), **Cashflows**, **Glide path & bulk changes** (scope: all funds, all mutual funds, all CITs or one fund, optional vintage range), **Routing & settings**, with an **All funds / Mutual funds / CITs** switch on every tab. PMs and analysts prepare; PMs rebalance and approve; glide-path changes need an Investment Committee member's approval; route changes need the `route_manager` permission; Risk, Compliance, Audit, Leadership and Admin see it read-only.
+
+**New trade** is a task-based builder with four steps on one page:
+1. **What do you want to do?** Four tiles: **Invest cashflows**, **Rebalance to a target** (PM only), **Trade a security**, **Exit a position**. Below them, **Start from your goal** maps plain goals ("stay as positioned last night", "get back to the glide path", "move to a strategic view", "implement the approved proposal", "buy or sell a specific security", "sell a position completely") to the right tile and mix in one click.
+2. **Set it up.** Mix tiles with plain names and one-line explanations: **Keep the current mix** (previous night close; cashflows only), **Back to the glide path** (neutral), **Strategic mix**, **Approved proposal**. *Trade a security* has a fund picker, a security search (ticker, name or asset class; 12 largest holdings by default), and per-order actions **Buy amount**, **Sell amount**, **Trade to weight** (% of NAV) or **Sell all**, with the estimated trade, weight after and a live cash check ("Not enough cash" when buys exceed uninvested cash).
+3. **Impact: now vs after these trades.** **See the impact** calls the same endpoint with `dry_run: true`: nothing is saved or recorded. The panel shows totals (orders, buys, sells, uninvested cash now → after, average *Off target* now → after, compliance after), a **By fund** table with off-target bars (grey now, blue after), equity now → after against glide-path equity, then for the selected fund an **asset mix now vs after** bar chart with target and glide-path markers and a grouped table (now, after, change, target, glide path, gap now, gap after), notes, compliance detail, and expandable securities and orders.
+4. **Create the draft trade list** with a reason (≥10 characters). The draft opens on **Trade lists**.
+
+**Trade lists** opens each list on **Impact: now vs after** (the same panel, from the saved preview), with **Orders** and **Tranches** views, the approval form ("I reviewed the orders, the impact (now vs after), the compliance check and the notes"), the Charles River export and fills. A fund's page on **Funds & securities** has **Trade a security** and **Exit a position** buttons that open New trade with that fund chosen.
+
+Step-by-step use with screenshots: doc 06 §10. Tests: `tests/e2e/test_ui_trading.py` (TRD-1 to TRD-23).
 
 ## Regulations screen (`/regulations`, built 2026-11-10)
 Funds (tag regulations, controls on current holdings, required people), Obligations (owner, due date, evidence, overdue), Regulation library (US and international) and Change log, with the All / Mutual funds / CITs toggle. Compliance tags; the CCO removes tags and waives obligations; Compliance, Risk, Leadership and PMs work obligations; others read. Doc 06 §12, doc 18.
