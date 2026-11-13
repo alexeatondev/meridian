@@ -1,6 +1,6 @@
 # 02 — System Architecture
 
-**Version 0.4 · 2026-11-11**
+**Version 0.5 · 2026-11-13 (strategy review by agents §4a; trading impact preview §11)**
 
 ## 1. What we take from the paper, and what we change
 
