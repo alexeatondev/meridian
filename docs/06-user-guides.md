@@ -802,8 +802,8 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 
 **Use a calculation instead (e.g. a slow sell-down before a redemption in kind).** Approved calculation templates (10.11) work out a series for each order for you.
 
-![Use a calculation: preview per order](img/guide/trd-21-calc-preview.png)
-*Image: `trd-21-calc-preview.png`*
+![Use a calculation: preview per order](img/guide/trd-29-calc-preview.png)
+*Image: `trd-29-calc-preview.png`*
 
 1. On the draft's **Tranches** view, go to **Use a calculation**.
 2. Choose the **Template** (e.g. *Sell 20% a day (v1)*); the line under it says what it does.
@@ -811,8 +811,8 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 4. Click **Preview**. For every order in scope you see how many tranches it gets and the first and last date; orders the template doesn't apply to (e.g. buys for a sell-only template, or funds with no trading volume for a volume cap) stay as one order, with the reason in **Note**. Nothing is saved yet.
 5. Click **Apply and save**.
 
-![Tranches made by a calculation](img/guide/trd-22-calc-applied.png)
-*Image: `trd-22-calc-applied.png`*
+![Tranches made by a calculation](img/guide/trd-30-calc-applied.png)
+*Image: `trd-30-calc-applied.png`*
 
 **You're done when** the green message names the template and version, the bucket says **Calculations used: …**, and those orders show the template's name instead of "Security". The same data checks run as for a hand-made series (up to 60 tranches for a template). You can still add hand-made series for other securities; a hand-made series on a security replaces the template's for that security.
 
@@ -877,8 +877,8 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 
 **Calculation templates** (on the same tab, saved separately). A template is a named, versioned rule that turns an order into tranches.
 
-![Calculation templates](img/guide/trd-23-calc-templates.png)
-*Image: `trd-23-calc-templates.png`*
+![Calculation templates](img/guide/trd-31-calc-templates.png)
+*Image: `trd-31-calc-templates.png`*
 
 | Calculation | What it does | Example |
 |---|---|---|

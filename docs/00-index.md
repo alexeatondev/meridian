@@ -40,7 +40,7 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 18 | Fund Regulations & Obligations — US and international regulation tags, controls, tracked obligations | Compliance, PMs, audit, leadership |
 | — | Sample run board memo | Leadership, IC |
 
-The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/` (regenerated from the app by `tests/e2e/guide_screenshots.py`; last 2026-11-13), the same guide opens inside the app under **? Help**, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.
+The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/` (regenerated from the app by `tests/e2e/guide_screenshots.py`; last 2026-11-18), the same guide opens inside the app under **? Help**, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.
 
 ## Guiding principles
 1. **LLMs judge; code computes; rules decide compliance.** No arithmetic in the model. No compliance determination by the model.
