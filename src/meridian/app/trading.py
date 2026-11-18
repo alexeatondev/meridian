@@ -18,7 +18,7 @@ from functools import lru_cache
 import numpy as np
 from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import JSON, Column, DateTime, String, select
+from sqlalchemy import JSON, Column, DateTime, String, Text, select
 
 from ..trading import (
     CRD_COLUMNS,
@@ -60,6 +60,18 @@ class TradeList(Base):
     status = Column(String(20), nullable=False, index=True)
     body = Column(JSON, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class TradeFile(Base):
+    """Every file exchanged with Charles River: each import file as exported, and each fills file as received
+    (kept so anyone can open exactly what was sent or loaded; the hash is also in the ledger)."""
+    __tablename__ = "trade_files"
+    id = Column(String(40), primary_key=True)
+    trade_list = Column(String(40), index=True, nullable=False)
+    kind = Column(String(20), nullable=False)                     # export | fills
+    body = Column(JSON, nullable=False)                           # name, sha256, rows, by, at, dr_id
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now)
 
 
 class TradingSetting(Base):
@@ -267,9 +279,37 @@ def glide_deltas(s, fund_id: str) -> dict[str, float]:
     return out
 
 
-def neutral_aw(s, fund_id: str, extra: dict | None = None) -> dict[str, float]:
-    """The fund's glide-path weights: the IPS glide path on its roll-down schedule plus approved adjustments."""
+def path_delta(s, fund_id: str) -> dict[str, float]:
+    """Named glide path assigned to the fund minus the IPS glide path (asset-class weights); {} on the IPS path."""
+    from .policy_admin import fund_path
+    p = fund_path(s, fund_id)
+    if not p or p["id"] == "ips":
+        return {}
+    m = model()
+    ips, own = m.neutral_asset_weights(fund_id), m.path_asset_weights(fund_id, p["anchors"])
+    return {a: own[a] - ips[a] for a in m.policy.assets if abs(own[a] - ips[a]) > 1e-12}
+
+
+def fund_deltas(s, fund_id: str) -> dict[str, float]:
+    """Everything the fund's glide path adds to the IPS glide path: its named path plus approved adjustments."""
+    out = dict(path_delta(s, fund_id))
+    for a, x in glide_deltas(s, fund_id).items():
+        out[a] = out.get(a, 0.0) + x
+    return out
+
+
+def base_aw(s, fund_id: str) -> dict[str, float]:
+    """The fund's base glide path (its named path, or the IPS path): the centre of the IPS bands."""
     aw = model().neutral_asset_weights(fund_id)
+    for a, x in path_delta(s, fund_id).items():
+        aw[a] = aw.get(a, 0.0) + x
+    return aw
+
+
+def neutral_aw(s, fund_id: str, extra: dict | None = None) -> dict[str, float]:
+    """The fund's glide-path weights: its base path (named path or IPS glide path) on its roll-down schedule
+    plus approved adjustments."""
+    aw = base_aw(s, fund_id)
     for d in (glide_deltas(s, fund_id), extra or {}):
         for a, x in d.items():
             aw[a] = aw.get(a, 0.0) + x
@@ -289,19 +329,28 @@ def glide_export() -> dict:
     with _store().Session() as s:
         gs = glide_state(s)
         for v in m.policy.vintages:
-            by_line, ids, labels = {}, [], []
+            by_line, path_by_line, paths, ids, labels = {}, {}, {}, [], []
+            from .policy_admin import fund_path
             for line in ("mutual_fund", "cit"):
                 fid = next((f.id for f in m.funds.values() if f.vintage == v and f.vehicle == line), None)
                 if not fid:
                     continue
-                d = {a: round(x, 6) for a, x in glide_deltas(s, fid).items() if abs(x) > 1e-12}
+                d = {a: round(x, 6) for a, x in fund_deltas(s, fid).items() if abs(x) > 1e-12}
                 by_line[line] = d
+                pd_ = {a: round(x, 6) for a, x in path_delta(s, fid).items() if abs(x) > 1e-12}
+                if pd_:
+                    path_by_line[line] = pd_
+                    p = fund_path(s, fid)
+                    paths[line] = f"{p['id']} v{p['version']}"
+                    labels.append(f"{line}: glide path {p['name']} (v{p['version']})")
                 for a in gs["adjustments"]:
                     if a.get("status") == "active" and in_scope(a, fid) and a["id"] not in ids:
                         ids.append(a["id"])
                         labels.append(f"{a['id']}: {a.get('scope_label', '')}")
             if any(by_line.values()):
                 out[str(v)] = {"by_line": by_line, "ids": ids, "labels": labels}
+                if path_by_line:
+                    out[str(v)].update(path_by_line=path_by_line, paths=paths)
     return {"vintages": out, "exported_at": _ts()}
 
 
@@ -321,7 +370,7 @@ def approved_aw_for_fund(s, fund_id: str) -> tuple[dict, str | None, dict]:
     if run and run.results:
         ga = ((run.results.get("vintages") or {}).get(str(v)) or {}).get("glide_adjustment") or {}
         built = ga.get("applied") or {}
-    line = glide_deltas(s, fund_id)
+    line = fund_deltas(s, fund_id)
     resid = {a: line.get(a, 0.0) - built.get(a, 0.0) for a in set(line) | set(built)}
     resid = {a: x for a, x in resid.items() if abs(x) > 1e-9}
     if resid:
@@ -810,7 +859,8 @@ def _ips_check(fund_id: str, rows: list[dict], ctx) -> dict:
     acw = asset_class_weights(m, rows)
     assets = ctx["assets"]
     w = np.array([acw.get(a, 0.0) for a in assets])
-    fn = m.neutral_asset_weights(fund_id)          # the IPS glide path on the fund's roll-down schedule
+    with _store().Session() as s2:
+        fn = base_aw(s2, fund_id)                  # the fund's base glide path (named path or IPS) on its roll-down
     n = np.array([fn.get(a, 0.0) for a in assets])
     res = evaluate(w, n, ctx["cov"], m.policy, resolve(), load_universe(), risk_budget=ctx["rb"].get(f.vintage))
     summ = summarize(res)
@@ -1345,12 +1395,17 @@ def crd_file(request: Request, tid: str):
         dr = _record(s, _who(user), "trades.export", f"{tid} exported for Charles River ({len(rows)} rows)",
                      {"trade_list": tid, "orders": len(rows), "sha256": digest, "format": "Charles River import (mock)"},
                      "Export of the approved trade list", [f["fund_id"] for f in b["funds"]])
-        exports = list(b.get("exports", [])) + [{"at": _ts(), "by": _who(user), "sha256": digest, "dr_id": dr}]
+        fid = "FILE-" + uuid.uuid4().hex[:10].upper()
+        fname = f"charles-river-import-{tid}-{len(b.get('exports', [])) + 1}.csv"
+        s.add(TradeFile(id=fid, trade_list=tid, kind="export", text=text,
+                        body={"name": fname, "sha256": digest, "rows": len(rows), "by": _who(user), "at": _ts(), "dr_id": dr}))
+        exports = list(b.get("exports", [])) + [{"at": _ts(), "by": _who(user), "sha256": digest, "dr_id": dr,
+                                                 "file_id": fid, "name": fname}]
         b.update(status="exported", exports=exports, dr_ids=b["dr_ids"] + [dr],
                  history=b["history"] + [{"at": _ts(), "by": _who(user), "action": "export", "note": digest[:12]}])
         row.body, row.status = b, "exported"
     return Response(text, media_type="text/csv",
-                    headers={"Content-Disposition": f"attachment; filename=charles-river-import-{tid}.csv"})
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 
 # ---------------------------------------------------------------------------------------------- shared upload reader
@@ -1640,7 +1695,8 @@ async def fills(request: Request, tid: str):
             raise HTTPException(400, "Attach a fills file")
         name = up.filename or "upload"
         rows = []
-        for n, raw in enumerate(_rows_from_upload(name, await up.read()), start=2):
+        data = await up.read()
+        for n, raw in enumerate(_rows_from_upload(name, data), start=2):
             r = _norm(raw)
             if not any(r.values()):
                 continue
@@ -1670,9 +1726,22 @@ async def fills(request: Request, tid: str):
         if not rows:
             raise HTTPException(400, "No fills to record")
         res = _book(s, b, rows, _who(user))
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=["External Order ID", "Filled Quantity", "Fill Price", "Status"])
+        w.writeheader()
+        w.writerows({"External Order ID": r["order_id"], "Filled Quantity": r["quantity"], "Fill Price": r["price"],
+                     "Status": r["status"]} for r in rows)
+        import hashlib
+        ftext = buf.getvalue()
+        fid = "FILE-" + uuid.uuid4().hex[:10].upper()
         dr = _record(s, _who(user), "trades.fills", f"{tid}: {len(rows)} fills recorded ({name}); "
                      f"status {res['fill_status']}", {"trade_list": tid, "fills": rows, **res},
                      "Executions booked to positions", res["booked_funds"])
+        s.add(TradeFile(id=fid, trade_list=tid, kind="fills", text=ftext,
+                        body={"name": f"fills-{tid}-{len(b.get('fill_files', [])) + 1}.csv", "source": name,
+                              "sha256": hashlib.sha256(ftext.encode()).hexdigest(), "rows": len(rows),
+                              "by": _who(user), "at": _ts(), "dr_id": dr}))
+        b["fill_files"] = list(b.get("fill_files", [])) + [fid]
         b["dr_ids"] = b["dr_ids"] + [dr]
         b["history"] = b["history"] + [{"at": _ts(), "by": _who(user), "action": "fills",
                                         "note": f"{len(rows)} fills · {res['fill_status']}"}]
@@ -1680,6 +1749,100 @@ async def fills(request: Request, tid: str):
             b["status"] = "filled"
         row.body, row.status = b, b["status"]
     return {"ok": True, **res, "dr_id": dr}
+
+
+# ---------------------------------------------------------------------------------------------- files and in progress
+def _file_meta(f: TradeFile) -> dict:
+    return {"id": f.id, "trade_list": f.trade_list, "kind": f.kind, **f.body}
+
+
+@router.get("/api/trading/files")
+def list_files(request: Request):
+    """Every Charles River import file exported and every fills file loaded, newest first. Exports made before
+    files were kept (2026-11-18) are listed from the trade list's export log with only their fingerprint."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        files = [_file_meta(f) for f in s.execute(select(TradeFile)).scalars()]
+        kept = {f["id"] for f in files}
+        for t in s.execute(select(TradeList)).scalars():
+            for n, x in enumerate(t.body.get("exports", []), 1):
+                if x.get("file_id") not in kept:
+                    files.append({"id": None, "trade_list": t.id, "kind": "export", "name": f"charles-river-import-{t.id}-{n}.csv",
+                                  "sha256": x["sha256"], "by": x["by"], "at": x["at"], "dr_id": x.get("dr_id"),
+                                  "rows": None, "not_kept": True})
+    files.sort(key=lambda f: f["at"], reverse=True)
+    return {"files": files}
+
+
+@router.get("/api/trading/files/{fid}")
+def get_file(request: Request, fid: str, download: bool = False):
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        f = s.get(TradeFile, fid)
+        if not f:
+            raise HTTPException(404, "Unknown file")
+        meta, text = _file_meta(f), f.text
+    if download:
+        return Response(text, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={meta['name']}"})
+    rd = list(csv.reader(io.StringIO(text)))
+    return {**meta, "columns": rd[0] if rd else [], "data": rd[1:]}
+
+
+@router.get("/api/trading/in-progress")
+def in_progress(request: Request):
+    """Trades on their way: every list that is approved, exported or partly filled (plus drafts awaiting
+    approval and lists filled in the last 30 days), with order-level fill progress and upcoming tranche dates."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    from datetime import timedelta
+    cutoff = (date.today() - timedelta(days=30)).isoformat()
+    stages = {"draft": [], "approved": [], "exported": [], "partly_filled": [], "filled": []}
+    orders, upcoming = [], {}
+    with _store().Session() as s:
+        for t in s.execute(select(TradeList)).scalars():
+            b = t.body
+            st = b["status"]
+            if st == "cancelled":
+                continue
+            fills = b.get("fills") or {}
+            if st == "filled" and str(b["history"][-1]["at"])[:10] < cutoff:
+                continue
+            stage = "partly_filled" if st == "exported" and fills else st
+            idx = _order_index(b)
+            filled_amt = sum(v.get("filled", 0) * v.get("price", 0) / (100 if b["funds"][idx[k][0]]["orders"][idx[k][1]]["quantity_type"] == "FACE" else 1)
+                             for k, v in fills.items() if k in idx)
+            gross = b.get("gross") or sum(o["est_amount"] for f in b["funds"] for o in f["orders"])
+            stages[stage].append({"id": b["id"], "trade_date": b["trade_date"], "strategy_name": b.get("strategy_name", ""),
+                                  "orders": b["order_count"], "funds": len(b["funds"]), "gross": gross,
+                                  "filled_pct": min(1.0, filled_amt / gross) if gross else 0.0,
+                                  "fill_status": b.get("fill_status", ""), "created_by": b["created_by"]["name"],
+                                  "approved_by": (b.get("approved_by") or {}).get("name", ""),
+                                  "tranched": bool(b.get("tranche_summary")), "blocked": bool(b.get("blocked_funds"))})
+            if st not in ("approved", "exported"):
+                continue
+            for oid, (fi, oi, tr) in idx.items():
+                f, o = b["funds"][fi], b["funds"][fi]["orders"][oi]
+                q = tr["quantity"] if tr else o["quantity"]
+                fl = fills.get(oid, {})
+                status = fl.get("status") or ("Sent" if st == "exported" else "Approved, not sent")
+                d = tr["date"] if tr else b["trade_date"]
+                orders.append({"trade_list": b["id"], "order_id": oid, "fund_id": f["fund_id"], "instrument": o["instrument"],
+                               "side": o["side"], "quantity": q, "quantity_type": o["quantity_type"],
+                               "est_amount": tr["est_amount"] if tr else o["est_amount"], "route": o["route"], "date": d,
+                               "tranche": f"{tr['n']} of {len(o['tranches'])}" if tr else "",
+                               "filled": fl.get("filled", 0.0), "status": status})
+                if fl.get("status") not in ("FILLED", "CANCELLED"):
+                    u = upcoming.setdefault(d, {"date": d, "orders": 0, "buys": 0.0, "sells": 0.0, "lists": set()})
+                    u["orders"] += 1
+                    u["buys" if o["side"] == "BUY" else "sells"] += tr["est_amount"] if tr else o["est_amount"]
+                    u["lists"].add(b["id"])
+    for v in stages.values():
+        v.sort(key=lambda x: (x["trade_date"], x["id"]))
+    orders.sort(key=lambda o: (o["date"], o["trade_list"], o["order_id"]))
+    return {"stages": stages, "orders": orders[:2000],
+            "upcoming": [dict(u, lists=sorted(u["lists"])) for _, u in sorted(upcoming.items())]}
 
 
 # ---------------------------------------------------------------------------------------------- glide path (bulk)
@@ -1725,16 +1888,16 @@ def _glide_preview(s, scope: str, vf, vt, deltas: dict, vintages=None) -> list[d
     members = set(m.policy.groups.get(group, []))
     out = []
     for fid in scope_funds(scope, vf, vt, vintages):
-        ips = m.neutral_asset_weights(fid)
+        ips = base_aw(s, fid)                      # bands sit around the fund's own base path
         cur = neutral_aw(s, fid)
         new = {a: cur.get(a, 0.0) + deltas.get(a, 0.0) for a in m.policy.assets}
         dev = {a: new[a] - ips.get(a, 0.0) for a in m.policy.assets}
         gdev = sum(dev[a] for a in members)
         problems = [f"{a} would be negative ({new[a]:.2%})" for a in m.policy.assets if new[a] < -1e-9]
-        problems += [f"{a} {dev[a] * 100:+.2f}pp from the IPS glide path (band ±{band * 100:.0f}pp)"
+        problems += [f"{a} {dev[a] * 100:+.2f}pp from the fund's base glide path (IPS band ±{band * 100:.0f}pp)"
                      for a in m.policy.assets if abs(dev[a]) > band + 1e-9]
         if abs(gdev) > gband + 1e-9:
-            problems.append(f"{group} {gdev * 100:+.2f}pp from the IPS glide path (band ±{gband * 100:.0f}pp)")
+            problems.append(f"{group} {gdev * 100:+.2f}pp from the fund's base glide path (IPS band ±{gband * 100:.0f}pp)")
         out.append({"fund_id": fid, "vehicle": m.funds[fid].vehicle, "vintage": m.funds[fid].vintage,
                     "roll_down": m.funds[fid].roll_down, "ips": ips, "current": cur, "new": new,
                     "ok": not problems, "problems": problems})

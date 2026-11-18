@@ -35,7 +35,7 @@ class NetworkUnavailable(DataUnavailable):
     """Host unreachable (no internet, proxy refusal, DNS) — distinct from a missing series/ticker."""
 
 
-def http_get(url: str, timeout: int = 30, retries: int = 1) -> bytes:
+def http_get(url: str, timeout: int = 30, retries: int = 1, headers: dict | None = None) -> bytes:
     import os
     import urllib.error
     if os.getenv("MERIDIAN_OFFLINE", "").lower() in ("1", "true", "yes"):
@@ -43,7 +43,7 @@ def http_get(url: str, timeout: int = 30, retries: int = 1) -> bytes:
     last = None
     for i in range(retries + 1):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*", **(headers or {})})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return r.read()
         except urllib.error.HTTPError as e:          # server answered: series/ticker problem, or rate limit
@@ -381,6 +381,8 @@ def aggregate_holdings(df: pd.DataFrame) -> pd.DataFrame:
         "country": df[g("location", "location of risk")].fillna("").str.strip() if g("location", "location of risk") else "",
         "weight": df[g("weight (%)", "weight")].map(_num) / 100.0,
         "duration": df[g("duration", "effective duration", "mod. duration")].map(_num) if g("duration", "effective duration", "mod. duration") else np.nan,
+        # last price per share (equities): with SEC shares outstanding gives market cap on Look-through
+        "price": df[col["price"]].map(_num) if "price" in col else np.nan,
     })
     # iShares rounds 'Weight (%)' to 0.01%, which loses ~20% of a fund with thousands of tiny lines (AGG).
     # Market values are exact: derive weights from them when they are present and sum to something sensible.
@@ -404,7 +406,9 @@ def aggregate_holdings(df: pd.DataFrame) -> pd.DataFrame:
     agg = out.groupby("security_id", sort=False).agg(
         ticker=("ticker", "first"), name=("name", "first"), sector=("sector", "first"),
         asset_class=("asset_class", "first"), country=("country", "first"),
-        weight=("weight", "sum"), dw=("dw", "sum"), lines=("lines", "sum"), bond=("_bond", "max")).reset_index()
+        weight=("weight", "sum"), dw=("dw", "sum"), lines=("lines", "sum"), bond=("_bond", "max"),
+        price=("price", "first")).reset_index()
+    agg.loc[agg["bond"], "price"] = np.nan                 # a bond price is per 100 face, not per share
     agg["duration"] = np.where(agg["bond"] & (agg["weight"].abs() > 1e-12), agg["dw"] / agg["weight"].where(agg["weight"] != 0, 1), np.nan)
     return agg.drop(columns=["dw", "bond"])
 

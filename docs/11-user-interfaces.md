@@ -81,6 +81,11 @@ A separate page in the app bar, for the implementation workflow in doc 17. Tabs:
 
 Step-by-step use with screenshots: doc 06 §10. Tests: `tests/e2e/test_ui_trading.py` (TRD-1 to TRD-23).
 
+**In progress** and **Files** (2026-11-18): trades by stage with % filled, dates with open orders and an order blotter; every Charles River import and fills file, viewable in the app as a table or downloadable again. Doc 06 §10.10a and §10.10b.
+
+## Policy screen (`/policy`, built 2026-11-18)
+In the app bar for every workspace. Tabs: **Investment Policy Statement** (versions with status, read or redline against the previous version, propose a change with a preview of the redline, approve as Investment Committee or CCO), **Glide paths** (library with an equity chart against the IPS path and anchor tables, a table editor for new paths and versions with live row totals, which path each fund follows, requests waiting for the Investment Committee), **Change log**. Waiting approvals appear in **My work**. Doc 06 §13; tests `tests/e2e/test_ui_policy_files.py` (POL-1, POL-3, TRD-30/31).
+
 ## Regulations screen (`/regulations`, built 2026-11-10)
 Funds (tag regulations, controls on current holdings, required people, **fiscal year end** per fund, set for ticked funds by Compliance), Obligations (owner, due date, evidence, overdue), Regulation library (US and international) and Change log, with the All / Mutual funds / CITs toggle. Compliance tags; the CCO removes tags and waives obligations; Compliance, Risk, Leadership and PMs work obligations; others read. Doc 06 §12, doc 18.
 

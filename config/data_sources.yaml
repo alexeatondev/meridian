@@ -87,6 +87,12 @@ sources:
     enabled: true
     # look-through holdings of each building block's holdings proxy (universe.yaml -> identifiers.holdings)
 
+  sec_edgar:
+    provider: sec_edgar
+    transport: http
+    enabled: true
+    # company financials from SEC XBRL frames (data.sec.gov). Needs SEC_USER_AGENT ("name email") per SEC fair-access rules.
+
   manual:
     provider: manual
     transport: manual
@@ -227,6 +233,7 @@ routing:
     mode: merge
     sources: [bloomberg_snowflake, factset_snowflake, files, manual, cache]
   holdings.lookthrough: [files, ishares, cache]       # first source that answers serves all funds
+  fundamentals.edgar: [files, sec_edgar, cache]       # company financials and shares outstanding (market cap)
   credit.ratings:
     mode: merge
     sources: [moodys_snowflake, sp_snowflake, fitch_snowflake, moodys_direct, sp_direct, fitch_direct, files]
@@ -237,6 +244,7 @@ license_review:
   yahoo: "unofficial endpoint; personal/non-commercial use — replace with a licensed source before production"
   treasury: "US government data, public domain"
   ishares: "holdings published on ishares.com for informational use — review BlackRock terms before redistribution or production use"
+  sec_edgar: "US government data (SEC EDGAR), public; fair-access policy: declared User-Agent, max 10 requests/second"
   manual: "each value cites its source in config/manual_inputs.yaml"
   file: "n/a"
   synthetic: "n/a"

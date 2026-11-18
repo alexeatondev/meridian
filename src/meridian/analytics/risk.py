@@ -367,7 +367,12 @@ def normalize_issuers(h: pd.DataFrame) -> pd.DataFrame:
     return h
 
 
-def lookthrough(holdings: pd.DataFrame | None, assets: list[str], universe: dict, return_proxy: dict) -> dict:
+FIN_COLS = ["revenue", "net_income", "operating_income", "operating_cash_flow", "capex", "eps_diluted", "total_assets",
+            "total_liabilities", "equity", "cash", "long_term_debt", "shares_outstanding"]
+
+
+def lookthrough(holdings: pd.DataFrame | None, assets: list[str], universe: dict, return_proxy: dict,
+                edgar: pd.DataFrame | None = None) -> dict:
     """Compact look-through structure for the console: a security index plus, per building block, the
     list of [security index, weight in fund, duration]. Portfolio exposure to a security =
     Σ_funds (fund weight in portfolio × security weight in fund) — computed client-side per vintage."""
@@ -402,11 +407,48 @@ def lookthrough(holdings: pd.DataFrame | None, assets: list[str], universe: dict
                     "securities": len(g2), "coverage": float(g2["weight"].sum()),
                     "holdings": [[idx[s], round(float(w), 7), (None if pd.isna(d) else round(float(d), 2))]
                                  for s, w, d in zip(g2["security_id"], g2["weight"], g2["duration"])]}
-    return {"available": True, "funds": funds,
+    fin = _financials(h, sec, edgar)
+    return {"available": True, "funds": funds, "financials": fin,
             "securities": sec[["ticker", "name", "sector", "asset_class", "country"]].values.tolist(),
             "as_of": str(pd.to_datetime(h["date"]).max().date()),
             "note": "Look-through uses public holdings of a proxy fund that tracks the same or a similar index as "
                     "each building block. Bond holdings are aggregated by issuer."}
+
+
+def _financials(h: pd.DataFrame, sec: pd.DataFrame, edgar: pd.DataFrame | None) -> dict:
+    """SEC EDGAR financials for US-listed equities in the look-through, keyed by security index.
+    market_cap = SEC shares outstanding x last price in the holdings file. Only US equities are matched
+    (a foreign listing can share a ticker with an unrelated US company)."""
+    out = {"available": False, "rows": {}, "as_of": None, "columns": FIN_COLS,
+           "note": "No SEC EDGAR financials loaded. The monthly data refresh pulls them (fundamentals.edgar)."}
+    if edgar is None or edgar.empty:
+        return out
+    e = edgar.copy()
+    e["ticker"] = e["ticker"].astype(str).str.upper().str.replace(".", "-", regex=False)
+    e = e.drop_duplicates("ticker").set_index("ticker")
+    price = (h.dropna(subset=["price"]).groupby("security_id")["price"].first() if "price" in h else pd.Series(dtype=float))
+    rows = {}
+    for i, r in sec.iterrows():
+        if r["asset_class"] != "Equity" or r["country"] != "United States":
+            continue
+        t = str(r["ticker"]).upper().replace(".", "-").replace(" ", "-")
+        if t not in e.index:
+            continue
+        x = e.loc[t]
+        d = {c: (None if c not in x or pd.isna(x[c]) else float(x[c])) for c in FIN_COLS}
+        p = price.get(r["security_id"])
+        d["price"] = None if p is None or pd.isna(p) else float(p)
+        d["market_cap"] = d["shares_outstanding"] * d["price"] if d["shares_outstanding"] and d["price"] else None
+        d["cik"] = int(x["cik"]) if "cik" in x and not pd.isna(x["cik"]) else None
+        d["fiscal_period"] = None if pd.isna(x.get("fiscal_period")) else str(x.get("fiscal_period"))
+        d["balance_date"] = None if pd.isna(x.get("balance_date")) else str(x.get("balance_date"))[:10]
+        rows[str(i)] = d
+    out.update({"available": bool(rows), "rows": rows,
+                "as_of": str(pd.to_datetime(edgar["date"]).max().date()) if "date" in edgar else None,
+                "note": "Financials as filed with the SEC (EDGAR XBRL): income and cash flow for the latest calendar year "
+                        "reported, balance sheet at the latest quarter end. Market cap = shares outstanding on the latest "
+                        "filing cover page x last price in the holdings file."})
+    return out
 
 
 # ------------------------------------------------------------------------------------ public payload

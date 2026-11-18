@@ -54,6 +54,9 @@ app.include_router(_trading_router)
 from .regulations import router as _regulations_router  # noqa: E402
 
 app.include_router(_regulations_router)
+from .policy_admin import router as _policy_router  # noqa: E402
+
+app.include_router(_policy_router)
 from .shell import router as _shell_router  # noqa: E402
 
 app.include_router(_shell_router)

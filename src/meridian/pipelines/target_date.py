@@ -193,7 +193,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     # risk inputs: fund characteristics (durations) and look-through holdings; optional — risk analytics
     # degrade gracefully (universe durations, no look-through) when no source can serve them
     from ..data.base import DataUnavailable
-    for ds in ("fund.characteristics", "holdings.lookthrough"):
+    for ds in ("fund.characteristics", "holdings.lookthrough", "fundamentals.edgar"):
         try:
             res[ds] = reg.get(Request(ds, ulist, as_of=as_of))
         except DataUnavailable:
@@ -308,7 +308,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         # approved in the app (within the IPS bands). The IPS bands are still measured from the IPS glide path,
         # so the optimizer's bounds are the overlap of both.
         n, n_ips, adj = policy.adjusted_neutral(ytt, v)
-        if adj["ids"]:
+        if adj["ids"] or adj.get("paths"):
             glide_adj[v] = adj
         rb = policy.risk_budget(v)
         neq = eq_m @ n
@@ -359,10 +359,13 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     if glide_adj:
         L.record(dr_type="decision", run_id=run_id, step="glide-path.adjustments", actor=SYSTEM, policy_version=pv,
                  portfolio_scope=[f"MTRS-{v}" for v in glide_adj] + [f"MTRT-{v}" for v in glide_adj],
-                 summary=(f"Investment Committee glide-path adjustments applied to {len(glide_adj)} vintages "
-                          f"({', '.join(map(str, glide_adj))}); IPS bands still measured from the IPS glide path"),
+                 summary=(f"Investment Committee glide-path changes applied to {len(glide_adj)} vintages "
+                          f"({', '.join(map(str, glide_adj))}); IPS bands measured from each vintage's base glide path "
+                          f"(the IPS path, or the named path the committee assigned)"),
                  output={str(v): {"ids": a["ids"], "applied_pp": {x: round(float(d) * 100, 4) for x, d in zip(assets, a["delta"]) if abs(d) > 1e-9},
-                                  "by_line": a["by_line"], "lines_differ": a["lines_differ"]} for v, a in glide_adj.items()},
+                                  "by_line": a["by_line"], "lines_differ": a["lines_differ"], "paths": a.get("paths", {}),
+                                  "path_pp": {x: round(float(d) * 100, 4) for x, d in zip(assets, a["path_delta"]) if abs(d) > 1e-9}}
+                         for v, a in glide_adj.items()},
                  rationale="Approved in the app by an Investment Committee member (Trading → Glide path & bulk changes); "
                            "exported with the policy overrides before this run")
 
@@ -481,8 +484,9 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        "neutral_ips": dict(zip(assets, np.round(n_ips, 4))),
                        "glide_adjustment": ({"ids": adj["ids"], "labels": adj.get("labels", []),
                                              "applied": {a: round(float(x), 6) for a, x in zip(assets, adj["delta"]) if abs(x) > 1e-9},
-                                             "by_line": adj["by_line"], "lines_differ": adj["lines_differ"]}
-                                            if adj["ids"] else None)}
+                                             "by_line": adj["by_line"], "lines_differ": adj["lines_differ"],
+                                             "paths": adj.get("paths", {})}
+                                            if adj["ids"] or adj.get("paths") else None)}
 
     # 5d. positioning, risk-budget usage and portfolio metrics -------------------------------------
     from ..analytics.positioning import Taxonomy, active_risk_contributions, portfolio_metrics, positioning_table
@@ -543,7 +547,8 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                               positions_fn=lambda dt, v: positions_as_of(dt, v, assets, pos_path, before_run=run_id),
                               recorded=recorded)
     stress = RK.stress_tests(W, Bn, rets, rm, rcfg)
-    look = RK.lookthrough(hold_df, assets, universe, {a: universe[a]["identifiers"].get("proxy_etf", "") for a in assets})
+    look = RK.lookthrough(hold_df, assets, universe, {a: universe[a]["identifiers"].get("proxy_etf", "") for a in assets},
+                          edgar=res["fundamentals.edgar"].frame if "fundamentals.edgar" in res else None)
     RK.append_risk_history(snap_rows, risk_hist_path)
     risk_out = {"model": RK.model_payload(rm, rcfg, ch), "history": history, "stress": stress, "lookthrough": look}
     L.record(dr_type="signal", run_id=run_id, step="risk.analytics", actor=SYSTEM, policy_version=pv, inputs=[snap_dr],

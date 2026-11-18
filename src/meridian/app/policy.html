@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meridian · Policy</title>
+<style>
+:root{--bg:#f4f3f0;--surface:#fcfcfb;--surface-2:#f0efec;--line:#e2e0da;--line-strong:#cfccc4;--text:#0b0b0b;--text-2:#52514e;
+--muted:#7a7873;--accent:#1f4e8c;--accent-ink:#fff;--ok:#1d7a46;--ok-bg:#e3f2e8;--warn:#8a5a00;--warn-bg:#fbf0d9;--crit:#a3261b;--crit-bg:#f8e1de;--info-bg:#e4ecf7;
+font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#121211;--surface:#1a1a19;--surface-2:#232321;--line:#2e2e2b;--line-strong:#3c3c38;--text:#f0efec;
+--text-2:#c3c2b7;--muted:#9a998f;--accent:#7aa7e6;--accent-ink:#0b0b0b;--ok:#6cc08c;--ok-bg:#1d2e23;--warn:#e0b25a;--warn-bg:#2f2717;--crit:#ef8a80;--crit-bg:#331d1b;--info-bg:#1d2633}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+header h1{font-size:17px;margin:0}header .sp{flex:1}a{color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
+.tabs{display:flex;gap:6px;margin-bottom:16px}.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:14px 0 6px;color:var(--text-2)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}tr.sel td{background:var(--surface-2)}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;margin:1px 3px 1px 0;background:var(--surface-2);border:1px solid var(--line)}
+.chip.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}.chip.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.chip.crit{background:var(--crit-bg);color:var(--crit);border-color:transparent}.chip.perm{background:var(--info-bg);border-color:transparent}
+.btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted)}.small{font-size:12px}.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input[type=text],input[type=email],textarea,input[type=search]{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.opt{display:flex;gap:8px;align-items:flex-start;padding:6px 0}.opt input{margin-top:3px}.opt .d{font-size:12px;color:var(--muted)}
+.switch{position:relative;width:36px;height:20px;flex:none}.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line-strong);border-radius:999px;transition:.15s}.switch span:before{content:"";position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
+.switch input:checked+span{background:var(--accent)}.switch input:checked+span:before{transform:translateX(16px)}.switch input:focus-visible+span{outline:2px solid var(--accent)}
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:13px}.warnbox ul{margin:4px 0 0 18px;padding:0}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;max-width:90vw;z-index:9}
+.matrix td,.matrix th{text-align:center}.matrix td:first-child,.matrix th:first-child{text-align:left}
+</style><style>
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}tr.click{cursor:pointer}tr.click:hover td{background:var(--surface-2)}
+.banner{background:var(--info-bg);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:13px}
+select{padding:7px 9px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+.layout{display:grid;grid-template-columns:300px 1fr;gap:16px}@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.ver{display:block;padding:9px 10px;border-radius:8px;border:1px solid var(--line);margin-bottom:8px;cursor:pointer;background:var(--surface);color:inherit;text-align:left;width:100%;font:inherit}
+.ver.on{outline:2px solid var(--accent)}.ver:hover{background:var(--surface-2)}
+.doc{max-width:860px}.doc h1{font-size:20px}.doc h2{font-size:17px;margin-top:22px}.doc h3{font-size:14px;color:var(--text)}.doc table{margin:8px 0}
+.doc blockquote{margin:8px 0;padding:6px 12px;border-left:3px solid var(--line-strong);color:var(--text-2)}.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--surface-2);padding:0 3px;border-radius:3px}
+.rl{font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre-wrap;line-height:1.55;max-height:70vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px}
+.rl div{padding:0 6px;border-radius:3px}.rl .del{background:var(--crit-bg);text-decoration:line-through;color:var(--crit)}.rl .ins{background:var(--ok-bg);color:var(--ok)}
+.rl del{background:var(--crit-bg);color:var(--crit)}.rl ins{background:var(--ok-bg);color:var(--ok);text-decoration:none}.rl .gap{color:var(--muted);font-style:italic}
+.appr{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.appr>div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:220px}
+textarea.big{min-height:55vh;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.anch input{width:56px;padding:4px 5px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--text);font:inherit;text-align:right}
+.anch td,.anch th{padding:4px 4px;white-space:nowrap}.anch .bad{color:var(--crit);font-weight:700}.wide{overflow:auto}
+svg text{fill:var(--muted);font-size:11px}
+</style>
+</head><body>
+<header><h1>Policy</h1><span class="muted small" id="who"></span><span class="sp"></span></header>
+<main>
+<div class="banner">The <b>Investment Policy Statement</b> (every version kept, with a redline) and the <b>glide paths</b> funds follow. An IPS change takes effect when an Investment Committee member and the Chief Compliance Officer approve it. A new or changed glide path, or moving a fund to another path, takes effect when an Investment Committee member approves it. Nobody approves their own request.</div>
+<div class="tabs" role="tablist"><button data-tab="ips" class="active">Investment Policy Statement</button><button data-tab="paths">Glide paths</button><button data-tab="log">Change log</button></div>
+<section id="ips"></section><section id="paths" hidden></section><section id="log" hidden></section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+const BOOT = /*BOOT*/null;
+const S = {tab: sessionStorage.getItem('po_tab')||'ips', ver: +(sessionStorage.getItem('po_ver')||0)||null, mode:'read', path:null, edit:null, sel:new Set()};
+try{sessionStorage.removeItem('po_ver')}catch(e){}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+const chip = (t, cls='') => `<span class="chip ${cls}">${esc(t)}</span>`;
+const when = t => t ? esc(String(t).slice(0,16).replace('T',' ')) : '';
+const same = p => !!p && ((p.email && BOOT.user.email && p.email.toLowerCase()===BOOT.user.email.toLowerCase()) || p.name===BOOT.user.name);
+function toast(m,type){if(window.MUI) MUI.toast(m,type); else {const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',5000)}}
+async function api(method,url,body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':BOOT.csrf},body:body?JSON.stringify(body):undefined});const j=await r.json().catch(()=>({}));if(!r.ok) throw new Error(typeof j.detail==='string'?j.detail:r.statusText);return j}
+const ask = (t,o) => window.MUI ? MUI.ask(t,o) : Promise.resolve(prompt(t));
+const VST = {approved:['Current','ok'], pending:['Waiting for approval','warn'], superseded:['Superseded',''], rejected:['Rejected','crit'], withdrawn:['Withdrawn',''], active:['Active','ok']};
+const vchip = s => chip(...(VST[s]||[s]));
+
+// --- markdown (headings, tables, lists, quotes, bold/italic/code, rules)
+function md(src){const out=[];const L=src.split('\n');let i=0;
+  const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*]+)\*/g,'$1<i>$2</i>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  while(i<L.length){const l=L[i];
+    if(/^#{1,6} /.test(l)){const n=l.match(/^#+/)[0].length;out.push(`<h${n}>${inl(l.slice(n+1))}</h${n}>`);i++;continue}
+    if(/^---+\s*$/.test(l)){out.push('<hr>');i++;continue}
+    if(l.startsWith('|')){const t=[];while(i<L.length&&L[i].startsWith('|')){t.push(L[i]);i++}const c=r=>r.split('|').slice(1,-1).map(x=>x.trim());
+      out.push('<table><tr>'+c(t[0]).map(x=>`<th>${inl(x)}</th>`).join('')+'</tr>'+t.slice(2).map(r=>'<tr>'+c(r).map(x=>`<td>${inl(x)}</td>`).join('')+'</tr>').join('')+'</table>');continue}
+    if(/^\s*([-*]|\d+\.) /.test(l)){const t=[];while(i<L.length&&/^\s*([-*]|\d+\.) /.test(L[i])){t.push(`<li>${inl(L[i].replace(/^\s*([-*]|\d+\.) /,''))}</li>`);i++}out.push('<ul>'+t.join('')+'</ul>');continue}
+    if(l.startsWith('>')){out.push(`<blockquote>${inl(l.replace(/^>\s?/,''))}</blockquote>`);i++;continue}
+    if(l.trim()) out.push(`<p>${inl(l)}</p>`); i++}
+  return out.join('')}
+function redline(rl){ // collapse long unchanged stretches
+  const out=[]; let run=[];
+  const flush=last=>{ if(run.length>6){ out.push(...run.slice(0,2).map(x=>`<div>${esc(x.text)||'&nbsp;'}</div>`)); out.push(`<div class="gap">… ${run.length-4} unchanged lines …</div>`); out.push(...run.slice(-2).map(x=>`<div>${esc(x.text)||'&nbsp;'}</div>`)); } else out.push(...run.map(x=>`<div>${esc(x.text)||'&nbsp;'}</div>`)); run=[]; };
+  rl.forEach(x=>{ if(x.op==='eq'){run.push(x);return} flush();
+    if(x.op==='del') out.push(`<div class="del">− ${esc(x.text)}</div>`);
+    else if(x.op==='ins') out.push(`<div class="ins">+ ${esc(x.text)}</div>`);
+    else out.push(`<div>~ ${x.words.map(([o,t])=>o==='eq'?esc(t):o==='del'?`<del>${esc(t)}</del>`:`<ins>${esc(t)}</ins>`).join('')}</div>`); });
+  flush(); return `<div class="rl">${out.join('')}</div>`; }
+
+function render(){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
+  for (const t of ['ips','paths','log']) $('#'+t).hidden = t!==S.tab;
+  ({ips:vIps, paths:vPaths, log:vLog})[S.tab]();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab; sessionStorage.setItem('po_tab',S.tab); render()});
+
+// ------------------------------------------------------------------ IPS
+async function vIps(){
+  const tok = S.iTok = (S.iTok||0)+1;
+  let L; try{ L = await api('GET','/api/policy/ips'); }catch(e){ return toast(e.message,'error'); }
+  if (tok !== S.iTok) return;
+  if(!S.ver || !L.versions.some(v=>v.version===S.ver)) S.ver = L.pending || L.current;
+  if(S.editIps) return ipsEditor(L);
+  const list = L.versions.map(v=>`<button class="ver ${v.version===S.ver?'on':''}" data-ver="${v.version}"><div class="row" style="justify-content:space-between"><b>Version ${v.version}</b>${vchip(v.status)}</div><div class="small">${esc(v.summary)}</div><div class="small muted">${esc(v.drafted_by.name)} · ${when(v.drafted_at)}${v.effective_at&&v.status!=='pending'?' · effective '+when(v.effective_at).slice(0,10):''}</div></button>`).join('');
+  let d; try{ d = await api('GET','/api/policy/ips/'+S.ver); }catch(e){ return toast(e.message,'error'); }
+  if (tok !== S.iTok) return;
+  const ap = x => (d.approvals||[]).find(a=>a.as===x);
+  const canIc = BOOT.is_ic && d.status==='pending' && !ap('ic') && !same(d.drafted_by) && !(d.approvals||[]).some(a=>same(a.by));
+  const canCco = BOOT.is_cco && d.status==='pending' && !ap('cco') && !same(d.drafted_by) && !(d.approvals||[]).some(a=>same(a.by));
+  const appr = d.seeded ? '<p class="small muted">Loaded from the policy repository when the Policy screen was set up. Later versions need Investment Committee and CCO approval.</p>' :
+    `<div class="appr">${[['ic','Investment Committee'],['cco','Chief Compliance Officer']].map(([k,l])=>{const a=ap(k);return `<div><div class="small muted">${l}</div>${a?`${chip('Approved','ok')} <b>${esc(a.by.name)}</b><div class="small muted">${when(a.at)} · ${esc(a.reason)}</div>`:(d.status==='pending'?chip('Waiting','warn'):chip('Not recorded'))}</div>`}).join('')}</div>
+     ${d.decided?`<p class="small">${d.decided.action==='reject'?'Rejected':'Withdrawn'} by <b>${esc(d.decided.by.name)}</b> ${when(d.decided.at)}: ${esc(d.decided.reason)}</p>`:''}`;
+  const actions = d.status==='pending' ? `<div class="row" style="margin:8px 0">${canIc?'<button class="btn primary" data-dec="approve" data-as="ic">Approve as Investment Committee</button>':''}${canCco?'<button class="btn primary" data-dec="approve" data-as="cco">Approve as CCO</button>':''}${canIc||canCco?`<button class="btn danger" data-dec="reject" data-as="${canIc?'ic':'cco'}">Reject</button>`:''}${same(d.drafted_by)?'<button class="btn" data-dec="withdraw">Withdraw draft</button>':''}${!canIc&&!canCco?'<span class="small muted">Waiting for an Investment Committee member and the CCO (not the drafter).</span>':''}</div>` : '';
+  const view = S.mode==='redline' && d.redline ? `<p class="small muted">Changes from version ${d.compare_to}: ${d.changed_lines} ${d.changed_lines===1?'line':'lines'}. Red is removed, green is added.</p>${redline(d.redline)}` : `<div class="doc">${md(d.text)}</div>`;
+  $('#ips').innerHTML = `<div class="layout"><div><div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Versions</h2>${BOOT.can_draft&&!L.pending?'<button class="btn" id="ipsNew">Propose a change</button>':''}</div><p class="small muted">Current: version ${L.current}${L.pending?` · version ${L.pending} waiting`:''}</p>${list}</div></div>
+   <div><div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Version ${d.version} ${vchip(d.status)}</h2><span class="row">${d.redline?`<span class="seg" role="group"><button class="btn ${S.mode==='read'?'primary':''}" data-mode="read">Read</button> <button class="btn ${S.mode==='redline'?'primary':''}" data-mode="redline">Redline vs version ${d.compare_to}</button></span>`:''}<a class="btn" href="data:text/markdown;charset=utf-8,${encodeURIComponent(d.text)}" download="ips-version-${d.version}.md">Download</a></span></div>
+   <p>${esc(d.summary)}</p><p class="small muted">Drafted by ${esc(d.drafted_by.name)} ${when(d.drafted_at)}${d.rules_change?` · ${chip('Changes engine rules','warn')} the policy file (policies/target_date_series.yaml) must change too before the new limits are enforced`:''}${d.dr_id?` · ledger <span class="mono">${esc(d.dr_id)}</span>`:''}</p>${appr}${actions}</div>
+   <div class="card">${view}</div></div></div>`;
+  document.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{S.ver=+b.dataset.ver; vIps()});
+  document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{S.mode=b.dataset.mode; vIps()});
+  const nb=$('#ipsNew'); if(nb) nb.onclick=()=>{S.editIps={text:null}; vIps()};
+  document.querySelectorAll('[data-dec]').forEach(b=>b.onclick=async()=>{
+    const a=b.dataset.dec, lab={approve:`Approve IPS version ${d.version}`, reject:`Reject IPS version ${d.version}`, withdraw:`Withdraw IPS version ${d.version}`}[a];
+    const reason = await ask(lab,{message:a==='approve'?'Your approval is recorded in the governance ledger with your name.':'', okText:a==='approve'?'Approve':a==='reject'?'Reject':'Withdraw', danger:a!=='approve'});
+    if(!reason) return;
+    try{ const r=await api('POST',`/api/policy/ips/${d.version}/decide`,{action:a, as:b.dataset.as, reason}); toast(r.status==='approved'?`IPS version ${d.version} approved and now current`:`Recorded: ${r.status}${r.approvals?' ('+r.approvals+' of 2 approvals)':''}`); vIps(); }catch(e){ toast(e.message,'error'); }
+  });
+}
+async function ipsEditor(L){
+  if(S.editIps.text==null){ const cur=await api('GET','/api/policy/ips/'+L.current); S.editIps.text=cur.text; }
+  const E=S.editIps;
+  $('#ips').innerHTML = `<div class="card"><h2>Propose a new IPS version (based on version ${L.current})</h2>
+   <p class="small muted">Edit the text (Markdown). An Investment Committee member and the CCO, two people other than you, approve it before it becomes current. The current version stays in force until then.</p>
+   <label class="f" for="ipsSum">What changes and why (shown with the version)</label><input type="text" id="ipsSum" value="${esc(E.summary||'')}" placeholder="e.g. Raise the cash limit for 2030 to 12% after the committee review">
+   <label class="f">Does this change a limit or rule the rule engine checks?</label><div class="row"><label><input type="radio" name="rc" value="no" ${E.rc==='no'?'checked':''}> No, wording or process only</label><label><input type="radio" name="rc" value="yes" ${E.rc==='yes'?'checked':''}> Yes, the policy file must change too</label></div>
+   <label class="f" for="ipsText">Text</label><textarea id="ipsText" class="big">${esc(E.text)}</textarea>
+   <div class="row" style="margin-top:10px"><button class="btn" id="ipsPrev">Preview changes</button><button class="btn primary" id="ipsGo">Submit for approval</button><button class="btn" id="ipsCancel">Cancel</button></div><div id="ipsRl" style="margin-top:10px"></div></div>`;
+  const keep=()=>{E.text=$('#ipsText').value; E.summary=$('#ipsSum').value; const r=document.querySelector('input[name=rc]:checked'); E.rc=r?r.value:null;};
+  $('#ipsCancel').onclick=()=>{S.editIps=null; vIps()};
+  $('#ipsPrev').onclick=async()=>{keep(); try{const r=await api('POST','/api/policy/ips/preview',{text:E.text}); $('#ipsRl').innerHTML=`<p class="small muted">${r.changed_lines} changed ${r.changed_lines===1?'line':'lines'} against version ${r.compare_to}.</p>`+redline(r.redline);}catch(e){toast(e.message,'error')}};
+  $('#ipsGo').onclick=async()=>{keep(); if(!E.rc) return toast('Say whether the change alters a rule the engine checks','warn');
+    try{const r=await api('POST','/api/policy/ips',{text:E.text, summary:E.summary, rules_change:E.rc==='yes'}); S.editIps=null; S.ver=r.version; S.mode='redline'; toast(`IPS version ${r.version} submitted for approval`); vIps();}catch(e){toast(e.message,'error')}};
+}
+
+// ------------------------------------------------------------------ Glide paths
+const RS = {pending:['Waiting','warn'],approved:['Approved','ok'],rejected:['Rejected','crit'],withdrawn:['Withdrawn','']};
+function eqChart(paths, G){
+  const W=640,H=230,l=40,r=12,t=10,b=28, xs=y=>l+(45-y)/55*(W-l-r), ys=v=>t+(1-v)*(H-t-b);
+  const cols=['#1f4e8c','#c06a1a','#2f8f5b','#8a3fa0','#a3261b'];
+  const lines=paths.map((p,i)=>`<polyline fill="none" stroke="${cols[i%cols.length]}" stroke-width="${p.id==='ips'?2.5:2}" ${p.id==='ips'?'stroke-dasharray="5 4"':''} points="${p.equity_curve.map(([y,v])=>xs(y).toFixed(1)+','+ys(v).toFixed(1)).join(' ')}"/>`).join('');
+  const grid=[0,.2,.4,.6,.8,1].map(v=>`<line x1="${l}" x2="${W-r}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${l-6}" y="${ys(v)+4}" text-anchor="end">${v*100}%</text>`).join('')+
+    [45,35,25,15,5,0,-10].map(y=>`<text x="${xs(y)}" y="${H-8}" text-anchor="middle">${y}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Equity share by years to target">${grid}<line x1="${xs(0)}" x2="${xs(0)}" y1="${t}" y2="${H-b}" stroke="var(--line-strong)"/>${lines}</svg>
+   <div class="small">${paths.map((p,i)=>`<span style="color:${cols[i%cols.length]}">${p.id==='ips'?'- - ':'— '}${esc(p.name)}</span>`).join(' &nbsp; ')} <span class="muted">· equity share by years to the target date (0 = target year)</span></div>`;
+}
+async function vPaths(){
+  const tok = S.pTok = (S.pTok||0)+1;
+  let d; try{ d = await api('GET','/api/policy/glide-paths'); }catch(e){ return toast(e.message,'error'); }
+  if (tok !== S.pTok) return;                 // a newer render started meanwhile
+  S.gp = d; if(!S.path || !d.paths.some(p=>p.id===S.path)) S.path='ips';
+  if(S.edit) return pathEditor(d);
+  const p = d.paths.find(x=>x.id===S.path), ips = d.paths[0];
+  const eq = (pp,y)=>{const r=pp.equity_curve.find(([yy])=>yy===y); return r?(r[1]*100).toFixed(1)+'%':'—'};
+  const pend = d.requests.filter(r=>r.status==='pending'), done=d.requests.filter(r=>r.status!=='pending').slice(0,20);
+  const reqRow = r => `<tr><td class="mono small">${esc(r.id)}</td><td>${esc(r.label)}<div class="small muted">${esc(r.reason)}</div>${r.vs_ips?`<div class="small muted">Largest gap to the IPS path: ${esc(d.asset_names[r.vs_ips.asset]||r.vs_ips.asset)} ${r.vs_ips.pp>0?'+':''}${r.vs_ips.pp}pp at ${r.vs_ips.years} yrs · equity ${r.vs_ips.equity_pp>0?'+':''}${r.vs_ips.equity_pp}pp</div>`:''}</td><td>${esc(r.requested_by.name)}<div class="small muted">${when(r.requested_at)}</div></td><td>${chip(...(RS[r.status]||[r.status]))}${r.decided_by?`<div class="small muted">${esc(r.decided_by.name)} · ${when(r.decided_at)}<br>${esc(r.decision_reason||'')}</div>`:''}</td>
+    <td>${r.status==='pending'?(BOOT.is_ic&&!same(r.requested_by)?`<button class="btn primary small" data-gpd="approve" data-id="${r.id}">Approve</button> <button class="btn danger small" data-gpd="reject" data-id="${r.id}">Reject</button>`:same(r.requested_by)?`<button class="btn small" data-gpd="withdraw" data-id="${r.id}">Withdraw</button>`:'<span class="small muted">Investment Committee</span>'):''}</td></tr>`;
+  const anchors = p.anchors;
+  $('#paths').innerHTML = `
+   ${pend.length?`<div class="card"><h2>Waiting for the Investment Committee (${pend.length})</h2><table><tr><th>Request</th><th>What</th><th>Requested by</th><th>Status</th><th></th></tr>${pend.map(reqRow).join('')}</table></div>`:''}
+   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Glide paths</h2>${BOOT.can_draft?'<button class="btn" id="gpNew">New glide path</button>':''}</div>
+   <p class="small muted">Every fund follows the IPS glide path unless the Investment Committee assigns it another path. The IPS bands (±3pp per asset class, ±5pp equity) sit around the fund's own path, and approved glide-path adjustments are added on top.</p>
+   <table><tr><th>Path</th><th>Version</th><th>Status</th><th class="n">Equity at 40 yrs</th><th class="n">at 0</th><th class="n">at −7</th><th>Largest gap to IPS path</th><th class="n">Funds</th></tr>
+   ${d.paths.map(x=>`<tr class="click ${x.id===S.path?'sel':''}" data-path="${x.id}"><td><b>${esc(x.name)}</b><div class="small muted">${esc(x.description||'')}</div></td><td>${x.version??'—'}</td><td>${vchip(x.status)}</td><td class="n">${eq(x,40)}</td><td class="n">${eq(x,0)}</td><td class="n">${eq(x,-7)}</td><td class="small">${x.vs_ips?`${esc(d.asset_names[x.vs_ips.asset]||x.vs_ips.asset)} ${x.vs_ips.pp>0?'+':''}${x.vs_ips.pp}pp at ${x.vs_ips.years} yrs`:'—'}</td><td class="n">${x.funds.length}</td></tr>`).join('')}</table></div>
+   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(p.name)} ${p.version!=null?'· version '+esc(p.version):''}</h2><span class="row">${BOOT.can_draft&&!p.read_only&&p.status==='active'&&!p.versions.some(v=>v.status==='pending')?'<button class="btn" id="gpEdit">Propose a new version</button>':''}${BOOT.can_draft?'<button class="btn" id="gpCopy">Copy to a new path</button>':''}</span></div>
+   ${eqChart(p.id==='ips'?[ips]:[ips,p], d)}
+   <h3>Anchors (% of the fund; straight lines between rows)</h3><div class="wide"><table class="anch small"><tr><th>Years to target</th>${d.assets.map(a=>`<th class="n" title="${esc(d.asset_names[a])}">${esc(short(d.asset_names[a],a))}</th>`).join('')}</tr>${anchors.map(r=>`<tr><td><b>${r[0]}</b></td>${r.slice(1).map(v=>`<td class="n">${(+v).toFixed(1)}</td>`).join('')}</tr>`).join('')}</table></div>
+   <h3>Versions</h3><table class="small"><tr><th>Version</th><th>Status</th><th>Proposed</th><th>Approved</th><th>Reason</th></tr>${p.versions.slice().reverse().map(v=>`<tr><td>${esc(v.version)}</td><td>${vchip(v.status)}</td><td>${v.by?esc(v.by.name)+' · '+when(v.at):esc(v.note||'')}</td><td>${v.approved_by?esc(v.approved_by.name)+' · '+when(v.approved_at):''}</td><td>${esc(v.reason||'')}</td></tr>`).join('')}</table></div>
+   <div class="card"><h2>Which path each fund follows</h2><p class="small muted">Tick funds, choose a path and request the change. It takes effect when an Investment Committee member approves it; the next trade list and agent run use the new path.</p>
+   <table><tr><th></th><th>Fund</th><th>Vehicle</th><th class="n">Years to target</th><th>Glide path</th></tr>${d.funds.map(f=>{const pp=d.paths.find(x=>x.id===f.path);const busy=pend.some(r=>r.kind==='assign'&&r.funds.includes(f.id));return `<tr><td><input type="checkbox" data-fsel="${f.id}" ${S.sel.has(f.id)?'checked':''} ${BOOT.can_draft?'':'disabled'} aria-label="Select ${f.id}"></td><td class="mono">${f.id}</td><td>${f.vehicle==='cit'?'CIT':'Mutual fund'}</td><td class="n">${f.years_to_target}</td><td>${esc(pp?pp.name:f.path)}${busy?' '+chip('change waiting','warn'):''}</td></tr>`}).join('')}</table>
+   ${BOOT.can_draft?`<div class="row" style="margin-top:10px"><select id="gpTo">${d.paths.filter(x=>x.status==='active').map(x=>`<option value="${x.id}" ${S.gpTo===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select><button class="btn primary" id="gpAssign">Request change for <span id="gpN">${S.sel.size}</span> funds</button></div>`:''}</div>
+   ${done.length?`<div class="card"><h2>Decided requests</h2><table><tr><th>Request</th><th>What</th><th>Requested by</th><th>Decision</th><th></th></tr>${done.map(reqRow).join('')}</table></div>`:''}`;
+  document.querySelectorAll('[data-path]').forEach(r=>r.onclick=()=>{S.path=r.dataset.path; vPaths()});
+  document.querySelectorAll('[data-fsel]').forEach(c=>c.onchange=()=>{c.checked?S.sel.add(c.dataset.fsel):S.sel.delete(c.dataset.fsel); const n=$('#gpN'); if(n) n.textContent=S.sel.size;});
+  const ne=$('#gpNew'); if(ne) ne.onclick=()=>{S.edit={kind:'new_path', name:'', description:'', anchors:JSON.parse(JSON.stringify(ips.anchors))}; vPaths()};
+  const cp=$('#gpCopy'); if(cp) cp.onclick=()=>{S.edit={kind:'new_path', name:'', description:`Based on ${p.name}`, anchors:JSON.parse(JSON.stringify(p.anchors))}; vPaths()};
+  const ed=$('#gpEdit'); if(ed) ed.onclick=()=>{S.edit={kind:'new_version', path_id:p.id, name:p.name, anchors:JSON.parse(JSON.stringify(p.anchors))}; vPaths()};
+  const gt=$('#gpTo'); if(gt) gt.onchange=()=>{S.gpTo=gt.value};
+  const as=$('#gpAssign'); if(as) as.onclick=async()=>{ if(!S.sel.size) return toast('Tick at least one fund','warn');
+    const to=$('#gpTo').value, nm=d.paths.find(x=>x.id===to).name;
+    const reason=await ask(`Move ${S.sel.size} funds to ${nm}`,{message:'An Investment Committee member other than you approves this before it takes effect.', okText:'Request change'}); if(!reason) return;
+    try{ await api('POST','/api/policy/glide-paths/requests',{kind:'assign', path_id:to, funds:[...S.sel], reason}); S.sel.clear(); toast('Request sent to the Investment Committee'); vPaths(); }catch(e){ toast(e.message,'error'); } };
+  document.querySelectorAll('[data-gpd]').forEach(b=>b.onclick=async()=>{ const a=b.dataset.gpd;
+    const reason=await ask({approve:'Approve request',reject:'Reject request',withdraw:'Withdraw request'}[a]+' '+b.dataset.id,{okText:a[0].toUpperCase()+a.slice(1), danger:a!=='approve'}); if(!reason) return;
+    try{ const r=await api('POST',`/api/policy/glide-paths/requests/${b.dataset.id}/decide`,{action:a, reason}); toast(`Request ${r.status}`); vPaths(); }catch(e){ toast(e.message,'error'); } });
+}
+const ABBR = {us_large_cap:'US large', us_small_mid_cap:'US SMID', intl_developed_eq:'Intl dev', emerging_eq:'EM eq', global_reits:'REITs', commodities:'Commod.',
+  us_core_bond:'Core bond', us_long_treasury:'Long Tsy', us_tips_short:'TIPS', us_high_yield:'High yld', intl_bond_hedged:'Intl bond', em_debt:'EM debt', cash:'Cash'};
+const short = (n, a) => ABBR[a] || String(n||a||'').slice(0,12);
+function pathEditor(d){
+  const E=S.edit, A=d.assets;
+  const sum = r => r.slice(1).reduce((t,x)=>t+(+x||0),0);
+  $('#paths').innerHTML = `<div class="card"><h2>${E.kind==='new_path'?'New glide path':'New version of '+esc(E.name)}</h2>
+   <p class="small muted">One row per anchor: years to the target date (negative = after it) and the weight of each asset class in %. Each row must add to 100. Weights between rows move in a straight line. An Investment Committee member other than you approves it.</p>
+   ${E.kind==='new_path'?`<div class="grid2"><div><label class="f" for="gpName">Name</label><input type="text" id="gpName" value="${esc(E.name)}" placeholder="e.g. Higher equity at retirement"></div><div><label class="f" for="gpDesc">Description</label><input type="text" id="gpDesc" value="${esc(E.description)}"></div></div>`:''}
+   <div class="wide" style="margin-top:10px"><table class="anch small"><tr><th>Years</th>${A.map(a=>`<th class="n" title="${esc(d.asset_names[a])}">${esc(short(d.asset_names[a],a))}</th>`).join('')}<th class="n">Total</th><th></th></tr>
+   ${E.anchors.map((r,i)=>`<tr>${r.map((v,j)=>`<td><input type="number" step="0.5" data-r="${i}" data-c="${j}" value="${v}" aria-label="${j?esc(d.asset_names[A[j-1]]):'Years'} row ${i+1}"></td>`).join('')}<td class="n ${Math.abs(sum(r)-100)>0.05?'bad':''}" id="tot${i}">${sum(r).toFixed(1)}</td><td><button class="btn small" data-del="${i}" aria-label="Remove row ${i+1}" ${E.anchors.length<=2?'disabled':''}>×</button></td></tr>`).join('')}</table></div>
+   <div class="row" style="margin-top:8px"><button class="btn" id="gpAdd">Add a row</button></div>
+   <div id="gpPrev" style="margin-top:10px"></div>
+   <div class="row" style="margin-top:12px"><button class="btn primary" id="gpGo">Submit for approval</button><button class="btn" id="gpCancel">Cancel</button></div></div>`;
+  const prev=()=>{ const ips=d.paths[0]; const curve=[]; for(let y=45;y>=-10;y--){ const a=E.anchors.slice().sort((x,z)=>x[0]-z[0]); const yy=Math.max(a[0][0],Math.min(a[a.length-1][0],y)); let k=0; while(k<a.length-2&&a[k+1][0]<yy)k++; const [lo,hi]=[a[k],a[k+1]]; const f=hi[0]===lo[0]?0:(yy-lo[0])/(hi[0]-lo[0]); const w=lo.slice(1).map((v,j)=>(+v)+f*((+hi[j+1])-(+v))); const t=w.reduce((s,x)=>s+x,0)||1; curve.push([y, A.reduce((s,aa,j)=>s+(d.groups.equity.includes(aa)?w[j]:0),0)/t]); }
+    $('#gpPrev').innerHTML = eqChart([ips,{id:'draft',name:'This draft',equity_curve:curve}], d); };
+  document.querySelectorAll('[data-r]').forEach(inp=>inp.oninput=()=>{ E.anchors[+inp.dataset.r][+inp.dataset.c]=inp.value===''?0:+inp.value; const i=+inp.dataset.r, t=$('#tot'+i); t.textContent=sum(E.anchors[i]).toFixed(1); t.classList.toggle('bad',Math.abs(sum(E.anchors[i])-100)>0.05); prev(); });
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ E.anchors.splice(+b.dataset.del,1); keepNames(); pathEditor(d); });
+  const keepNames=()=>{ const n=$('#gpName'), ds=$('#gpDesc'); if(n) E.name=n.value; if(ds) E.description=ds.value; };
+  $('#gpAdd').onclick=()=>{ keepNames(); const last=E.anchors[E.anchors.length-1]; E.anchors.push([last[0]-5, ...last.slice(1)]); pathEditor(d); };
+  $('#gpCancel').onclick=()=>{ S.edit=null; vPaths(); };
+  $('#gpGo').onclick=async()=>{ keepNames();
+    const reason=await ask(E.kind==='new_path'?`Propose glide path "${E.name}"`:`Propose a new version of ${E.name}`,{message:'Why is this path needed? The Investment Committee sees this with the request.', okText:'Submit'}); if(!reason) return;
+    try{ const r=await api('POST','/api/policy/glide-paths/requests',{kind:E.kind, path_id:E.path_id, name:E.name, description:E.description, anchors:E.anchors, reason});
+      S.edit=null; S.path=r.request.path_id; toast(`Request ${r.request.id} sent to the Investment Committee`); vPaths(); }catch(e){ toast(e.message,'error'); } };
+  prev();
+}
+
+// ------------------------------------------------------------------ Change log
+async function vLog(){
+  let d; try{ d = await api('GET','/api/policy/ledger'); }catch(e){ return toast(e.message,'error'); }
+  $('#log').innerHTML = `<div class="card"><h2>Change log</h2><p class="small muted">Every IPS and glide-path step, from the hash-chained governance ledger (dr_type policy_change).</p>
+   <table><tr><th>When</th><th>Step</th><th>Who</th><th>What</th><th>Record</th></tr>${d.records.slice().reverse().map(r=>`<tr><td class="small">${when(r.created_at)}</td><td class="mono small">${esc(r.step)}</td><td>${esc(r.actor.id)}</td><td>${esc(r.summary)}${r.rationale?`<div class="small muted">${esc(r.rationale)}</div>`:''}</td><td class="mono small">${esc(r.dr_id)}<br>${esc((r.record_hash||'').slice(0,12))}…</td></tr>`).join('')||'<tr><td colspan=5 class="muted">No changes yet</td></tr>'}</table></div>`;
+}
+$('#who').textContent = BOOT.user.name + (BOOT.is_ic?' · Investment Committee':'') + (BOOT.is_cco?' · CCO':'');
+render();
+</script></body></html>
