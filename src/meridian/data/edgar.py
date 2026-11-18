@@ -49,8 +49,12 @@ INSTANT = {
 COLUMNS = ["ticker", "cik", "name", "fiscal_period", "balance_date", *DURATION, *INSTANT]
 
 
+_UA: list[str] = []          # set from config (sources.sec_edgar.options.user_agent) when the source is built
+
+
 def user_agent() -> str:
-    return os.getenv("SEC_USER_AGENT") or "Meridian research (github.com/alexeatondev/meridian)"
+    """SEC_USER_AGENT (env / repository variable) wins, then the config option, then a generic agent."""
+    return os.getenv("SEC_USER_AGENT") or (_UA[0] if _UA else "") or "Meridian research (github.com/alexeatondev/meridian)"
 
 
 def _get(url: str) -> dict:
@@ -101,6 +105,11 @@ def frames_to_frame(tickers: dict, frames: dict[str, tuple[str, list[dict]]]) ->
 
 
 class EdgarSource(DataSource):
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        if self.options.get("user_agent"):
+            _UA[:] = [str(self.options["user_agent"])]
+
     def datasets(self):
         return {"fundamentals.edgar"}
 
