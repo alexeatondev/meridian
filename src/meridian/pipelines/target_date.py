@@ -301,17 +301,25 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     ctx = {}
 
     # 5a. candidates and the code-computed risk report, for every vintage ------------------------
+    glide_adj = {}
     for v in policy.vintages:
         ytt = v - as_of_frac
-        n = policy.neutral_weights(ytt)
+        # The glide path this run manages against: the IPS glide path plus any Investment Committee adjustments
+        # approved in the app (within the IPS bands). The IPS bands are still measured from the IPS glide path,
+        # so the optimizer's bounds are the overlap of both.
+        n, n_ips, adj = policy.adjusted_neutral(ytt, v)
+        if adj["ids"]:
+            glide_adj[v] = adj
         rb = policy.risk_budget(v)
         neq = eq_m @ n
-        groups = [(eq_m, neq - 0.05, neq + 0.05), (policy.group_mask("growth_assets"), policy.group_mask("growth_assets") @ n - 0.05,
-                  policy.group_mask("growth_assets") @ n + 0.05), (big_m, 0, 0.10), (cash_m, 0, 0.25),
+        neq_ips, gm = eq_m @ n_ips, policy.group_mask("growth_assets")
+        groups = [(eq_m, max(neq, neq_ips) - 0.05, min(neq, neq_ips) + 0.05),
+                  (gm, max(gm @ n, gm @ n_ips) - 0.05, min(gm @ n, gm @ n_ips) + 0.05), (big_m, 0, 0.10), (cash_m, 0, 0.25),
                   (nonus_m - 0.45 * eq_m, -1, 0)]
         if ldu_on:
             groups.append((deriv_m, 0, 0.10))
-        b = Bounds(lo=np.maximum(n - 0.03, 0), hi=np.minimum(n + 0.03, 0.5), group_masks=groups, te_max=min(te_budget, rb * 0.96))
+        b = Bounds(lo=np.maximum(np.maximum(n, n_ips) - 0.03, 0), hi=np.minimum(np.minimum(n, n_ips) + 0.03, 0.5),
+                   group_masks=groups, te_max=min(te_budget, rb * 0.96))
         cand = {}
         for name, (fam, fn) in PC_METHODS.items():
             w, status = fn(mu, cov, n, b)
@@ -322,8 +330,8 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         centroid = np.mean([c["w"] for k, c in cand.items() if k != "adversarial_diversifier"], axis=0)
 
         # risk report numbers (code). The risk officer agent comments on them later and does not vote.
-        def measure(wv, n=n, rb=rb, centroid=centroid):
-            comp = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
+        def measure(wv, n=n, n_ips=n_ips, rb=rb, centroid=centroid):
+            comp = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb, band_neutral=n_ips)
             m = dict(w=np.asarray(wv, float), exp_ret=float(mu @ wv), vol=A.port_vol(wv, cov), te=A.tracking_error(wv, n, cov),
                      eff_n=A.effective_n(wv), backtest=A.historical_backtest(wv, rets), compliance=summarize(comp),
                      dist_centroid=float(np.abs(wv - centroid).sum()), rules=[r.to_dict() for r in comp])
@@ -345,8 +353,18 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                           policy_version=pv, portfolio_scope=[f"MTRS-{v}"],
                           summary=f"{v}: risk report on {len(cand)} candidates",
                           output={k: {x: (c[x] if x != "backtest" else c[x]) for x in ("exp_ret", "vol", "te", "eff_n", "backtest", "compliance")} for k, c in cand.items()})
-        ctx[v] = {"ytt": ytt, "n": n, "rb": rb, "neq": neq, "cand": cand, "cro_dr": cro_dr, "measure": measure, "preview": preview,
+        ctx[v] = {"ytt": ytt, "n": n, "n_ips": n_ips, "adj": adj, "rb": rb, "neq": neq, "cand": cand, "cro_dr": cro_dr, "measure": measure, "preview": preview,
                   "composite": metric_composite(cand)}
+
+    if glide_adj:
+        L.record(dr_type="decision", run_id=run_id, step="glide-path.adjustments", actor=SYSTEM, policy_version=pv,
+                 portfolio_scope=[f"MTRS-{v}" for v in glide_adj] + [f"MTRT-{v}" for v in glide_adj],
+                 summary=(f"Investment Committee glide-path adjustments applied to {len(glide_adj)} vintages "
+                          f"({', '.join(map(str, glide_adj))}); IPS bands still measured from the IPS glide path"),
+                 output={str(v): {"ids": a["ids"], "applied_pp": {x: round(float(d) * 100, 4) for x, d in zip(assets, a["delta"]) if abs(d) > 1e-9},
+                                  "by_line": a["by_line"], "lines_differ": a["lines_differ"]} for v, a in glide_adj.items()},
+                 rationale="Approved in the app by an Investment Committee member (Trading → Glide path & bulk changes); "
+                           "exported with the policy overrides before this run")
 
     # 5b. strategy review by the agents, once for the series (paper §3.5) -------------------------
     from .deliberation import deliberate
@@ -371,6 +389,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     for v in policy.vintages:
         d_ = ctx[v]
         ytt, n, rb, neq, cand, cro_dr = d_["ytt"], d_["n"], d_["rb"], d_["neq"], d_["cand"], d_["cro_dr"]
+        n_ips, adj = d_["n_ips"], d_["adj"]
         # modified Borda vote (agent ballots where valid, else the family lens), blended with the metric composite
         points, ballots = borda_vote(cand, agent_ballots=delib["ballots"])
         keys = list(cand)
@@ -403,7 +422,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
         for k, wv in ens.items():
             wv = wv / wv.sum()
             ens[k] = wv
-            comp_e = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
+            comp_e = evaluate(wv, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb, band_neutral=n_ips)
             ens_rules[k] = [r.to_dict() for r in comp_e]
             ens_eval[k] = {"exp_ret": float(mu @ wv), "vol": A.port_vol(wv, cov), "te": A.tracking_error(wv, n, cov),
                            "eff_n": A.effective_n(wv), "compliance": summarize(comp_e)}
@@ -432,7 +451,7 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        "Equity drawdown > 15% from run date (off-cycle review trigger)",
                        "Tracking error vs. glide path rises above 1.0% (warning threshold)"]
         final = ens[choice]
-        comp = evaluate(final, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb)
+        comp = evaluate(final, n, cov, policy, regime_cfg, universe, attestations, risk_budget=rb, band_neutral=n_ips)
         summ = summarize(comp)
         bt = A.historical_backtest(final, rets)
         bt_n = A.historical_backtest(n, rets)
@@ -458,7 +477,12 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
                        "ranking": [{"method": k, "composite": round(float(s), 3), "votes": p} for k, s, p in ranking],
                        "candidates": {k: {"exp_ret": c["exp_ret"], "vol": c["vol"], "te": c["te"], "sharpe": c["sharpe"],
                                           "compliance": c["compliance"]["overall"]} for k, c in cand.items()},
-                       "approvers": approvers, "risk_budget": rb}
+                       "approvers": approvers, "risk_budget": rb,
+                       "neutral_ips": dict(zip(assets, np.round(n_ips, 4))),
+                       "glide_adjustment": ({"ids": adj["ids"], "labels": adj.get("labels", []),
+                                             "applied": {a: round(float(x), 6) for a, x in zip(assets, adj["delta"]) if abs(x) > 1e-9},
+                                             "by_line": adj["by_line"], "lines_differ": adj["lines_differ"]}
+                                            if adj["ids"] else None)}
 
     # 5d. positioning, risk-budget usage and portfolio metrics -------------------------------------
     from ..analytics.positioning import Taxonomy, active_risk_contributions, portfolio_metrics, positioning_table
@@ -544,7 +568,10 @@ def run(as_of: str = "2026-10-31", selected_entities: list[str] | None = None,
     for b_ in delib["ballots"].values():
         flagged[b_["bottom_flag"]] = flagged.get(b_["bottom_flag"], 0) + 1
     memo_ctx = {"how_to_read": ("The glide path is the series' strategic policy, set by the IPS; this run does not change it. "
-                                "The recommendation is the proposed weights for each vintage, which tilt around the glide path within "
+                                + (f"The Investment Committee has approved adjustments to it for vintages {', '.join(map(str, glide_adj))} "
+                                   "(within the IPS bands); this run builds on the adjusted glide path, and the IPS bands are "
+                                   "still checked against the IPS glide path. " if glide_adj else "")
+                                + "The recommendation is the proposed weights for each vintage, which tilt around the glide path within "
                                 "the tactical bands and the tracking-error budget. equity_proposed versus equity_glide_path shows the tilt."),
                 "regime": {"regime": mv["regime"], "confidence": mv["confidence"]}, "contains_synthetic_data": bool(synthetic_detail),
                 "vintages": {str(v): {"equity_glide_path": round(d["equity_neutral"], 4), "equity_proposed": round(d["equity_final"], 4),

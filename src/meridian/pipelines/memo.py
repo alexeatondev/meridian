@@ -34,6 +34,16 @@ def board_memo(run_id, as_of, mv, cma, vint, regime, co, synthetic, policy, mode
         L.append(f"| {v} | {d['years_to_target']:.1f} | {_p(d['equity_neutral'])} | {_p(d['equity_final'])} | "
                  f"{(d['equity_final'] - d['equity_neutral']) * 100:+.1f}pp | {_p(d['exp_ret'])} | {_p(d['vol'])} | {_p(d['te'], 2)} | "
                  f"{d['compliance_summary']['overall']} |")
+    adj = {v: d["glide_adjustment"] for v, d in vint.items() if d.get("glide_adjustment")}
+    if adj:
+        L += ["", "**Investment Committee glide-path adjustments in force.** The glide path above includes adjustments the "
+              "Investment Committee approved within the IPS bands; tilts are measured from the adjusted glide path and the "
+              "IPS bands from the IPS glide path.", "",
+              "| Vintage | Adjustments | Shifts applied | Mutual funds and CITs |", "|---|---|---|---|"]
+        for v, a in adj.items():
+            sh = ", ".join(f"{k.replace('_', ' ')} {x * 100:+.2f}pp" for k, x in sorted(a["applied"].items(), key=lambda kv: -kv[1]))
+            L.append(f"| {v} | {', '.join(a['ids'])} | {sh} | "
+                     + ("differ: the run uses their average; each line's own difference is added in trading |" if a["lines_differ"] else "same |"))
     L += ["", "## 2. Macro view", "", f"**Regime:** {mv['regime'].replace('_', '-')} (confidence {mv['confidence']}).  ",
           f"Scores — growth {mv['scores']['growth']}, inflation {mv['scores']['inflation']}, monetary policy {mv['scores']['monetary_policy']}, "
           f"financial conditions {mv['scores']['financial_conditions']}.  ", mv.get("rationale", ""), "",

@@ -46,6 +46,32 @@ class Policy:
         out = np.array([np.interp(y, yrs, w[:, j]) for j in range(w.shape[1])])
         return out / out.sum()
 
+    def glide_adjustment(self, vintage: int) -> dict:
+        """Investment Committee glide-path adjustments approved in the app (exported into the policy file as
+        `glide_adjustments` before an agent run). Returns {"delta": vector to add to the IPS glide path,
+        "by_line": {line: {asset: pp}}, "ids": [...], "lines_differ": bool}. Shifts are funded, so each line's
+        delta sums to zero. When the mutual fund and CIT lines differ, the run builds on their average and
+        the Trading screen adds each line's own difference to the approved proposal."""
+        ga = (self.raw.get("glide_adjustments") or {}).get("vintages") or {}
+        d = ga.get(vintage) or ga.get(str(vintage)) or {}
+        lines = {k: {a: float(x) for a, x in (v or {}).items()} for k, v in (d.get("by_line") or {}).items()}
+        if not lines:
+            return {"delta": np.zeros(len(self.assets)), "by_line": {}, "ids": [], "lines_differ": False}
+        vecs = [np.array([lines[k].get(a, 0.0) for a in self.assets]) for k in sorted(lines)]
+        unknown = sorted({a for v in lines.values() for a in v} - set(self.assets))
+        if unknown:
+            raise ValueError(f"glide_adjustments for {vintage}: unknown asset classes {unknown}")
+        return {"delta": np.mean(vecs, axis=0), "by_line": lines, "ids": list(d.get("ids") or []),
+                "lines_differ": any(not np.allclose(vecs[0], x, atol=1e-9) for x in vecs[1:]),
+                "labels": list(d.get("labels") or [])}
+
+    def adjusted_neutral(self, years_to_target: float, vintage: int) -> tuple[np.ndarray, np.ndarray, dict]:
+        """(glide path including approved adjustments, IPS glide path, adjustment info)."""
+        ips = self.neutral_weights(years_to_target)
+        adj = self.glide_adjustment(vintage)
+        n = np.clip(ips + adj["delta"], 0, None)
+        return n / n.sum(), ips, adj
+
     def risk_budget(self, vintage: int) -> float:
         rb = self.raw.get("risk_budgets") or {}
         hard = float(rb.get("hard_max", self.raw["risk_objectives"]["tracking_error_budget_vs_neutral"]))

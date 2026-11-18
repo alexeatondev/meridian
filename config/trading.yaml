@@ -42,6 +42,8 @@ cash_buffer_bps: 50
 # Security master. type: mutual_fund | cit | etf | stock | bond. price: per unit (bond: per 100 face).
 # products: which product lines may hold it. asset_class: the policy asset class it implements.
 # share: split of the asset class between instruments in the neutral table (shares per product sum to 1).
+# adv: average daily volume in units (shares; bonds: face), example figures, used by liquidity-capped
+# calculation templates. Funds and trusts trade at NAV and have none.
 # status: held (in example positions) | candidate (approved, not held) | no_target (held, but no target)
 instruments:
   # --- Mutual fund product line: underlying mutual funds (fund of funds), ETFs and individual securities
@@ -49,8 +51,8 @@ instruments:
   - {id: MER-SMID-MF,  name: Meridian US Small/Mid Cap Index Fund,   type: mutual_fund, asset_class: us_small_mid_cap,  products: [mf], share: 1.0, price: 28.64}
   - {id: MER-INTL-MF,  name: Meridian International Equity Index Fund, type: mutual_fund, asset_class: intl_developed_eq, products: [mf], share: 1.0, price: 17.92}
   - {id: MER-EM-MF,    name: Meridian Emerging Markets Equity Fund,   type: mutual_fund, asset_class: emerging_eq,       products: [mf], share: 1.0, price: 14.38}
-  - {id: VNQ,          name: Vanguard Real Estate ETF,                type: etf,         asset_class: global_reits,      products: [mf, cit], share: 1.0, price: 92.15}
-  - {id: PDBC,         name: Invesco Optimum Yield Diversified Commodity ETF, type: etf, asset_class: commodities,      products: [mf, cit], share: 1.0, price: 13.42}
+  - {id: VNQ,          name: Vanguard Real Estate ETF,                type: etf,         asset_class: global_reits,      products: [mf, cit], share: 1.0, price: 92.15, adv: 3500000}
+  - {id: PDBC,         name: Invesco Optimum Yield Diversified Commodity ETF, type: etf, asset_class: commodities,      products: [mf, cit], share: 1.0, price: 13.42, adv: 2500000}
   - {id: MER-CORE-MF,  name: Meridian Core Bond Fund,                 type: mutual_fund, asset_class: us_core_bond,      products: [mf], share: 1.0, price: 9.81}
   - {id: MER-LTSY-MF,  name: Meridian Long Treasury Fund,             type: mutual_fund, asset_class: us_long_treasury,  products: [mf], share: 1.0, price: 8.47}
   - {id: MER-TIPS-MF,  name: Meridian Short-Term TIPS Fund,           type: mutual_fund, asset_class: us_tips_short,     products: [mf], share: 1.0, price: 10.06}
@@ -60,7 +62,7 @@ instruments:
   - {id: MER-GMMF,     name: Meridian Government Money Market Fund,  type: mutual_fund, asset_class: cash,              products: [mf], share: 0.7, price: 1.00}
   - {id: TBILL-270211, name: US Treasury Bill 02/11/2027,             type: bond,        asset_class: cash,              products: [mf, cit], share: 0.3, price: 98.91, cusip: 912797XX1, government: true, issuer: "United States Treasury"}
   - {id: MER-LISC-MF,  name: Meridian Legacy Intl Small Cap Fund,     type: mutual_fund, asset_class: intl_developed_eq, products: [mf], share: 0.0, price: 12.11, status: no_target, legacy_pct: 0.004}
-  - {id: IEFA,         name: iShares Core MSCI EAFE ETF,              type: etf,         asset_class: intl_developed_eq, products: [mf, cit], share: 0.0, price: 81.60, status: candidate, note: "Liquidity sleeve for large flows; under manager-selection review"}
+  - {id: IEFA,         name: iShares Core MSCI EAFE ETF,              type: etf,         asset_class: intl_developed_eq, products: [mf, cit], share: 0.0, price: 81.60, adv: 9000000, status: candidate, note: "Liquidity sleeve for large flows; under manager-selection review"}
   # --- CIT product line: underlying CITs, ETFs and individual securities
   - {id: MER-USLC-CIT, name: Meridian US Large Cap Index Trust,       type: cit, asset_class: us_large_cap,      products: [cit], share: 1.0, price: 24.18}
   - {id: MER-SMID-CIT, name: Meridian US Small/Mid Cap Index Trust,   type: cit, asset_class: us_small_mid_cap,  products: [cit], share: 1.0, price: 19.77}

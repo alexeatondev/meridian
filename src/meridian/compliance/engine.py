@@ -31,8 +31,13 @@ class RuleResult:
 
 def evaluate(weights: np.ndarray, neutral: np.ndarray, cov: np.ndarray, policy: Policy,
              regime: EffectiveRegime, universe: dict[str, dict],
-             attestations: dict[str, bool] | None = None, risk_budget: float | None = None) -> list[RuleResult]:
+             attestations: dict[str, bool] | None = None, risk_budget: float | None = None,
+             band_neutral: np.ndarray | None = None) -> list[RuleResult]:
+    """`neutral` is the glide path the portfolio is managed against (tracking error, risk budget, volatility).
+    `band_neutral` is the IPS glide path that the IPS bands are measured from; it differs from `neutral` only
+    when the Investment Committee has approved a glide-path adjustment inside the bands."""
     w, n = np.asarray(weights, float), np.asarray(neutral, float)
+    nb = n if band_neutral is None else np.asarray(band_neutral, float)
     assets = policy.assets
     attestations = attestations or {}
     out: list[RuleResult] = []
@@ -54,14 +59,14 @@ def evaluate(weights: np.ndarray, neutral: np.ndarray, cov: np.ndarray, policy: 
         elif k == "long_only":
             res(rule, (w >= -1e-9).all(), float(w.min()), 0.0)
         elif k == "band_vs_neutral":
-            dev = np.abs(w - n) * 100
+            dev = np.abs(w - nb) * 100
             i = int(dev.argmax())
             res(rule, dev.max() <= rule["per_asset_pp"] + 1e-6, float(dev.max()), rule["per_asset_pp"],
                 f"largest deviation: {assets[i]}")
         elif k == "group_band_vs_neutral":
             m = policy.group_mask(rule["group"])
-            dev = abs(m @ w - m @ n) * 100
-            res(rule, dev <= rule["pp"] + 1e-6, float(dev), rule["pp"], f"{rule['group']} {m @ w:.1%} vs neutral {m @ n:.1%}")
+            dev = abs(m @ w - m @ nb) * 100
+            res(rule, dev <= rule["pp"] + 1e-6, float(dev), rule["pp"], f"{rule['group']} {m @ w:.1%} vs IPS glide path {m @ nb:.1%}")
         elif k == "group_max":
             m = policy.group_mask(rule["group"])
             res(rule, m @ w <= rule["max"] + 1e-9, float(m @ w), rule["max"])

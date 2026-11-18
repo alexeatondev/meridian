@@ -40,11 +40,36 @@ def test_controls_on_holdings():
 def test_schedules():
     ob = {"frequency": "quarterly", "due_days": 60}
     t = RG.first_task(ob, date(2026, 11, 10))
-    assert t == {"period": "Q4 2026", "period_end": "2026-12-31", "due": "2027-03-01"}
+    assert t == {"period": "Q4 2026", "period_end": "2026-12-31", "due": "2027-03-01", "basis": "calendar"}
     assert RG.next_task(ob, t["period_end"])["period"] == "Q1 2027"
     assert RG.first_task({"frequency": "once", "due_days": 30}, date(2026, 11, 10))["due"] == "2026-12-10"
     assert RG.next_task({"frequency": "once", "due_days": 30}, "2026-11-10") is None
     assert RG.first_task({"frequency": "annual", "due_days": 75}, date(2026, 11, 10))["due"] == "2027-03-16"
+
+
+def test_fiscal_year_schedules():
+    ann, semi = {"frequency": "annual", "due_days": 75}, {"frequency": "semiannual", "due_days": 70}
+    t = RG.first_task(ann, date(2026, 11, 10), "03-31")
+    assert (t["period"], t["period_end"], t["due"], t["basis"]) == ("FY to Mar 2027", "2027-03-31", "2027-06-14", "fiscal")
+    assert RG.next_task(ann, t["period_end"], "03-31")["period_end"] == "2028-03-31"
+    assert RG.first_task(semi, date(2026, 11, 10), "09-30")["period_end"] == "2027-03-31"
+    assert RG.first_task(semi, date(2026, 11, 10))["period_end"] == "2026-12-31"           # default December
+    q = {"frequency": "quarterly", "due_days": 30}
+    assert RG.first_task(q, date(2026, 11, 10), "09-30")["period"] == "Q4 2026"             # calendar by default
+    assert RG.first_task(dict(q, basis="fiscal"), date(2026, 10, 2), "08-31")["period_end"] == "2026-11-30"
+    cal = {"frequency": "annual", "due_days": 60, "basis": "calendar"}
+    assert RG.first_task(cal, date(2026, 11, 10), "06-30")["period_end"] == "2026-12-31"
+    # changing a fund's year end: the year that just ended if its report is still due, else the current year
+    assert RG.reschedule(ann, date(2026, 11, 18), "09-30")["period_end"] == "2026-09-30"
+    assert RG.reschedule(ann, date(2026, 11, 18), "06-30")["period_end"] == "2027-06-30"
+    assert RG.reschedule(cal, date(2026, 11, 18), "06-30") is None
+    for bad in ("03-30", "13-31", "march"):
+        with pytest.raises(ValueError):
+            RG.parse_fye(bad)
+    lib = RG.library()["regulations"]
+    ob = {o["id"]: o for r in lib.values() for o in r["obligations"]}
+    assert ob["ICA-RIC"]["basis"] == "fiscal" and ob["CFTC-45-AFFIRM"]["basis"] == "calendar"
+    assert ob["ICA-NCEN"]["basis"] == "fiscal" and ob["ICA-NPORT"]["basis"] == "calendar"
 
 
 def test_treasury_issuer_consolidated():
@@ -202,3 +227,45 @@ def test_approved_table_rebalance_positions_and_fills(client):
     assert t["status"] == "filled"
     d = client.get("/api/trading/funds/MTRS-2030").json()
     assert d["nav"] == pytest.approx(50e6, rel=1e-3) and 0 <= d["cash"] < 1e6 + 1e5
+
+
+def test_fiscal_year_end_moves_open_obligations(client, monkeypatch):
+    import meridian.app.regulations as AR
+    monkeypatch.setattr(AR, "_today", lambda: date(2026, 11, 18))
+    ha = login(client, "Nina Alvarez", "compliance")
+    client.post("/api/regulations/tags", headers=ha, json={"reg_id": "ICA40", "fund_ids": ["MTRS-2045", "MTRS-2055"], "reason": R})
+    tasks = lambda: {(t["fund_id"], t["obligation_id"]): t for t in client.get("/api/regulations/state").json()["tasks"]
+                     if t["status"] in ("open", "in_progress")}
+    before = tasks()
+    assert before[("MTRS-2045", "ICA-NCEN")]["period_end"] == "2026-12-31"
+    assert client.put("/api/regulations/fiscal-year-end", headers=ha,
+                      json={"fund_ids": ["MTRS-2045"], "fiscal_year_end": "09-15", "reason": R}).status_code == 400
+    assert client.put("/api/regulations/fiscal-year-end", headers=ha,
+                      json={"fund_ids": ["MTRS-2045"], "fiscal_year_end": "09-30", "reason": "short"}).status_code == 400
+    hp = login(client, "Maya Chen", "portfolio_manager")
+    assert client.put("/api/regulations/fiscal-year-end", headers=hp,
+                      json={"fund_ids": ["MTRS-2045"], "fiscal_year_end": "09-30", "reason": R}).status_code == 403
+    ha = login(client, "Nina Alvarez", "compliance")
+    r = client.put("/api/regulations/fiscal-year-end", headers=ha, json={"fund_ids": ["MTRS-2045"], "fiscal_year_end": "09-30", "reason": R})
+    assert r.status_code == 200 and r.json()["changed"] == ["MTRS-2045"]
+    after = tasks()
+    ncen = after[("MTRS-2045", "ICA-NCEN")]
+    assert (ncen["period_end"], ncen["due"]) == ("2026-09-30", "2026-12-14")      # FY to Sep 2026, still due
+    assert after[("MTRS-2045", "ICA-NCSR")]["period_end"] == "2026-09-30"          # half to Sep, report still due
+    assert after[("MTRS-2045", "ICA-RIC")]["period_end"] == "2026-12-31"           # fiscal quarters Dec/Mar/Jun/Sep
+    assert after[("MTRS-2045", "ICA-NPORT")] == before[("MTRS-2045", "ICA-NPORT")]  # monthly: unchanged
+    assert after[("MTRS-2055", "ICA-NCEN")] == before[("MTRS-2055", "ICA-NCEN")]    # other fund untouched
+    assert ncen["history"][-1]["action"] == "rescheduled"
+    st = client.get("/api/regulations/state").json()
+    assert {f["id"]: f for f in st["funds"]}["MTRS-2045"]["fiscal_year_end"] == "09-30"
+    assert any(x["step"] == "fund.fiscal_year_end" for x in st["records"])
+    # completing the fiscal obligation creates the next fiscal year's
+    done = client.post(f"/api/regulations/tasks/{ncen['id']}/actions", headers=ha,
+                       json={"action": "complete", "evidence": "EDGAR accession 0001-26-000999"}).json()
+    nxt = {t["id"]: t for t in client.get("/api/regulations/state").json()["tasks"]}[done["next_task"]]
+    assert nxt["period_end"] == "2027-09-30" and nxt["period"] == "FY to Sep 2027"
+    # tagging after the change uses the fund's fiscal year
+    client.post("/api/regulations/tags", headers=ha, json={"reg_id": "UCITS", "fund_ids": ["MTRS-2045"], "reason": R})
+    assert tasks()[("MTRS-2045", "UCITS-AR")]["period_end"] == "2027-09-30"
+    assert client.put("/api/regulations/fiscal-year-end", headers=ha,
+                      json={"fund_ids": ["MTRS-2045"], "fiscal_year_end": "09-30", "reason": R}).status_code == 400

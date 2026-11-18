@@ -1,4 +1,5 @@
 """Cashflows, allocation strategies, routing, buffer, exclusions, trade lists and the Charles River file (doc 17)."""
+import json
 import csv
 import io
 
@@ -483,3 +484,103 @@ def test_glide_path_scope_by_picked_vintages(client):
     assert r.status_code == 200
     t = client.get("/api/trading/state").json()["settings"]["tilts"][0]
     assert t["vintages"] == [2055, 2065] and "vintage_from" not in t
+
+
+# ---------------------------------------------------------------------------------------------- custom calculations
+def test_calc_templates_produce_schedules():
+    from meridian.trading import calcs as C
+    m = load_model()
+    order = {"side": "SELL", "quantity": 1000.0, "quantity_type": "SHARES", "price": 100.0, "instrument": "VNQ"}
+    p = C.clean_params("pct_per_day", {"pct": 30})
+    sch, _ = C.schedule("pct_per_day", p, order, "2026-11-25", m.holidays, {})
+    assert [x["pct"] for x in sch] == [30, 30, 30, 10]
+    assert [x["date"] for x in sch] == ["2026-11-25", "2026-11-27", "2026-11-30", "2026-12-01"]   # skips Thanksgiving
+    assert C.schedule("pct_per_day", p, dict(order, side="BUY"), "2026-11-25", m.holidays, {})[0] is None
+    p = C.clean_params("pattern", {"pcts": "40,30,20,10", "every_n_days": 5, "start_offset_days": 1, "sides": "BOTH"})
+    sch, _ = C.schedule("pattern", p, dict(order, side="BUY"), "2026-11-16", m.holidays, {})
+    assert [x["date"] for x in sch] == ["2026-11-17", "2026-11-24", "2026-12-02", "2026-12-09"] and sch[-1]["pct"] == 10
+    # liquidity cap: $25,000 a day on a $100,000 order -> 4 tranches of 250 shares; ADV cap binds when lower
+    p = C.clean_params("liquidity_cap", {"max_usd_per_day": 25000})
+    sch, _ = C.schedule("liquidity_cap", p, order, "2026-11-16", m.holidays, {})
+    assert len(sch) == 4 and abs(sum(x["pct"] for x in sch) - 100) < 1e-6
+    from meridian.trading.allocate import split_order
+    parts, errs = split_order(dict(order, est_amount=1e5), sch)
+    assert not errs and all(x["quantity"] <= 250 for x in parts)
+    p = C.clean_params("liquidity_cap", {"max_pct_adv": 10, "max_days": 5})
+    sch, why = C.schedule("liquidity_cap", p, order, "2026-11-16", m.holidays, {"adv": 2000})     # 200 a day -> 5 days
+    assert len(sch) == 5
+    sch, why = C.schedule("liquidity_cap", p, order, "2026-11-16", m.holidays, {"adv": 1000})     # 100 a day -> 10 > 5
+    assert sch is None and "more than the limit" in why
+    assert C.schedule("liquidity_cap", p, order, "2026-11-16", m.holidays, {})[0] is None         # fund at NAV: no ADV
+    for kind, bad in (("pct_per_day", {"pct": 0}), ("pct_per_day", {"pct": 2}), ("pattern", {"pcts": [50, 40]}),
+                      ("liquidity_cap", {}), ("even_split", {"tranches": 1}), ("nope", {})):
+        with pytest.raises(ValueError):
+            C.clean_params(kind, bad)
+
+
+def test_calc_templates_governance_and_use_on_trade_list(client):
+    ha = login(client, "Priya Raman", "analyst", email="priya@example.com")
+    st = client.get("/api/trading/state").json()
+    seeded = {c["name"]: c for c in st["calcs"]}
+    assert all(c["usable"] for c in seeded.values()) and len(seeded) == 3
+    # an analyst proposes a template; it can't be used until a second person with the Approver permission approves
+    r = client.post("/api/trading/calcs", headers=ha, json={"name": "Sell 25% a day", "kind": "pct_per_day",
+                                                             "params": {"pct": 25}, "reason": R})
+    assert r.status_code == 200, r.text
+    cid = r.json()["id"]
+    assert not r.json()["usable"] and r.json()["pending"]["version"] == 1
+    assert client.post(f"/api/trading/calcs/{cid}/versions/1/decide", headers=ha,
+                       json={"decision": "approve", "reason": R}).status_code == 403          # analyst
+    hp = login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
+    assert client.post(f"/api/trading/calcs/{cid}/versions/1/decide", headers=hp,
+                       json={"decision": "approve", "reason": R}).status_code == 403          # no Approver permission
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
+    ok = client.post(f"/api/trading/calcs/{cid}/versions/1/decide", headers=hp, json={"decision": "approve", "reason": R})
+    assert ok.status_code == 200 and ok.json()["usable"]
+
+    # a draft trade list with buys and sells
+    client.post("/api/trading/cashflows", headers=hp, json=[
+        {"trade_date": "2026-11-16", "fund_id": "MTRS-2050", "amount": -3e7, "type": "redemption"},
+        {"trade_date": "2026-11-16", "fund_id": "MTRS-2040", "amount": 2e7, "type": "subscription"}])
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
+    tl = client.post("/api/trading/trade-lists", headers=hp, json={"trade_date": "2026-11-16", "strategy": "neutral"}).json()
+    dry = client.post(f"/api/trading/trade-lists/{tl['id']}/calc", headers=hp,
+                      json={"template_id": cid, "scope": "list", "dry_run": True}).json()
+    sells = [o for o in dry["orders"] if o["side"] == "SELL"]
+    assert sells and dry["tranched"] == len([o for o in sells if o["tranches"] == 4])
+    assert all(o["tranches"] == 1 for o in dry["orders"] if o["side"] == "BUY")
+    assert not client.get(f"/api/trading/trade-lists/{tl['id']}").json().get("tranche_summary")   # dry run saved nothing
+    # a manual series on a 2040 buy stays; the calculation adds the 2050 sells
+    buy = next(o for f in tl["funds"] if f["fund_id"] == "MTRS-2040" for o in f["orders"])
+    client.put(f"/api/trading/trade-lists/{tl['id']}/tranches", headers=hp, json={
+        "securities": {f"MTRS-2040|{buy['instrument']}": [{"date": "2026-11-16", "pct": 50}, {"date": "2026-11-17", "pct": 50}]}})
+    r = client.post(f"/api/trading/trade-lists/{tl['id']}/calc", headers=hp,
+                    json={"template_id": cid, "scope": "fund:MTRS-2050", "note": "Slow sell-down"})
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["tranche_summary"]["calcs"] == ["Sell 25% a day v1"]
+    o50 = [o for f in b["funds"] if f["fund_id"] == "MTRS-2050" for o in f["orders"] if o.get("tranches")]
+    assert o50 and all(o["tranche_calc"]["template_id"] == cid and len(o["tranches"]) == 4 for o in o50)
+    assert all(abs(sum(t["quantity"] for t in o["tranches"]) - o["quantity"]) < 1e-6 for o in o50)
+    assert next(o for f in b["funds"] if f["fund_id"] == "MTRS-2040" for o in f["orders"]
+                if o["instrument"] == buy["instrument"])["tranches"][0]["pct"] == 50
+    recs = client.get("/api/trading/state").json()["trading_records"]
+    assert any(x["step"] == "trades.tranche_calc" and "Sell 25% a day v1" in x["summary"] for x in recs)
+    assert any(x["step"] == "calcs.approve" for x in recs) and any(x["step"] == "calcs.propose" for x in recs)
+    # a new version needs approval again; the old one stays in use meanwhile
+    hp2 = login(client, "Priya Raman", "analyst", email="priya@example.com")
+    v2 = client.post("/api/trading/calcs", headers=hp2, json={"template_id": cid, "kind": "pct_per_day",
+                                                               "params": {"pct": 50}, "reason": R}).json()
+    assert v2["current"]["version"] == 1 and v2["pending"]["version"] == 2
+    hr = login(client, "Daniel Okafor", "risk", "approver", email="dan@example.com")
+    v2 = client.post(f"/api/trading/calcs/{cid}/versions/2/decide", headers=hr, json={"decision": "approve", "reason": R}).json()
+    assert v2["current"]["version"] == 2 and [v["status"] for v in v2["versions"]] == ["superseded", "approved"]
+    # the requester can't approve their own version; retired templates can't be used
+    hp = login(client, "Maya Chen", "portfolio_manager", "approver", email="maya@example.com")
+    v3 = client.post("/api/trading/calcs", headers=hp, json={"template_id": cid, "kind": "even_split",
+                                                              "params": {"tranches": 3}, "reason": R}).json()
+    assert client.post(f"/api/trading/calcs/{cid}/versions/3/decide", headers=hp,
+                       json={"decision": "approve", "reason": R}).status_code == 403
+    assert client.post(f"/api/trading/calcs/{cid}/retire", headers=hp, json={"reason": R}).status_code == 200
+    assert client.post(f"/api/trading/trade-lists/{tl['id']}/calc", headers=hp,
+                       json={"template_id": cid, "scope": "list"}).status_code == 409
