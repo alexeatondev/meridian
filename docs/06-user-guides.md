@@ -87,7 +87,7 @@ Every screen has the same dark bar across the top.
 | **Console · Trading · Regulations · User access** | The screens you can use. You only see the ones your access allows; the one you are on is underlined |
 | **My work (n)** | Everything waiting for you, across all screens (1.3). Amber when something is due, red when overdue |
 | **? Help** | Opens this guide inside Meridian at the section for the screen you are on (1.5) |
-| Your name and access | Your workspaces, plus any permissions (Investment Committee, CCO, Route manager) |
+| Your name and access | Your workspaces, plus any permissions (Investment Committee, CCO, Route manager, Approver) |
 | **Sign out** | Ends your session |
 
 Under the bar, each screen has its own title. On **Trading** and **Regulations** the **All funds / Mutual funds / CITs** switch sits at the right and filters every tab. A **Read-only** label shows there when you can look but not change things.
@@ -96,7 +96,7 @@ Under the bar, each screen has its own title. On **Trading** and **Regulations**
 **Who:** everyone. **Where:** the dark bar, any screen.
 
 1. Click **My work**. A list opens, most urgent first.
-2. Read each line: what is waiting, where, and when it is due. You see trade lists to approve (PMs) or to record fills for, glide-path changes for the Investment Committee (never your own request), regulatory obligations due within 14 days or overdue for your role, and exceptions you own (Compliance also sees every overdue exception).
+2. Read each line: what is waiting, where, and when it is due. You see trade lists to approve (PMs with the Approver permission) or to record fills for, glide-path changes for the Investment Committee (never your own request), regulatory obligations due within 14 days or overdue for your role, and exceptions you own (Compliance also sees every overdue exception).
 3. Click a line. Meridian opens the right screen with that item already selected (for example the trade list on **Trading → Trade lists**).
 4. To close the list without choosing, press **Esc** or click anywhere else.
 
@@ -907,7 +907,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 2. **Cashflows** → add or upload today's flows (10.3 step A).
 3. **New trade** → **Start from your goal** → **Invest new money (or raise cash) and stay as positioned last night** → **Set this up**.
 4. Check the cashflow date → **See the impact** → check cash after and compliance → reason → **Create draft trade list**.
-5. A PM: **Trade lists** → tick the box → reason → **Approve trade list** → **Download Charles River import file**.
+5. A PM with the Approver permission: **Trade lists** → tick the box → reason → **Approve trade list** → **Download Charles River import file**.
 
 **B. Bring the 2050 mutual fund back to the glide path**
 1. Top right: click **Mutual funds**.

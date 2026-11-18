@@ -1,6 +1,6 @@
 # 04 — Compliance & Agent Governance Framework
 
-**Version 0.3 · 2026-11-11 · Owner: CCO (to be assigned; Robert Hayes is a fictional placeholder) · Status: DRAFT for counsel review**
+**Version 0.4 · 2026-11-13 · Owner: CCO (to be assigned; Robert Hayes is a fictional placeholder) · Status: DRAFT for counsel review**
 
 > This framework maps Meridian's controls to common U.S. regulatory obligations. It is not legal advice. Applicability depends on the operating entity's registrations and client types; the CCO and outside counsel must confirm scope, citations and retention periods before adoption.
 
