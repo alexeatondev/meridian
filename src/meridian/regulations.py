@@ -28,6 +28,9 @@ def library(path: str = str(LIBRARY_PATH)) -> dict:
         for o in r.get("obligations", []):
             if o["frequency"] not in FREQS:
                 raise ValueError(f"{rid}/{o['id']}: frequency must be one of {FREQS}")
+            if o.get("basis") not in (None, "fiscal", "calendar"):
+                raise ValueError(f"{rid}/{o['id']}: basis must be fiscal or calendar")
+            o["basis"] = basis(o) if o["frequency"] != "once" else "once"
         for c in r.get("controls", []):
             if c["severity"] not in ("FAIL", "WARN"):
                 raise ValueError(f"{rid}/{c['id']}: severity must be FAIL or WARN")
@@ -133,50 +136,120 @@ def overall(results: list[dict]) -> str:
 
 
 # ------------------------------------------------------------------------------------------ schedules
+# Fiscal year ends (doc 18 §5): annual and semiannual obligations run on each fund's fiscal year, and so do
+# quarterly obligations marked `basis: fiscal` (e.g. the RIC diversification test). Anything marked
+# `basis: calendar` (e.g. the CFTC 4.5 annual affirmation) stays on the calendar year. A fiscal year end is
+# written "MM-DD" and is always a month end; the default is "12-31" (calendar year).
+DEFAULT_FYE = "12-31"
+FISCAL_BY_DEFAULT = ("annual", "semiannual")
+
+
 def _month_end(y: int, m: int) -> date:
     return date(y, m, calendar.monthrange(y, m)[1])
 
 
-def period_end(freq: str, d: date) -> date:
-    """End of the period containing d."""
+def parse_fye(fye: str | None) -> int:
+    """Month (1-12) of a fiscal year end "MM-DD" (the day must be that month's last day; Feb accepts 28 or 29)."""
+    fye = (fye or DEFAULT_FYE).strip()
+    try:
+        mm, dd = (int(x) for x in fye.split("-"))
+        ok = 1 <= mm <= 12 and dd == calendar.monthrange(2026, mm)[1] or (mm == 2 and dd in (28, 29))
+    except ValueError:
+        ok = False
+    if not ok:
+        raise ValueError(f"Fiscal year end must be a month end written MM-DD, e.g. 03-31 or 09-30 (got {fye!r})")
+    return mm
+
+
+def fye_label(fye: str | None) -> str:
+    return date(2026, parse_fye(fye), 1).strftime("%B") + " " + str(calendar.monthrange(2026, parse_fye(fye))[1]) \
+        if parse_fye(fye) != 2 else "February 28/29"
+
+
+def basis(ob: dict) -> str:
+    """'fiscal' or 'calendar' for an obligation."""
+    return ob.get("basis") or ("fiscal" if ob["frequency"] in FISCAL_BY_DEFAULT else "calendar")
+
+
+def _anchored_end(months: int, d: date, end_month: int) -> date:
+    """End of the period of `months` months that contains d, with periods ending in end_month."""
+    ends = sorted({(end_month - 1 - k * months) % 12 + 1 for k in range(12 // months)})
+    for y in (d.year, d.year + 1):
+        for m in ends:
+            e = _month_end(y, m)
+            if e >= d:
+                return e
+    raise AssertionError("unreachable")
+
+
+def period_end(freq: str, d: date, fye: str | None = None) -> date:
+    """End of the period containing d. Quarters, halves and years end on the fiscal year end's month when a
+    fiscal year end is given (None = calendar)."""
+    end_month = parse_fye(fye) if fye else 12
     if freq == "daily":
         return d
     if freq == "monthly":
         return _month_end(d.year, d.month)
     if freq == "quarterly":
-        return _month_end(d.year, 3 * ((d.month - 1) // 3) + 3)
+        return _anchored_end(3, d, end_month)
     if freq == "semiannual":
-        return _month_end(d.year, 6 if d.month <= 6 else 12)
+        return _anchored_end(6, d, end_month)
     if freq == "annual":
-        return date(d.year, 12, 31)
+        return _anchored_end(12, d, end_month)
     raise ValueError(freq)
 
 
-def first_task(ob: dict, start: date) -> dict:
+def _fye_for(ob: dict, fye: str | None) -> str | None:
+    return (fye or DEFAULT_FYE) if basis(ob) == "fiscal" else None
+
+
+def _occ(ob: dict, pe: date, fye: str | None) -> dict:
+    return {"period": label(ob["frequency"], pe, _fye_for(ob, fye)), "period_end": pe.isoformat(),
+            "due": (pe + timedelta(days=int(ob.get("due_days", 0)))).isoformat(), "basis": basis(ob),
+            **({"fiscal_year_end": fye or DEFAULT_FYE} if basis(ob) == "fiscal" else {})}
+
+
+def first_task(ob: dict, start: date, fye: str | None = None) -> dict:
     """The first occurrence of an obligation for a fund tagged on `start`."""
     if ob["frequency"] == "once":
         return {"period": "one-time", "period_end": start.isoformat(),
-                "due": (start + timedelta(days=int(ob.get("due_days", 0)))).isoformat()}
-    pe = period_end(ob["frequency"], start)
-    return {"period": label(ob["frequency"], pe), "period_end": pe.isoformat(),
-            "due": (pe + timedelta(days=int(ob.get("due_days", 0)))).isoformat()}
+                "due": (start + timedelta(days=int(ob.get("due_days", 0)))).isoformat(), "basis": "once"}
+    return _occ(ob, period_end(ob["frequency"], start, _fye_for(ob, fye)), fye)
 
 
-def next_task(ob: dict, prev_period_end: str) -> dict | None:
+def next_task(ob: dict, prev_period_end: str, fye: str | None = None) -> dict | None:
     if ob["frequency"] == "once":
         return None
-    pe = period_end(ob["frequency"], date.fromisoformat(prev_period_end) + timedelta(days=1))
-    return {"period": label(ob["frequency"], pe), "period_end": pe.isoformat(),
-            "due": (pe + timedelta(days=int(ob.get("due_days", 0)))).isoformat()}
+    pe = period_end(ob["frequency"], date.fromisoformat(prev_period_end) + timedelta(days=1), _fye_for(ob, fye))
+    return _occ(ob, pe, fye)
 
 
-def label(freq: str, pe: date) -> str:
+def reschedule(ob: dict, today: date, fye: str) -> dict | None:
+    """The occurrence an open obligation should become when a fund's fiscal year end changes: the period that
+    has just ended if its due date is still ahead, otherwise the period running now. None for obligations that
+    don't follow the fiscal year."""
+    if ob["frequency"] == "once" or basis(ob) != "fiscal":
+        return None
+    f = _fye_for(ob, fye)
+    cur = period_end(ob["frequency"], today, f)
+    months = {"quarterly": 3, "semiannual": 6, "annual": 12, "monthly": 1}.get(ob["frequency"], 12)
+    y, m = cur.year, cur.month - months
+    while m < 1:
+        m, y = m + 12, y - 1
+    prev = _month_end(y, m)
+    if prev + timedelta(days=int(ob.get("due_days", 0))) >= today:
+        return _occ(ob, prev, fye)
+    return _occ(ob, cur, fye)
+
+
+def label(freq: str, pe: date, fye: str | None = None) -> str:
+    fiscal = fye is not None and parse_fye(fye) != 12
     if freq == "daily":
         return pe.isoformat()
     if freq == "monthly":
         return pe.strftime("%b %Y")
     if freq == "quarterly":
-        return f"Q{(pe.month - 1) // 3 + 1} {pe.year}"
+        return f"Fiscal quarter to {pe:%b %Y}" if fiscal else f"Q{(pe.month - 1) // 3 + 1} {pe.year}"
     if freq == "semiannual":
-        return f"H{1 if pe.month <= 6 else 2} {pe.year}"
-    return f"FY {pe.year}"
+        return f"Half-year to {pe:%b %Y}" if fiscal else f"H{1 if pe.month <= 6 else 2} {pe.year}"
+    return f"FY to {pe:%b %Y}" if fiscal else f"FY {pe.year}"

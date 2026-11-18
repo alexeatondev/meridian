@@ -40,7 +40,8 @@ def adjust(run_dir: Path, vintage: int, specs: list[str], name: str, role: str, 
         w = apply_adjustment(w, tax, adj["node"], adj["mode"], adj["value"], adj["funded_from"])
         steps.append(adj)
     rb = d.get("risk_budget") or policy.risk_budget(vintage)
-    comp = evaluate(w, n, cov, policy, regime, universe, risk_budget=rb)
+    nb = np.array([d["neutral_ips"][a] for a in assets]) if d.get("neutral_ips") else None
+    comp = evaluate(w, n, cov, policy, regime, universe, risk_budget=rb, band_neutral=nb)
     summ = summarize(comp)
     te = tracking_error(w, n, cov)
     cols = {"current": w, "before_adjustment": w0, "glide_path": n,

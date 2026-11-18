@@ -1,7 +1,7 @@
 # Meridian — Agentic Portfolio Management Platform
 
 **Working product name:** Meridian (rename anytime)
-**Status:** Pilot in shadow mode on real public data; hosted multi-user app live on AWS with role workspaces, User access, exceptions, a Trading screen with a task-based New trade builder and now-vs-after impact view (example positions) and fund-level Regulations · **Doc set version:** 0.7 · **Date:** 2026-11-13
+**Status:** Pilot in shadow mode on real public data; hosted multi-user app live on AWS with role workspaces, User access, exceptions, a Trading screen with a task-based New trade builder, now-vs-after impact view and calculation templates for tranches (example positions) and fund-level Regulations with per-fund fiscal year ends; Investment Committee glide-path adjustments feed the agent runs · **Doc set version:** 0.8 · **Date:** 2026-11-18
 **Code:** https://github.com/alexeatondev/meridian
 **App:** https://d3maw6l4k5cc0v.cloudfront.net (invited users only)
 **Source research:** Ang, Azimbayev & Kim, *The Self-Driving Portfolio: Agentic Architecture for Institutional Asset Management* (SSRN 6504386, April 2026) — `ssrn-6504386.pdf` in this project.
@@ -40,7 +40,7 @@ It extends the paper's strategic-asset-allocation (SAA) pipeline to:
 | 18 | Fund Regulations & Obligations — US and international regulation tags, controls, tracked obligations | Compliance, PMs, audit, leadership |
 | — | Sample run board memo | Leadership, IC |
 
-The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/` (regenerated from the app by `tests/e2e/guide_screenshots.py`; last 2026-11-13), the same guide opens inside the app under **? Help**, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.
+The repository keeps the same documents under `docs/` **with the same numbers** (since 2026-11-10). Doc 07, the IPS, lives in the repository at `policies/ips/meridian-target-retirement-series-ips.md`; the sample board memo is a run output. User-guide screenshots are in `docs/img/guide/` (regenerated from the app by `tests/e2e/guide_screenshots.py`; last 2026-11-18), the same guide opens inside the app under **? Help**, and an illustrated copy of doc 06 is at https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU.
 
 ## Guiding principles
 1. **LLMs judge; code computes; rules decide compliance.** No arithmetic in the model. No compliance determination by the model.

@@ -130,6 +130,7 @@ async function openFund(id, keep){
   let h = `<div class="card"><h2>${f.id} · ${esc(f.product_name)} ${f.vintage}</h2>
   <div class="kpis"><div><span class="muted small">Vehicle</span><b>${vname(f.vehicle)}</b></div><div><span class="muted small">NAV</span><b>${musd(d.nav)}</b></div><div><span class="muted small">Uninvested cash</span><b>${musd(d.cash)}</b></div><div><span class="muted small">Glide-path roll-down</span><b>${f.roll_down}</b></div><div><span class="muted small">Account (Charles River)</span><b>${f.account}</b></div></div>
   <p class="small muted">${esc(d.positions_source)} · as of ${esc(d.as_of)}. A security with no target is never part of cash allocation. Target columns are the three allocation tables before tilts; tilts and exits are applied when trades are generated.</p>
+  ${d.approved&&d.approved.source?`<p class="small"><b>Approved proposal</b> from ${esc(d.approved.source)}${Object.keys(d.approved.line_adjustment_pp||{}).length?`, plus this ${vname(f.vehicle).toLowerCase()} line's own approved glide-path adjustment not already in the run: ${Object.entries(d.approved.line_adjustment_pp).map(([a,x])=>esc(acName(a))+' '+(x>0?'+':'')+x.toFixed(2)+'pp').join(', ')}`:''}.</p>`:''}
   <h3>Held securities</h3><table>${head}${held.map(row).join('')}</table>
   <h3>Not held: candidates and available securities</h3><table>${head}${other.map(row).join('')||'<tr><td colspan=9 class="muted">None</td></tr>'}</table></div>`;
   if (BOOT.can_prepare) h += `<div class="card row" style="justify-content:space-between"><span><b>Trade in ${f.id}</b><br><span class="small muted">Buy or sell specific securities, or exit a position, with the impact shown before you save.</span></span><span class="row"><button class="btn primary" id="fdTrade">Trade a security</button><button class="btn" id="fdExit">Exit a position</button></span></div>`;
@@ -280,9 +281,11 @@ function vSettings(){
   ${can?`<div class="row" style="margin-top:8px">${instSel('exInst')}${fundSel('exFund')}<input type="date" id="exUntil" title="Until (optional)"><button class="btn" id="exAdd">Add exclusion</button></div>`:''}</div>`;
   if (can||canR||canPM) h += `<div class="card"><label class="f" for="setReason">Reason for these changes</label><input type="text" id="setReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="setSave">Save settings</button><span class="small muted">Everything changed on this tab is saved together and recorded.</span></div></div>`;
   else h += `<p class="small muted">Portfolio managers and admins change these settings; routes need the Trade route manager permission.</p>`;
+  h += calcCard();
   const recs = S.st.trading_records.slice().reverse();
   h += `<div class="card"><h2>Trading change log (${recs.length})</h2><p class="small muted">From the hash-chained governance ledger. Compliance and Audit can also search it in the console's Decision ledger.</p><table><tr><th>When</th><th>Step</th><th>Who</th><th>What</th><th>Reason</th></tr>${recs.slice(0,60).map(r=>`<tr><td class="small">${esc(r.created_at.slice(0,16).replace('T',' '))}</td><td class="mono">${esc(r.step)}</td><td>${esc(r.actor.id)}</td><td>${esc(r.summary)}</td><td class="small">${esc(r.rationale)}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">No trading records yet</td></tr>'}</table></div>`;
   $('#settings').innerHTML = h;
+  bindCalcs();
   api('GET','/api/trading/route-managers').then(j=>{ const e=$('#rtWho'); if(!e) return; e.innerHTML = (canR?'':'You do not hold the route permission. ') + (j.holders.length ? 'Can change routes now: <b>'+j.holders.map(x=>esc(x.name)+(x.enabled?'':' (disabled)')).join(', ')+'</b>.' : '<b>Nobody holds the route permission yet.</b>') + ' <span class="muted">An admin switches it on or off in User access, where the access log shows who granted it and when.</span>'; }).catch(()=>{});
   const add = (btn, fn) => { if ($(btn)) $(btn).onclick = () => { const e = fn(); if (e) { toast('Added; give a reason and save'); vSettings(); } }; };
   add('#exAdd', ()=>P.excluded.push({instrument:$('#exInst').value, fund:$('#exFund').value, until:$('#exUntil').value, reason:''}));
@@ -296,6 +299,49 @@ function vSettings(){
     if (canPM) Object.assign(body, {tilts:P.tilts, exits:P.exits});
     try{ const r = await api('PUT','/api/trading/settings',body); S.pend=null; await load(); toast('Saved and recorded: '+r.changed.join(', ')) }catch(e){toast(e.message,'error')}
   };
+}
+
+// ------------------------------------------------------------------ Calculation templates (doc 17 item 13)
+const CALC_FIELDS = {
+  pct_per_day: [['pct','% of the order per period','20']],
+  even_split: [['tranches','Number of tranches','4']],
+  pattern: [['pcts','Percentages, comma separated (total 100)','40, 30, 20, 10']],
+  liquidity_cap: [['max_pct_adv','At most % of average daily volume (optional)','10'],['max_usd_per_day','At most $ per day (optional)','5000000']],
+};
+function calcCard(){
+  const cs = S.st.calcs||[], live = cs.filter(t=>!t.retired);
+  const ver = v => v?`v${v.version} · ${esc(v.description)}`:'—';
+  let h = `<div class="card" id="cardCalcs"><h2>Calculation templates</h2><p class="small muted">Named, versioned calculations that turn orders into tranches, for example a slow sell-down before a redemption in kind or a cap on each day's trade. Each version needs a second person's approval (a portfolio manager or risk user with the Approver permission) before it can be used, and every trade list records which version made its tranches. Use one on a draft trade list: <b>Trade lists → Tranches → Use a calculation</b>.</p>
+  <table><tr><th>Template</th><th>In use</th><th>Waiting for approval</th><th></th></tr>${cs.map(t=>`<tr${t.retired?' class="muted"':''}><td><b>${esc(t.name)}</b><br><span class="small muted">${esc(t.id)}${t.retired?' · retired':''}</span></td><td class="small">${t.current?ver(t.current)+`<br><span class="muted">approved by ${esc(t.current.decided_by.name)}</span>`:'<span class="muted">Not yet approved</span>'}</td><td class="small">${t.pending?ver(t.pending)+`<br><span class="muted">proposed by ${esc(t.pending.requested_by.name)}: ${esc(t.pending.reason)}</span>`:'—'}</td>
+   <td>${t.pending&&BOOT.can_decide_calcs?`<button class="btn small primary" data-cd="${t.id}:${t.pending.version}:approve">Approve</button> <button class="btn small" data-cd="${t.id}:${t.pending.version}:reject">Reject</button> `:''}${!t.retired&&BOOT.can_prepare&&!t.pending?`<button class="btn small" data-cnew="${t.id}">New version</button> `:''}${!t.retired&&BOOT.can_approve?`<button class="btn small danger" data-cret="${t.id}">Retire</button>`:''}</td></tr>`).join('')||'<tr><td colspan=4 class="muted">None</td></tr>'}</table>`;
+  if (BOOT.can_prepare) {
+    const C = S.calcNew ||= {kind:'pct_per_day', template_id:null};
+    const base = C.template_id ? cs.find(t=>t.id===C.template_id) : null, bp = base ? (base.current||base.versions[base.versions.length-1]) : null;
+    if (bp && !C.loaded) { C.kind = bp.kind; C.loaded = true; }
+    const pv = (k,d) => bp && bp.kind===C.kind && bp.params[k]!=null ? (Array.isArray(bp.params[k])?bp.params[k].join(', '):bp.params[k]) : d;
+    h += `<h3 id="calcFormT">${base?`New version of ${esc(base.name)}`:'Propose a template'}</h3>
+    <div class="row">${base?'':`<label>Name <input type="text" id="cName" placeholder="e.g. Sell 25% a day" value="${esc(C.name||'')}" style="width:220px"></label>`}<label>Calculation <select id="cKind">${Object.entries(S.st.calc_kinds).map(([k,l])=>`<option value="${k}" ${k===C.kind?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+    <label>Applies to <select id="cSides">${['SELL','BUY','BOTH'].map(x=>`<option value="${x}" ${pv('sides','SELL')===x?'selected':''}>${({SELL:'Sells',BUY:'Buys',BOTH:'Buys and sells'})[x]}</option>`).join('')}</select></label></div>
+    <div class="row">${CALC_FIELDS[C.kind].map(([k,l,d])=>`<label>${esc(l)} <input type="text" data-cp="${k}" value="${esc(pv(k, k==='max_usd_per_day'||k==='max_pct_adv'?'':d))}" placeholder="${esc(d)}" style="width:${k==='pcts'?200:110}px"></label>`).join('')}
+    <label>Every <input type="number" id="cEvery" min="1" max="20" value="${pv('every_n_days',1)}" style="width:60px"> business days</label><label>Start <input type="number" id="cOff" min="0" max="20" value="${pv('start_offset_days',0)}" style="width:60px"> business days after the trade date</label><label>At most <input type="number" id="cMax" min="2" max="60" value="${pv('max_days',20)}" style="width:60px"> tranches</label></div>
+    <label class="f" for="cReason">Reason (kept in the ledger)</label><input type="text" id="cReason" placeholder="At least 10 characters, e.g. what this is for" value="${esc(C.reason||'')}">
+    <div class="row" style="margin-top:8px"><button class="btn primary" id="cGo">${base?'Propose new version':'Propose template'}</button>${base?'<button class="btn" id="cCancel">Cancel</button>':''}<span class="small muted">It can be used once a second person approves it.</span></div>`;
+  }
+  return h + `</div>`;
+}
+function bindCalcs(){
+  const C = S.calcNew;
+  if ($('#cKind')) $('#cKind').onchange = e => { C.kind = e.target.value; C.name = $('#cName')?.value; C.reason = $('#cReason').value; vSettings(); document.getElementById('cardCalcs').scrollIntoView(); };
+  document.querySelectorAll('[data-cnew]').forEach(b=>b.onclick=()=>{ S.calcNew={template_id:b.dataset.cnew}; vSettings(); $('#calcFormT').scrollIntoView(); });
+  if ($('#cCancel')) $('#cCancel').onclick = ()=>{ S.calcNew=null; vSettings(); };
+  if ($('#cGo')) $('#cGo').onclick = async()=>{
+    const params = {sides:$('#cSides').value, every_n_days:+$('#cEvery').value, start_offset_days:+$('#cOff').value, max_days:+$('#cMax').value};
+    document.querySelectorAll('[data-cp]').forEach(i=>{ if (i.value.trim()!=='') params[i.dataset.cp] = i.dataset.cp==='pcts' ? i.value.split(',').map(x=>+x.trim()) : +i.value; });
+    try{ const r = await api('POST','/api/trading/calcs',{template_id:C.template_id, name:$('#cName')?.value, kind:C.kind, params, reason:$('#cReason').value}); S.calcNew=null; await load(); toast(`${r.name} v${r.pending.version} proposed and recorded; a second person approves it`) }catch(e){toast(e.message,'error')} };
+  document.querySelectorAll('[data-cd]').forEach(b=>b.onclick=async()=>{ const [id,v,d]=b.dataset.cd.split(':'); const reason=await MUI.ask(`${d==='approve'?'Approve':'Reject'} ${id} version ${v}?`,{message:d==='approve'?'Approved versions can be used on draft trade lists and replace the version in use. This is recorded in the ledger.':'The version is set aside; the version in use (if any) stays.',label:'Reason',okText:d==='approve'?'Approve version':'Reject version',danger:d!=='approve'}); if(!reason) return;
+    try{ await api('POST',`/api/trading/calcs/${id}/versions/${v}/decide`,{decision:d, reason}); await load(); toast(`${id} v${v} ${d}d and recorded`) }catch(e){toast(e.message,'error')} });
+  document.querySelectorAll('[data-cret]').forEach(b=>b.onclick=async()=>{ const id=b.dataset.cret; const reason=await MUI.ask(`Retire ${id}?`,{message:'It can no longer be used on new tranches. Trade lists that already used it keep their tranches and the record of which version made them.',label:'Reason',okText:'Retire template',danger:true}); if(!reason) return;
+    try{ await api('POST',`/api/trading/calcs/${id}/retire`,{reason}); await load(); toast(`${id} retired and recorded`) }catch(e){toast(e.message,'error')} });
 }
 
 // ------------------------------------------------------------------ Glide path & bulk changes
@@ -375,12 +421,12 @@ function trancheView(t){
   const sm = t.tranche_summary;
   if (!sm) return `<p class="small muted">No tranches: every order trades in full on ${t.trade_date}.</p>`;
   let h = `<h3>Bucket by date</h3><table><tr><th>Date</th><th class="n">Tranche orders</th><th class="n">Buys</th><th class="n">Sells</th></tr>${sm.by_date.map(d=>`<tr><td>${d.date}</td><td class="n">${d.orders}</td><td class="n">${usd(d.buys)}</td><td class="n">${usd(d.sells)}</td></tr>`).join('')}</table>
-  <p class="small">${sm.orders_tranched} orders tranched · ${sm.orders_whole} trade in full on ${t.trade_date}. Checks passed: ${sm.checks.map(c=>'✓ '+esc(c)).join(' · ')}</p>`;
+  <p class="small">${sm.orders_tranched} orders tranched · ${sm.orders_whole} trade in full on ${t.trade_date}.${(sm.calcs||[]).length?' Calculations used: '+sm.calcs.map(esc).join(', ')+'.':''} Checks passed: ${sm.checks.map(c=>'✓ '+esc(c)).join(' · ')}</p>`;
   for (const f of t.funds) {
     h += `<details open class="card sub"><summary>${f.fund_id} · ${f.orders.length} orders</summary><table><tr><th>Security</th><th>Side</th><th>Series</th><th>Tranche</th><th>Date</th><th class="n">%</th><th class="n">Quantity</th><th class="n">Est. amount</th></tr>`;
     for (const o of f.orders) {
       const tr = o.tranches || [{n:1, date:t.trade_date, pct:100, quantity:o.quantity, est_amount:o.est_amount}];
-      tr.forEach((x,i)=>{ h += `<tr>${i===0?`<td rowspan="${tr.length}"><b>${esc(o.instrument)}</b><br><span class="small muted">${o.quantity.toLocaleString('en-US')} ${o.quantity_type.toLowerCase()} · ${usd(o.est_amount)}</span></td><td rowspan="${tr.length}" class="${o.side==='BUY'?'pos':'neg'}">${o.side}</td><td rowspan="${tr.length}">${o.tranches?chip(({list:'Whole list',fund:'Fund',security:'Security'})[o.tranche_level],'perm'):chip('Not tranched')}</td>`:''}<td>${x.n} of ${tr.length}</td><td>${x.date}</td><td class="n">${(+x.pct).toFixed(2)}%</td><td class="n">${x.quantity.toLocaleString('en-US')}</td><td class="n">${usd(x.est_amount)}</td></tr>`; });
+      tr.forEach((x,i)=>{ h += `<tr>${i===0?`<td rowspan="${tr.length}"><b>${esc(o.instrument)}</b><br><span class="small muted">${o.quantity.toLocaleString('en-US')} ${o.quantity_type.toLowerCase()} · ${usd(o.est_amount)}</span></td><td rowspan="${tr.length}" class="${o.side==='BUY'?'pos':'neg'}">${o.side}</td><td rowspan="${tr.length}">${o.tranches?(o.tranche_calc?chip(o.tranche_calc.name+' v'+o.tranche_calc.version,'ok'):chip(({list:'Whole list',fund:'Fund',security:'Security'})[o.tranche_level],'perm')):chip('Not tranched')}</td>`:''}<td>${x.n} of ${tr.length}</td><td>${x.date}</td><td class="n">${(+x.pct).toFixed(2)}%</td><td class="n">${x.quantity.toLocaleString('en-US')}</td><td class="n">${usd(x.est_amount)}</td></tr>`; });
     }
     h += `</table></details>`;
   }
@@ -388,16 +434,19 @@ function trancheView(t){
 }
 function nextWeekday(d){ const x=new Date(d+'T12:00:00Z'); do { x.setUTCDate(x.getUTCDate()+1) } while ([0,6].includes(x.getUTCDay())); return x.toISOString().slice(0,10); }
 function trancheEditor(t){
-  if (!S.plan || S.planFor!==t.id) { const p=t.tranche_plan||{}; S.plan={default:p.default||null, funds:{...(p.funds||{})}, securities:{...(p.securities||{})}, excluded:[...(p.excluded||[])]}; S.planFor=t.id; S.sched=[{date:t.trade_date,pct:50},{date:nextWeekday(t.trade_date),pct:50}]; }
+  if (!S.plan || S.planFor!==t.id) { const p=t.tranche_plan||{}; S.plan={default:p.default||null, funds:{...(p.funds||{})}, securities:{...(p.securities||{})}, excluded:[...(p.excluded||[])], calcs:{...(p.calcs||{})}}; S.planFor=t.id; S.sched=[{date:t.trade_date,pct:50},{date:nextWeekday(t.trade_date),pct:50}]; }
   const P = S.plan, tot = S.sched.reduce((a,x)=>a+(+x.pct||0),0);
   const scopes = [`<option value="list">Whole trade list</option>`, ...t.funds.map(f=>`<option value="fund:${f.fund_id}">Fund ${f.fund_id}</option>`), ...t.funds.flatMap(f=>f.orders.map(o=>`<option value="sec:${okey(f.fund_id,o.instrument)}">Security ${f.fund_id} · ${esc(o.instrument)}</option>`))];
   const fmt = s => s.map(x=>`${x.date} ${(+x.pct).toFixed(2).replace(/\.00$/,'')}%`).join(', ');
   const lines = [];
   if (P.default) lines.push(['Whole trade list', fmt(P.default), 'list']);
   for (const [k,v] of Object.entries(P.funds)) lines.push(['Fund '+k, fmt(v), 'fund:'+k]);
-  for (const [k,v] of Object.entries(P.securities)) lines.push(['Security '+k.replace('|',' · '), fmt(v), 'sec:'+k]);
+  for (const [k,v] of Object.entries(P.securities)) lines.push(['Security '+k.replace('|',' · ')+((P.calcs||{})[k]?` (${(P.calcs||{})[k].name} v${(P.calcs||{})[k].version})`:''), fmt(v), 'sec:'+k]);
   for (const k of P.excluded) lines.push(['Security '+k.replace('|',' · '), 'Not tranched: trades in full on '+t.trade_date, 'exc:'+k]);
-  return `<div class="card"><h2>Tranche this trade list</h2><p class="small muted">Build a series of dates and percentages, then apply it to the whole list, one fund or one security. The most specific series wins (security, then fund, then whole list), so you can run several series in one bucket. Percentages can be equal or unequal and must total 100%.</p>
+  const usable = (S.st.calcs||[]).filter(c=>c.usable);
+  const calcBox = `<div class="card"><h2>Use a calculation</h2><p class="small muted">Run an approved calculation template over the orders in scope. Each order gets its own series (for example, a liquidity cap gives a large order more days than a small one). Preview first; applying adds the series to this bucket, replacing any series already set on those securities. Templates are managed on <b>Routing &amp; settings</b>.</p>
+  ${usable.length?`<div class="row"><label>Template <select id="clTpl">${usable.map(c=>`<option value="${c.id}">${esc(c.name)} (v${c.current.version})</option>`).join('')}</select></label><label>Apply to <select id="clScope">${scopes.join('')}</select></label><button class="btn" id="clPrev">Preview</button><button class="btn primary" id="clApply">Apply and save</button></div><p class="small muted" id="clDesc">${esc(usable[0].current.description)}</p><div id="clOut"></div>`:'<p class="muted">No approved templates yet.</p>'}</div>`;
+  return calcBox + `<div class="card"><h2>Tranche this trade list</h2><p class="small muted">Build a series of dates and percentages, then apply it to the whole list, one fund or one security. The most specific series wins (security, then fund, then whole list), so you can run several series in one bucket. Percentages can be equal or unequal and must total 100%.</p>
   <table id="trSched"><tr><th>#</th><th>Date</th><th class="n">% of order</th><th></th></tr>${S.sched.map((x,i)=>`<tr><td>${i+1}</td><td><input type="date" data-sd="${i}" value="${x.date}"></td><td class="n"><input type="number" data-sp="${i}" value="${x.pct}" min="0" max="100" step="0.01" style="width:100px"></td><td>${S.sched.length>1?`<button class="btn small" data-sx="${i}">Remove</button>`:''}</td></tr>`).join('')}<tr><td></td><td><b>Total</b></td><td class="n"><b id="trTot" class="${Math.abs(tot-100)>0.01?'neg':'pos'}">${tot.toFixed(2)}%</b></td><td></td></tr></table>
   <div class="row" style="margin-top:8px"><button class="btn" id="trAddDate">Add a date</button><button class="btn" id="trEqual">Split equally</button></div>
   <div class="row" style="margin-top:8px"><label>Apply to <select id="trScope">${scopes.join('')}</select></label><button class="btn" id="trApply">Apply series</button><button class="btn" id="trExclude">Don't tranche this security</button></div>
@@ -406,6 +455,14 @@ function trancheEditor(t){
 }
 function bindTranches(t){
   if (!$('#trSave')) return;
+  if ($('#clTpl')) {
+    const body = dry => ({template_id:$('#clTpl').value, scope:$('#clScope').value, dry_run:dry, note:$('#trNote').value});
+    $('#clTpl').onchange = () => { const c=(S.st.calcs||[]).find(x=>x.id===$('#clTpl').value); $('#clDesc').textContent=c.current.description; $('#clOut').innerHTML=''; };
+    $('#clPrev').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/calc`,body(true));
+      $('#clOut').innerHTML = `<p class="small"><b>${r.tranched}</b> of ${r.orders.length} orders would be tranched by ${esc(r.template.name)} v${r.template.version}. Nothing is saved yet.</p><table><tr><th>Fund</th><th>Security</th><th>Side</th><th class="n">Est. amount</th><th class="n">Tranches</th><th>From</th><th>To</th><th>Note</th></tr>${r.orders.map(o=>`<tr><td>${esc(o.fund_id)}</td><td>${esc(o.instrument)}</td><td class="${o.side==='BUY'?'pos':'neg'}">${o.side}</td><td class="n">${usd(o.est_amount)}</td><td class="n">${o.tranches}</td><td>${o.first}</td><td>${o.last}</td><td class="small muted">${esc(o.note)}</td></tr>`).join('')}</table>`;
+    }catch(e){toast(e.message,'error')} };
+    $('#clApply').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/calc`,body(false)); S.plan=null; S.tlView='tranches'; await load(); toast(`${r.calc_result.template.name} v${r.calc_result.template.version}: ${r.calc_result.tranched} orders tranched; checks passed and recorded`) }catch(e){toast(e.message,'error')} };
+  }
   const redraw = () => tlDetail(t);
   document.querySelectorAll('[data-sd]').forEach(i=>i.onchange=()=>{S.sched[+i.dataset.sd].date=i.value});
   document.querySelectorAll('[data-sp]').forEach(i=>i.oninput=()=>{S.sched[+i.dataset.sp].pct=+i.value||0; const tt=S.sched.reduce((a,x)=>a+(+x.pct||0),0); const e=$('#trTot'); e.textContent=tt.toFixed(2)+'%'; e.className=Math.abs(tt-100)>0.01?'neg':'pos'});

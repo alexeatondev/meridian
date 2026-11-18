@@ -20,6 +20,9 @@
 #   min_cash / max_cash      uninvested cash bounds
 # Frequencies: once | daily | monthly | quarterly | semiannual | annual. due_days = days after the period
 # end (or after tagging, for once).
+# basis: fiscal | calendar. Annual and semiannual obligations follow each fund's fiscal year end (set on the
+# Regulations screen; default December 31) unless marked basis: calendar. Quarterly obligations follow the
+# calendar unless marked basis: fiscal.
 
 regulations:
 
@@ -52,7 +55,7 @@ regulations:
       - {id: ICA-LDU-CHECK, title: "Confirm limited-derivatives-user status (≤10% derivatives exposure)", frequency: monthly, due_days: 5, owner_role: risk, cite: "Rule 18f-4(c)(4)", evidence: "Exposure calculation"}
       - {id: ICA-VAL, title: "Valuation designee report to the board (Rule 2a-5)", frequency: quarterly, due_days: 45, owner_role: compliance, cite: "Rule 2a-5(b)(1)", evidence: "Board report"}
       - {id: ICA-15C, title: "Advisory contract approval (Section 15(c))", frequency: annual, due_days: 0, owner_role: fund_board, cite: "ICA §15(c)", evidence: "Board minutes"}
-      - {id: ICA-RIC, title: "RIC asset diversification test (Subchapter M) at quarter-end", frequency: quarterly, due_days: 30, owner_role: compliance, cite: "IRC §851(b)(3)", evidence: "Test workpaper"}
+      - {id: ICA-RIC, title: "RIC asset diversification test (Subchapter M) at quarter-end", frequency: quarterly, basis: fiscal, due_days: 30, owner_role: compliance, cite: "IRC §851(b)(3)", evidence: "Test workpaper"}
       - {id: ICA-SETUP, title: "Board adopts compliance, liquidity and valuation programs for this fund", frequency: once, due_days: 30, owner_role: chief_compliance_officer, cite: "Rules 38a-1, 22e-4, 2a-5", evidence: "Board resolutions"}
 
   ERISA:
@@ -103,7 +106,7 @@ regulations:
     controls:
       - {id: CFTC-45-TRADE, kind: max_derivatives, limit: 0.05, severity: WARN, cite: "17 CFR 4.5(c)(2)(iii)", text: "Non-hedging commodity interest positions: margin/premium ≤5% of liquidation value (or net notional ≤100%); proxy: derivatives exposure ≤5%"}
     obligations:
-      - {id: CFTC-45-AFFIRM, title: "Annual affirmation of the 4.5 exclusion notice with NFA", frequency: annual, due_days: 60, owner_role: compliance, cite: "17 CFR 4.5(c)(5)", evidence: "NFA confirmation"}
+      - {id: CFTC-45-AFFIRM, title: "Annual affirmation of the 4.5 exclusion notice with NFA", frequency: annual, basis: calendar, due_days: 60, owner_role: compliance, cite: "17 CFR 4.5(c)(5)", evidence: "NFA confirmation"}
 
   # =============================================================== International (ex-US)
   UCITS:

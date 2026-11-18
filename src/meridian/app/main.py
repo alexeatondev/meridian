@@ -363,5 +363,12 @@ def export_risk_history(request: Request):
 
 @app.get("/api/export/policy-overrides")
 def export_overrides(request: Request):
+    """Policy overrides for the next agent run, plus the Investment Committee's approved glide-path adjustments
+    (`glide_adjustments`), which the agent-run workflow writes into the policy file."""
     _machine(request)
-    return store().overrides()
+    ov = dict(store().overrides())
+    from .trading import glide_export
+    ga = glide_export()
+    if ga["vintages"]:
+        ov["glide_adjustments"] = ga
+    return ov

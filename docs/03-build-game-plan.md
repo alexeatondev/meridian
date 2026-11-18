@@ -1,14 +1,14 @@
 # 03 — Build Game Plan & Roadmap
 
-**Version 0.9 · 2026-11-13 (console UX, Trading redesign, step-by-step guide)**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments feed the agents; fiscal year ends)**
 
-## Status (2026-11-13)
+## Status (2026-11-18)
 - **Repo:** github.com/alexeatondev/meridian · **App:** https://d3maw6l4k5cc0v.cloudfront.net (AWS us-east-2, CDK, GitHub OIDC, no stored keys) · **Cost:** about $1 spent so far (product owner's Cost Explorer check, 2026-11-10); budget $75/month with alerts and an automatic spend block.
 - **Agent pipeline (Phase 1):** macro regime, 13 asset classes with CMA judge, covariance, 7 construction methods, peer review and Borda vote, CRO, CIO ensemble, board memo; real public data with synthetic only for some non-US valuations (flagged); live LLM judgment in the `agent-run` workflow; runs are ad hoc.
-- **Governance (Phase 2):** deterministic compliance engine, Agentic Compliance Officer (draft only), hash-chained ledger that the database refuses to edit, approvals with reason and segregation of duties, Investment Committee / CCO / Trade route manager permissions, exceptions workflow, ledger search across runs, evidence pack. Not yet: kill switch, autonomy controls, WORM copy.
-- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 154 automated tests (76 in the browser). One shared app shell on every screen (app bar, My work inbox, in-app Help, in-page confirmations, persistent error messages, keyboard and screen-reader support; doc 11). Not yet: Ask Meridian.
-- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, a task-based **New trade** builder with goal shortcuts and a now-vs-after impact view before saving (2026-11-13), IPS check, approval, mock Charles River file, rebalance, positions upload, fills and booking, bulk changes across product lines and IC-approved glide-path adjustments (doc 17); fund-level regulations with controls and obligations (doc 18). Positions, prices and the CIT line are example data.
-- **Docs:** all docs checked and current on 2026-11-13; repository docs use the Project's numbers; user guide (doc 06 v0.8) rewritten so every task is numbered start-to-finish steps with "you're done when" and "if something goes wrong", 75 screenshots regenerated from the app, published as an illustrated page and served in the app under **Help**.
+- **Governance (Phase 2):** deterministic compliance engine, Agentic Compliance Officer (draft only), hash-chained ledger that the database refuses to edit, approvals with reason and segregation of duties, Investment Committee / CCO / Trade route manager / Approver permissions, exceptions workflow, ledger search across runs, evidence pack. Not yet: kill switch, autonomy controls, WORM copy.
+- **Workspaces (Phase 3):** eight role workspaces, **Why?** panels, changes since last run, risk analytics (fund, factor, stress, history, look-through), User access screen. UAT round 1 run by hand; 172 automated tests (82 in the browser). One shared app shell on every screen (app bar, My work inbox, in-app Help, in-page confirmations, persistent error messages, keyboard and screen-reader support; doc 11). Not yet: Ask Meridian.
+- **Implementation (Phase 6, brought forward):** Trading screen in shadow mode with mutual fund and CIT product lines, cashflow intake (Excel/CSV/API), three allocation tables, pro-rata trade lists, tilts, exclusions, full exits, single-security tickets, tranches, ETF cash buffer, routing by security type, a task-based **New trade** builder with goal shortcuts and a now-vs-after impact view before saving (2026-11-13), calculation templates that turn orders into tranches (2026-11-18), IPS check, approval, mock Charles River file, rebalance, positions upload, fills and booking, bulk changes across product lines and IC-approved glide-path adjustments (doc 17); fund-level regulations with controls and obligations on each fund's fiscal year (doc 18). Positions, prices and the CIT line are example data.
+- **Docs:** all docs checked and current on 2026-11-18; repository docs use the Project's numbers; user guide (doc 06 v0.8) rewritten so every task is numbered start-to-finish steps with "you're done when" and "if something goes wrong", 81 screenshots regenerated from the app, published as an illustrated page and served in the app under **Help**.
 
 ## Assessment (2026-11-10)
 | Area | State | Comment |
@@ -25,7 +25,7 @@
 
 **Main risks right now**
 1. **Trading runs on example data.** Until real positions and cashflows arrive from SS&C and State Street (uploads work today), every trade list is a demonstration; fills are booked from a file or marked filled in shadow mode.
-2. **The agent pipeline doesn't read approved glide-path adjustments.** Trading can now target the approved proposal (**Approved proposal** table) and the adjusted glide path, but the agents still build one proposal per vintage against the IPS glide path, shared by both product lines.
+2. **One proposal per vintage for both product lines.** Since 2026-11-18 the agents build on the Investment Committee's adjusted glide path; where mutual funds and CITs differ they use the average and trading adds each line's difference back. Separate proposals per product line would need the console and approvals to work per line.
 3. **One person holds every role.** Segregation of duties is enforced in code but has only been exercised with test logins.
 4. **Security hardening is held** (admin deploy role, no MFA). Acceptable with test users only.
 5. **No human CCO or counsel review.** Blocks production, not development.
@@ -55,12 +55,17 @@
 - **Vintage picker:** glide-path changes (Console → Glide path) and every bulk change (Trading → Glide path & bulk changes) choose vintages by clicking them, with All / 2030–2045 / 2050–2070 / Clear, replacing From/To vintage boxes. Older range entries keep working.
 - **"Portfolios & proposals" renamed "Proposals".**
 
+## Built 2026-11-18
+- **Calculation templates (doc 17 item 13):** fixed % per period, equal tranches, percentage pattern (glide down) and liquidity-capped (share of average daily volume and/or dollars a day); business days with market holidays; propose → second-person approval → use on a draft list (preview, then apply to the list, a fund or a security) → retire; versions recorded on every tranched order. Three example templates ship approved.
+- **Glide-path adjustments feed the agents:** exported with the policy overrides; the run builds on the adjusted glide path, checks the IPS bands against the IPS glide path, records `glide-path.adjustments`, and shows the adjustment on Proposals and in the board memo. Where product lines differ the run uses the average and Trading's Approved-proposal table adds each line's difference.
+- **Fiscal year ends per fund (doc 18 §3a):** set by Compliance for one or many funds; annual, semiannual and fiscal-quarter obligations follow it; open obligations move to the matching period with history; library shows each obligation's basis.
+- Docs 00, 02 (§4b), 03, 06 (10.2, 10.8, 10.11, 12.1a), 16 (TRD-26 to 28, REG-7/8, GP-2 to 5), 17, 18 updated; 5 new screenshots.
+
 ## Next steps (not blocked, in order)
-1. **Custom calculations (doc 17 item 13):** named, versioned sell-down and liquidity-capped templates that produce tranches.
-2. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).
-3. **Feed approved glide-path adjustments to the agent pipeline** (it builds one proposal per vintage today, shared by both product lines).
-4. **Fiscal year ends per fund** for annual and semiannual obligations (doc 18 §5).
-5. **You:** run RISK-6 with the RCTest login; try the Trading (TRD) and Regulations (REG) scripts in doc 16; tag the real funds with their regulations once the CCO confirms them.
+1. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).
+2. **Calculation templates in New trade:** pick a template while building an exit or a rebalance, so the impact view shows the tranche dates before the draft is saved.
+3. **Real average daily volumes** for liquidity-capped templates from a market-data source (today example figures in `config/trading.yaml`).
+4. **You:** run RISK-6 with the RCTest login; try the new scripts in doc 16 (TRD-26 and TRD-27, REG-7, GP-2); set each fund's fiscal year end and tag the real funds once the CCO confirms them; review the three example calculation templates and retire or replace them.
 
 ## Blocked (and what unblocks each)
 | Item | Blocked by |
@@ -79,7 +84,7 @@
 | Portfolio-level entitlements (F-3) | Your decision on who may see which funds |
 | Risk add-ons (doc 13 §8) | Your direction |
 | Vendor data (holdings, factor models, prices) and AI-use licensing | Vendor contracts |
-| Confirming the regulation library (controls, citations, due dates, owners) | CCO and counsel (doc 18 §5) |
+| Confirming the regulation library (controls, citations, due dates, owners, which obligations follow the fiscal year) and each fund's fiscal year end | CCO and counsel (doc 18 §5) |
 | Production go-live | Named human CCO, IC sponsor and model-risk owner; counsel review of regimes and the IPS (including whether it governs the CITs and whether `bank_cit` applies); written policies (doc 04 §6); independent validation; parallel run ≥ 2 quarters |
 
 ## Open UAT findings (remediate later; do not drop)

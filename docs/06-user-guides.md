@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 0.9 · 2026-11-13 (Approver permission; vintage picker; Proposals tab) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -87,7 +87,7 @@ Every screen has the same dark bar across the top.
 | **Console · Trading · Regulations · User access** | The screens you can use. You only see the ones your access allows; the one you are on is underlined |
 | **My work (n)** | Everything waiting for you, across all screens (1.3). Amber when something is due, red when overdue |
 | **? Help** | Opens this guide inside Meridian at the section for the screen you are on (1.5) |
-| Your name and access | Your workspaces, plus any permissions (Investment Committee, CCO, Route manager) |
+| Your name and access | Your workspaces, plus any permissions (Investment Committee, CCO, Route manager, Approver) |
 | **Sign out** | Ends your session |
 
 Under the bar, each screen has its own title. On **Trading** and **Regulations** the **All funds / Mutual funds / CITs** switch sits at the right and filters every tab. A **Read-only** label shows there when you can look but not change things.
@@ -96,7 +96,7 @@ Under the bar, each screen has its own title. On **Trading** and **Regulations**
 **Who:** everyone. **Where:** the dark bar, any screen.
 
 1. Click **My work**. A list opens, most urgent first.
-2. Read each line: what is waiting, where, and when it is due. You see trade lists to approve (PMs) or to record fills for, glide-path changes for the Investment Committee (never your own request), regulatory obligations due within 14 days or overdue for your role, and exceptions you own (Compliance also sees every overdue exception).
+2. Read each line: what is waiting, where, and when it is due. You see trade lists to approve (PMs with the Approver permission) or to record fills for, glide-path changes for the Investment Committee (never your own request), regulatory obligations due within 14 days or overdue for your role, and exceptions you own (Compliance also sees every overdue exception).
 3. Click a line. Meridian opens the right screen with that item already selected (for example the trade list on **Trading → Trade lists**).
 4. To close the list without choosing, press **Esc** or click anywhere else.
 
@@ -232,7 +232,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 
 1. Click **Proposals** in the side bar.
 2. Under **Proposals in this run**, click the vintage (e.g. **2050**). The heading changes to **What is being approved: 2050 vintage**. It names both funds the decision covers (the mutual fund and the CIT) and says **Nothing is traded by this approval.**
-3. Read **The weights**: for every asset class, the glide path, the proposed weight, the tilt and the change **Since last run**. Rows highlighted in blue move 1pp or more from the glide path.
+3. Read **The weights**: for every asset class, the glide path, the proposed weight, the tilt and the change **Since last run**. Rows highlighted in blue move 1pp or more from the glide path. If the box under the heading shows **Glide path adjusted**, the glide path here includes the Investment Committee's approved adjustment (3.6) and lists it; tilts are measured from that adjusted path, while the IPS bands are still checked against the IPS glide path.
 4. Read **Tilts at a glance**: blue bars are overweights, orange underweights.
 5. Read **Why the agents recommend it**, **What would change the view**, **Disagreement among the agents** (click **See how the agents voted** for detail, 5.2) and **Compliance**.
 6. Optional: click **Why?** beside the decision record to see the evidence (2.1).
@@ -326,7 +326,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 7. Read **Preview: n funds**: for each fund, the glide path today and after, and whether it stays inside the IPS bands (±3pp per asset class, ±5pp total equity). Changes outside the bands are refused; they need an IPS amendment.
 8. Type a reason and click **Submit for Investment Committee approval**.
 
-**You're done when** the green message says it was sent to the Investment Committee and it appears under **Requests awaiting the Investment Committee**. Once approved (7.3) it moves to **Approved adjustments in force** and becomes the funds' glide-path (Neutral) trading target. The agents' proposals in a run are still measured against the IPS glide path shown in the run.
+**You're done when** the green message says it was sent to the Investment Committee and it appears under **Requests awaiting the Investment Committee**. Once approved (7.3) it moves to **Approved adjustments in force** and becomes the funds' glide-path (Neutral) trading target. The **next agent run** builds its proposals around the adjusted glide path too (they show **Glide path adjusted** on Proposals, 3.2, and in the board memo). Runs made before the approval are not changed. If mutual funds and CITs end up with different adjustments for a vintage, the run uses their average and Trading's **Approved proposal** table adds each line's own difference (the fund's page says so, 10.2).
 
 The same request can also be made from Trading → **Glide path & bulk changes** (10.12).
 
@@ -649,7 +649,7 @@ Every trade follows the same four steps on **New trade**:
 *Image: `trd-02-fund-detail.png`*
 
 3. **Held securities** and **Not held: candidates and available securities**. Chips: *Held · no target* (never part of cash allocation), *Not held · candidate*, *Excluded from trading*, *Exiting*, *Tilt ±bp*.
-4. Target columns: **Previous close**, **Neutral**, **Strategic**, **Approved proposal** (before tilts and exits).
+4. Target columns: **Previous close**, **Neutral**, **Strategic**, **Approved proposal** (before tilts and exits). The line above the tables names the run the approved proposal comes from and, if this product line has its own glide-path adjustment that the run didn't already include, the shift added for it.
 5. To trade this fund, use the buttons under the tables:
 
 ![Trade in this fund](img/guide/trd-03-fund-trade-buttons.png)
@@ -800,6 +800,22 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 
 **You're done when** **Bucket by date** shows totals per date and each order shows "1 of n". Meridian checks every series totals 100%, dates are weekdays and not market holidays, in order and not before the trade date, quantities respect lot sizes and add back exactly, and no tranche is empty. Tranches can be changed until the list is approved.
 
+**Use a calculation instead (e.g. a slow sell-down before a redemption in kind).** Approved calculation templates (10.11) work out a series for each order for you.
+
+![Use a calculation: preview per order](img/guide/trd-29-calc-preview.png)
+*Image: `trd-29-calc-preview.png`*
+
+1. On the draft's **Tranches** view, go to **Use a calculation**.
+2. Choose the **Template** (e.g. *Sell 20% a day (v1)*); the line under it says what it does.
+3. Choose **Apply to**: the whole list, one fund or one security.
+4. Click **Preview**. For every order in scope you see how many tranches it gets and the first and last date; orders the template doesn't apply to (e.g. buys for a sell-only template, or funds with no trading volume for a volume cap) stay as one order, with the reason in **Note**. Nothing is saved yet.
+5. Click **Apply and save**.
+
+![Tranches made by a calculation](img/guide/trd-30-calc-applied.png)
+*Image: `trd-30-calc-applied.png`*
+
+**You're done when** the green message names the template and version, the bucket says **Calculations used: …**, and those orders show the template's name instead of "Security". The same data checks run as for a hand-made series (up to 60 tranches for a template). You can still add hand-made series for other securities; a hand-made series on a security replaces the template's for that security.
+
 ### 10.9 Approve a trade list and export it to Charles River
 **Who:** a PM with the **Approver** permission approves; PM or analyst downloads. **Where:** Trading → **Trade lists**.
 
@@ -859,6 +875,27 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 
 **You're done when** the green message says "Saved and recorded: …". **Trading change log** at the bottom lists every trading record from the ledger.
 
+**Calculation templates** (on the same tab, saved separately). A template is a named, versioned rule that turns an order into tranches.
+
+![Calculation templates](img/guide/trd-31-calc-templates.png)
+*Image: `trd-31-calc-templates.png`*
+
+| Calculation | What it does | Example |
+|---|---|---|
+| Fixed % of the order per period | The same share every period until done | Sell 20% a day (5 days) |
+| Equal tranches | A set number of equal tranches | 3 equal tranches, a day apart |
+| Percentage pattern (glide down) | Your own list of percentages | 40 / 30 / 20 / 10, every 5 business days |
+| Liquidity-capped | Each tranche at most a share of the security's average daily volume and/or a dollar amount; large orders get more days | At most 10% of volume or $5m a day |
+
+To propose one (PM or analyst):
+1. Under **Propose a template**, type a **Name**, choose the **Calculation** and whether it **Applies to** sells, buys or both.
+2. Fill in its numbers, then **Every** (business days between tranches), **Start** (business days after the trade date) and **At most** (tranches).
+3. Type a reason and click **Propose template**.
+
+To change one, click **New version** on its row and do the same. **You're done when** the row shows it under **Waiting for approval**. It can't be used yet.
+
+To approve (a PM or Risk user with the Approver permission, not the person who proposed it): click **Approve** (or **Reject**) on the row, give a reason, confirm. An approved version replaces the one in use; lists already tranched keep the version they used. **Retire** (PM) stops a template being used. Every step is in the trading change log (`calcs.propose`, `calcs.approve`, `calcs.retire`). Three example templates ship already approved and are marked as examples: review them before relying on them.
+
 ### 10.12 Change many funds at once: glide path, strategic table, tilts, exclusions, exits, roll-down, buffer
 **Where:** Trading → **Glide path & bulk changes**.
 
@@ -907,7 +944,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 2. **Cashflows** → add or upload today's flows (10.3 step A).
 3. **New trade** → **Start from your goal** → **Invest new money (or raise cash) and stay as positioned last night** → **Set this up**.
 4. Check the cashflow date → **See the impact** → check cash after and compliance → reason → **Create draft trade list**.
-5. A PM: **Trade lists** → tick the box → reason → **Approve trade list** → **Download Charles River import file**.
+5. A PM with the Approver permission: **Trade lists** → tick the box → reason → **Approve trade list** → **Download Charles River import file**.
 
 **B. Bring the 2050 mutual fund back to the glide path**
 1. Top right: click **Mutual funds**.
@@ -982,11 +1019,26 @@ Open **Regulations** in the dark bar (`/regulations`). The same All / Mutual fun
 ![Funds with their regulations](img/guide/reg-02-funds.png)
 *Image: `reg-02-funds.png`*
 
+### 12.1a Set a fund's fiscal year end (Compliance)
+Annual and semiannual obligations (N-CEN, shareholder reports, the CCO report, 15(c), Form 5500, UCITS reports and others) follow each fund's fiscal year; the RIC diversification test follows fiscal quarters. The default is December 31.
+
+![Set the fiscal year end for ticked funds](img/guide/reg-07-fiscal-year.png)
+*Image: `reg-07-fiscal-year.png`*
+
+1. On **Funds**, tick the funds (they can be several).
+2. In **Fiscal year end**, choose the month end (e.g. **September 30**).
+3. Type a reason (e.g. "Fiscal year in the registration statement") and click **Set for ticked funds**.
+
+**You're done when** the green message says how many funds changed and how many open obligations moved, and the **Fiscal year end** column shows the new date. Each open fiscal obligation moves to the year that just ended if its report is still due, otherwise to the current year; its history shows the old and new period and due date. Done obligations don't move. If last year's report was already past due under the new year end, it moves to the current year, so check whether that report was filed.
+
+![An obligation on the fund's fiscal year](img/guide/reg-08-fiscal-task.png)
+*Image: `reg-08-fiscal-task.png`*
+
 ### 12.2 See a fund's controls, required people and obligations
 ![Fund detail](img/guide/reg-03-fund-detail.png)
 *Image: `reg-03-fund-detail.png`*
 
-1. Click a fund: its regulations, **Controls on current holdings** (PASS/WARN/FAIL with measured value and citation), **People these regulations require** (unfilled ones in red), record retention and open obligations.
+1. Click a fund: its regulations, **Controls on current holdings** (PASS/WARN/FAIL with measured value and citation), **People these regulations require** (unfilled ones in red), record retention, fiscal year end and open obligations.
 2. The same controls run on every trade preview and trade list for the fund (10.7).
 
 ### 12.3 Work the obligations
@@ -1008,13 +1060,13 @@ Open **Regulations** in the dark bar (`/regulations`). The same All / Mutual fun
 ![Regulation library](img/guide/reg-06-library.png)
 *Image: `reg-06-library.png`*
 
-- **Regulation library**: every regulation with its controls, obligations (frequency, due days, owner, citation), required people and retention, grouped US and international.
-- **Change log**: every tag, removal and obligation action from the governance ledger.
+- **Regulation library**: every regulation with its controls, obligations (frequency, whether periods follow the fund's fiscal year or the calendar, due days, owner, citation), required people and retention, grouped US and international.
+- **Change log**: every tag, removal, fiscal year change and obligation action from the governance ledger.
 
 ---
 
 ## 13. Not built yet
-Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · replay of an approver's screen · due diligence workflow · CMA forecast-vs-realized · custom sell-down calculations · derivatives, in-kind redemptions, mandates, margin and capital calls (doc 17 Phase F) · Charles River API and results coming back automatically.
+Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · replay of an approver's screen · due diligence workflow · CMA forecast-vs-realized · derivatives, in-kind redemptions, mandates, margin and capital calls (doc 17 Phase F) · Charles River API and results coming back automatically.
 
 ---
 

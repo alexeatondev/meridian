@@ -45,6 +45,14 @@ class ComplianceTask(Base):
     updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
 
 
+class FundProfile(Base):
+    """Per-fund settings for obligations: the fiscal year end (doc 18 §5)."""
+    __tablename__ = "fund_profiles"
+    fund_id = Column(String(40), primary_key=True)
+    body = Column(JSON, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=now, onupdate=now)
+
+
 def _store():
     from .main import store
     return store()
@@ -77,6 +85,11 @@ def _record(s, actor: dict, step: str, summary: str, output: dict, rationale: st
 def _funds():
     from .trading import model
     return model().funds
+
+
+def fye_for(s, fund_id: str) -> str:
+    row = s.get(FundProfile, fund_id)
+    return (row.body.get("fiscal_year_end") if row else None) or R.DEFAULT_FYE
 
 
 def active_tags(s, fund_id: str | None = None) -> list[dict]:
@@ -149,6 +162,7 @@ def state(request: Request):
     ent = resolve()
     with _store().Session.begin() as s:
         tasks = list(s.execute(select(ComplianceTask)).scalars())
+        fyes = {fid: fye_for(s, fid) for fid in m.funds}
         _escalate_overdue(s, tasks)
         tags = active_tags(s)
         tasks_out = [t.body for t in tasks]
@@ -159,14 +173,14 @@ def state(request: Request):
         ctrl = R.evaluate_controls(R.holdings_rows(positions(fid), m.instruments), m.instruments, ft) if ft else []
         regs = [lib["regulations"][t["reg_id"]] for t in ft if t["reg_id"] in lib["regulations"]]
         roles = sorted({r for g in regs for r in g.get("required_roles", [])})
-        funds.append(dict(f.as_dict(), tags=ft, suggested=[x for x in lib["suggestions"].get(f.vehicle, [])
+        funds.append(dict(f.as_dict(), tags=ft, fiscal_year_end=fyes[fid], fiscal_year_end_label=R.fye_label(fyes[fid]), suggested=[x for x in lib["suggestions"].get(f.vehicle, [])
                                                               if x not in {t["reg_id"] for t in ft}],
                           controls=ctrl, controls_status=R.overall(ctrl) if ctrl else "—",
                           retention_years=max([g.get("retention_years", 0) for g in regs], default=None),
                           roles=[{"role": r, "holder": ent.holder_label(r), "filled": r not in ent.unfilled_roles
                                   and bool(ent.role_holder(r)[0])} for r in roles],
                           open_tasks=sum(1 for t in tasks_out if t["fund_id"] == fid and t["status"] in ("open", "in_progress"))))
-    return {"today": _today().isoformat(), "library": lib["regulations"], "funds": funds, "tasks": tasks_out,
+    return {"today": _today().isoformat(), "default_fye": R.DEFAULT_FYE, "library": lib["regulations"], "funds": funds, "tasks": tasks_out,
             "removed": removed,
             "records": [r for r in _store().ledger("governance") if r.get("dr_type") == "regulation"][-200:]}
 
@@ -209,7 +223,7 @@ def add_tags(request: Request, body: dict = Body(...)):
             else:
                 s.add(FundRegulation(id=key, status="active", body=b))
             for ob in reg.get("obligations", []):
-                _new_task(s, fid, reg, ob, R.first_task(ob, _today()), _who(user))
+                _new_task(s, fid, reg, ob, R.first_task(ob, _today(), fye_for(s, fid)), _who(user))
                 n_tasks += 1
             added.append(fid)
         if not added and not updated:
@@ -257,6 +271,64 @@ def remove_tags(request: Request, body: dict = Body(...)):
     return {"ok": True, "removed": removed, "cancelled_tasks": cancelled, "dr_id": dr}
 
 
+# ---------------------------------------------------------------------------------------------- fiscal year ends
+@router.put("/api/regulations/fiscal-year-end")
+def set_fiscal_year_end(request: Request, body: dict = Body(...)):
+    """Set the fiscal year end of one or more funds. Open obligations that follow the fiscal year are moved to
+    the matching fiscal period (the one that just ended if it is still due, otherwise the current one); done,
+    waived and calendar-based obligations are left as they are. Compliance only; recorded in the ledger."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *TAG_ROLES)
+    reason = _reason(body)
+    fye = str(body.get("fiscal_year_end", "")).strip()
+    try:
+        R.parse_fye(fye)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if fye.startswith("02-"):
+        fye = "02-28"
+    funds = _funds()
+    fids = list(dict.fromkeys(body.get("fund_ids") or []))
+    if not fids or any(f not in funds for f in fids):
+        raise HTTPException(400, "Choose one or more known funds")
+    lib = R.library()["regulations"]
+    changed, moved = [], []
+    with _store().Session.begin() as s:
+        for fid in fids:
+            old = fye_for(s, fid)
+            if old == fye:
+                continue
+            row = s.get(FundProfile, fid)
+            hist = (row.body.get("history", []) if row else []) + [
+                {"at": _ts(), "by": _who(user), "from": old, "to": fye, "reason": reason}]
+            if row:
+                row.body = dict(row.body, fiscal_year_end=fye, history=hist)
+            else:
+                s.add(FundProfile(fund_id=fid, body={"fund_id": fid, "fiscal_year_end": fye, "history": hist}))
+            changed.append({"fund_id": fid, "from": old, "to": fye})
+            for t in s.execute(select(ComplianceTask).where(ComplianceTask.status.in_(("open", "in_progress")))).scalars():
+                b = t.body
+                if b["fund_id"] != fid:
+                    continue
+                ob = next((o for o in (lib.get(b["reg_id"]) or {}).get("obligations", []) if o["id"] == b["obligation_id"]), None)
+                occ = R.reschedule(ob, _today(), fye) if ob else None
+                if not occ or (occ["period_end"] == b["period_end"] and occ["due"] == b["due"]):
+                    continue
+                moved.append({"task": b["id"], "fund_id": fid, "obligation": b["obligation_id"],
+                              "from": {"period": b["period"], "due": b["due"]}, "to": {"period": occ["period"], "due": occ["due"]}})
+                t.body = dict(b, **occ, history=b["history"] + [
+                    {"at": _ts(), "by": _who(user), "action": "rescheduled",
+                     "note": f"Fiscal year end changed to {R.fye_label(fye)}: {b['period']} due {b['due']} → "
+                             f"{occ['period']} due {occ['due']}"}])
+        if not changed:
+            raise HTTPException(400, f"Nothing changed: the chosen funds already end their fiscal year on {R.fye_label(fye)}")
+        dr = _record(s, _who(user), "fund.fiscal_year_end",
+                     f"Fiscal year end set to {R.fye_label(fye)} for {len(changed)} funds; {len(moved)} open obligations moved",
+                     {"fiscal_year_end": fye, "funds": changed, "moved": moved}, reason, [c["fund_id"] for c in changed])
+    return {"ok": True, "changed": [c["fund_id"] for c in changed], "moved": moved, "dr_id": dr}
+
+
 # ---------------------------------------------------------------------------------------------- obligations
 @router.post("/api/regulations/tasks/{tid}/actions")
 def task_action(request: Request, tid: str, body: dict = Body(...)):
@@ -290,7 +362,7 @@ def task_action(request: Request, tid: str, body: dict = Body(...)):
             reg = lib.get(b["reg_id"])
             ob = next((o for o in (reg or {}).get("obligations", []) if o["id"] == b["obligation_id"]), None)
             active = s.get(FundRegulation, f"{b['fund_id']}|{b['reg_id']}")
-            occ = R.next_task(ob, b["period_end"]) if ob else None
+            occ = R.next_task(ob, b["period_end"], fye_for(s, b["fund_id"])) if ob else None
             if occ and active and active.status == "active":
                 nxt = _new_task(s, b["fund_id"], reg, ob, occ, {"name": "Meridian (obligation tracker)", "email": ""})
         elif action == "waive":
@@ -300,7 +372,7 @@ def task_action(request: Request, tid: str, body: dict = Body(...)):
             b["status"] = "waived"
             reg = lib.get(b["reg_id"])
             ob = next((o for o in (reg or {}).get("obligations", []) if o["id"] == b["obligation_id"]), None)
-            occ = R.next_task(ob, b["period_end"]) if ob else None
+            occ = R.next_task(ob, b["period_end"], fye_for(s, b["fund_id"])) if ob else None
             if occ:
                 nxt = _new_task(s, b["fund_id"], reg, ob, occ, {"name": "Meridian (obligation tracker)", "email": ""})
         else:

@@ -28,6 +28,7 @@ from ..trading import (
     crd_rows,
     load_model,
 )
+from ..trading import calcs as calcs_mod
 from ..trading.allocate import (apply_tilts, asset_class_weights, rebalance_fund, split_order, ticket_fund,
                                 validate_schedule)
 from . import auth
@@ -279,9 +280,62 @@ def neutral_table(s, fund_id: str) -> dict[str, float]:
     return model().table_from_asset_weights(fund_id, neutral_aw(s, fund_id))
 
 
+def glide_export() -> dict:
+    """Approved glide-path adjustments for the agent pipeline, per vintage and product line (asset-class weight
+    deltas). Added to /api/export/policy-overrides as `glide_adjustments` so the agent-run workflow writes them
+    into the policy file before a run (Policy.glide_adjustment)."""
+    m = model()
+    out: dict = {}
+    with _store().Session() as s:
+        gs = glide_state(s)
+        for v in m.policy.vintages:
+            by_line, ids, labels = {}, [], []
+            for line in ("mutual_fund", "cit"):
+                fid = next((f.id for f in m.funds.values() if f.vintage == v and f.vehicle == line), None)
+                if not fid:
+                    continue
+                d = {a: round(x, 6) for a, x in glide_deltas(s, fid).items() if abs(x) > 1e-12}
+                by_line[line] = d
+                for a in gs["adjustments"]:
+                    if a.get("status") == "active" and in_scope(a, fid) and a["id"] not in ids:
+                        ids.append(a["id"])
+                        labels.append(f"{a['id']}: {a.get('scope_label', '')}")
+            if any(by_line.values()):
+                out[str(v)] = {"by_line": by_line, "ids": ids, "labels": labels}
+    return {"vintages": out, "exported_at": _ts()}
+
+
+def approved_aw_for_fund(s, fund_id: str) -> tuple[dict, str | None, dict]:
+    """The approved proposal for a fund's vintage, plus this product line's own glide-path adjustment where it
+    differs from what the run already built in (the run uses the average of the two lines, or nothing for runs
+    made before adjustments were fed to the agents)."""
+    m = model()
+    v = m.funds[fund_id].vintage
+    aw, src = approved_asset_weights(s, v)
+    if not aw:
+        return aw, src, {}
+    built = {}
+    run_id = (src or "").split(" ")[0]
+    from .store import Run
+    run = s.get(Run, run_id) if run_id else None
+    if run and run.results:
+        ga = ((run.results.get("vintages") or {}).get(str(v)) or {}).get("glide_adjustment") or {}
+        built = ga.get("applied") or {}
+    line = glide_deltas(s, fund_id)
+    resid = {a: line.get(a, 0.0) - built.get(a, 0.0) for a in set(line) | set(built)}
+    resid = {a: x for a, x in resid.items() if abs(x) > 1e-9}
+    if resid:
+        aw = dict(aw)
+        for a, x in resid.items():
+            aw[a] = max(aw.get(a, 0.0) + x, 0.0)
+        t = sum(aw.values())
+        aw = {a: x / t for a, x in aw.items()}
+    return aw, src, resid
+
+
 def tables(s, fund_id: str) -> dict[str, dict]:
     m = model()
-    aw, _src = approved_asset_weights(s, m.funds[fund_id].vintage)
+    aw, _src, _resid = approved_aw_for_fund(s, fund_id)
     return {"previous_close": m.previous_close_table(fund_id, positions(fund_id)["values"]),
             "neutral": neutral_table(s, fund_id), "strategic": strategic_table(s, fund_id)["effective"],
             "approved": m.table_from_asset_weights(fund_id, aw) if aw else {}}
@@ -322,7 +376,8 @@ def trading_page(request: Request):
             "can_prepare": any(r in roles for r in PREPARE_ROLES), "can_approve": any(r in roles for r in APPROVE_ROLES),
             "can_approve_lists": any(r in roles for r in APPROVE_ROLES) and auth.APPROVER in roles,
             "can_settings": any(r in roles for r in SETTINGS_ROLES), "can_routes": ROUTE_PERMISSION in roles,
-            "can_glide": "investment_committee" in roles}
+            "can_glide": "investment_committee" in roles,
+            "can_decide_calcs": any(r in roles for r in ("portfolio_manager", "risk")) and auth.APPROVER in roles}
     from .shell import wrap
     return HTMLResponse(wrap(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")), user, "trading"))
 
@@ -364,6 +419,7 @@ def state(request: Request):
                 "strategies": STRATEGIES, "vehicles": VEHICLES, "settings": settings,
                 "route_names": m.raw.get("route_names", []), "sources": m.raw.get("cashflow_sources", []),
                 "cashflows": _cashflows(s), "trade_lists": _trade_lists(s),
+                "calcs": [_calc_view(t) for t in calc_state(s)["templates"]], "calc_kinds": calcs_mod.KINDS,
                 "trading_records": [r for r in _store().ledger("governance") if r.get("dr_type") == "trading"][-200:]}
 
 
@@ -382,6 +438,7 @@ def fund_detail(request: Request, fund_id: str):
         settings = get_settings(s)
         excl, exiting = excluded_for(settings, fund_id), exits_for(settings, fund_id)
         tilt = tilts_for(settings, fund_id, tables(s, fund_id)["neutral"])
+        _aw, appr_src, appr_resid = approved_aw_for_fund(s, fund_id)
     rows = []
     for i in m.fund_instruments(fund_id):
         v = p["values"].get(i["id"], 0.0)
@@ -393,7 +450,8 @@ def fund_detail(request: Request, fund_id: str):
                      "tilt_bps": tilt.get(i["id"], 0.0), "exiting": i["id"] in exiting,
                      **{f"t_{k}": t[k].get(i["id"], 0.0) for k in STRATEGIES}})
     return {"fund": m.funds[fund_id].as_dict(), "nav": nav, "cash": p["cash"], "positions_source": p["source"],
-            "as_of": p["as_of"], "rows": rows, "strategic": {k: st.get(k) for k in ("follows_glide_path", "version", "history")}}
+            "as_of": p["as_of"], "rows": rows, "strategic": {k: st.get(k) for k in ("follows_glide_path", "version", "history")},
+            "approved": {"source": appr_src, "line_adjustment_pp": {a: round(x * 100, 4) for a, x in appr_resid.items()}}}
 
 
 # ---------------------------------------------------------------------------------------------- cashflows
@@ -939,53 +997,267 @@ def set_tranches(request: Request, tid: str, body: dict = Body(...)):
         b = json.loads(json.dumps(row.body))
         if b["status"] != "draft":
             raise HTTPException(409, "Tranches can only be changed while the trade list is a draft")
-        keys = {_okey(f["fund_id"], o["instrument"]) for f in b["funds"] for o in f["orders"]}
-        fids = {f["fund_id"] for f in b["funds"]}
-        errs = [f"Unknown fund {k}" for k in plan["funds"] if k not in fids]
-        errs += [f"No order for {k}" for k in [*plan["securities"], *plan["excluded"]] if k not in keys]
-        scheds = ([("Whole list", plan["default"])] if plan["default"] else []) + \
-            [(k, v) for k, v in plan["funds"].items()] + [(k.replace("|", " "), v) for k, v in plan["securities"].items()]
-        for label, sch in scheds:
-            errs += [f"{label}: {e}" for e in validate_schedule(sch, b["trade_date"], holidays=model().holidays)]
-        n_tr, dates = 0, {}
-        if not errs:
-            for f in b["funds"]:
-                for o in f["orders"]:
-                    k = _okey(f["fund_id"], o["instrument"])
-                    sch = None if k in plan["excluded"] else (plan["securities"].get(k) or plan["funds"].get(f["fund_id"])
-                                                              or plan["default"])
-                    o.pop("tranches", None)
-                    o.pop("tranche_level", None)
-                    if not sch:
-                        continue
-                    o["tranches"], e = split_order(o, sch)
-                    o["tranche_level"] = ("security" if k in plan["securities"] else
-                                          "fund" if f["fund_id"] in plan["funds"] else "list")
-                    errs += [f"{f['fund_id']} {x}" for x in e]
-                    n_tr += 1
-                    for t in o["tranches"]:
-                        sign = 1 if o["side"] == "BUY" else -1
-                        d = dates.setdefault(t["date"], {"buys": 0.0, "sells": 0.0, "orders": 0})
-                        d["buys" if sign > 0 else "sells"] += t["est_amount"]
-                        d["orders"] += 1
-        if errs:
-            raise HTTPException(400, "Tranches not saved. " + "; ".join(errs[:12]) + (" …" if len(errs) > 12 else ""))
-        has = any(scheds)
-        b["tranche_plan"] = plan if has else None
-        b["tranche_summary"] = {"orders_tranched": n_tr, "orders_whole": b["order_count"] - n_tr,
-                                "by_date": [dict(date=k, **{x: round(v, 2) if x != "orders" else v for x, v in d.items()})
-                                            for k, d in sorted(dates.items())],
-                                "checks": ["Every schedule totals 100%", "Dates are weekdays, in order, on or after the trade date",
-                                           "Tranche quantities add back to each order exactly", "No empty tranches"]} if has else None
-        dr = _record(s, _who(user), "trades.tranche",
-                     f"{tid}: {n_tr} of {b['order_count']} orders tranched" if has else f"{tid}: tranches cleared",
-                     {"trade_list": tid, "plan": b["tranche_plan"], "summary": b["tranche_summary"]},
-                     str(body.get("note", "")).strip(), sorted(fids))
-        b["dr_ids"] = b["dr_ids"] + [dr]
-        b["history"] = b["history"] + [{"at": _ts(), "by": _who(user), "action": "tranche" if has else "clear tranches",
-                                        "note": str(body.get("note", "")).strip()}]
-        row.body = b
+        # template-made series stay attached to their template while their schedule is unchanged
+        old = (b.get("tranche_plan") or {}).get("calcs") or {}
+        plan["calcs"] = {k: v for k, v in old.items() if plan["securities"].get(k) == v.get("schedule")}
+        return _save_tranches(s, row, b, plan, user, str(body.get("note", "")).strip())
+
+
+def _save_tranches(s, row, b: dict, plan: dict, user: dict, note: str, step: str = "trades.tranche",
+                   summary_extra: str = "", output_extra: dict | None = None) -> dict:
+    """Validate a tranche plan against the trade list, split every order and record it."""
+    tid = b["id"]
+    keys = {_okey(f["fund_id"], o["instrument"]) for f in b["funds"] for o in f["orders"]}
+    fids = {f["fund_id"] for f in b["funds"]}
+    calcs = plan.get("calcs") or {}
+    errs = [f"Unknown fund {k}" for k in plan["funds"] if k not in fids]
+    errs += [f"No order for {k}" for k in [*plan["securities"], *plan["excluded"]] if k not in keys]
+    scheds = ([("Whole list", plan["default"], None)] if plan["default"] else []) + \
+        [(k, v, None) for k, v in plan["funds"].items()] + \
+        [(k.replace("|", " "), v, k) for k, v in plan["securities"].items()]
+    for label, sch, k in scheds:
+        errs += [f"{label}: {e}" for e in validate_schedule(sch, b["trade_date"], holidays=model().holidays,
+                                                             max_n=calcs_mod.MAX_DAYS if k in calcs else 24)]
+    n_tr, dates = 0, {}
+    if not errs:
+        for f in b["funds"]:
+            for o in f["orders"]:
+                k = _okey(f["fund_id"], o["instrument"])
+                sch = None if k in plan["excluded"] else (plan["securities"].get(k) or plan["funds"].get(f["fund_id"])
+                                                          or plan["default"])
+                for x in ("tranches", "tranche_level", "tranche_calc"):
+                    o.pop(x, None)
+                if not sch:
+                    continue
+                o["tranches"], e = split_order(o, sch)
+                o["tranche_level"] = ("security" if k in plan["securities"] else
+                                      "fund" if f["fund_id"] in plan["funds"] else "list")
+                if k in calcs:
+                    o["tranche_calc"] = {x: calcs[k][x] for x in ("template_id", "name", "version")}
+                errs += [f"{f['fund_id']} {x}" for x in e]
+                n_tr += 1
+                for t in o["tranches"]:
+                    sign = 1 if o["side"] == "BUY" else -1
+                    d = dates.setdefault(t["date"], {"buys": 0.0, "sells": 0.0, "orders": 0})
+                    d["buys" if sign > 0 else "sells"] += t["est_amount"]
+                    d["orders"] += 1
+    if errs:
+        raise HTTPException(400, "Tranches not saved. " + "; ".join(errs[:12]) + (" …" if len(errs) > 12 else ""))
+    has = any(scheds)
+    b["tranche_plan"] = plan if has else None
+    b["tranche_summary"] = {"orders_tranched": n_tr, "orders_whole": b["order_count"] - n_tr,
+                            "by_date": [dict(date=k, **{x: round(v, 2) if x != "orders" else v for x, v in d.items()})
+                                        for k, d in sorted(dates.items())],
+                            "calcs": sorted({f"{v['name']} v{v['version']}" for v in calcs.values()}),
+                            "checks": ["Every schedule totals 100%", "Dates are weekdays, in order, on or after the trade date",
+                                       "Tranche quantities add back to each order exactly", "No empty tranches"]} if has else None
+    dr = _record(s, _who(user), step,
+                 (f"{tid}: {n_tr} of {b['order_count']} orders tranched" if has else f"{tid}: tranches cleared") + summary_extra,
+                 {"trade_list": tid, "plan": b["tranche_plan"], "summary": b["tranche_summary"], **(output_extra or {})},
+                 note, sorted(fids))
+    b["dr_ids"] = b["dr_ids"] + [dr]
+    b["history"] = b["history"] + [{"at": _ts(), "by": _who(user),
+                                    "action": ("tranche" if has else "clear tranches") + summary_extra, "note": note}]
+    row.body = b
     return b
+
+
+# ---------------------------------------------------------------------------------------------- custom calculations
+CALC_SEED = [
+    ("Sell 20% a day", "pct_per_day", {"pct": 20, "sides": "SELL"},
+     "Example: slow sell-down over five business days, e.g. ahead of a redemption in kind"),
+    ("Liquidity cap: 10% of ADV or $5m a day", "liquidity_cap",
+     {"max_pct_adv": 10, "max_usd_per_day": 5_000_000, "sides": "BOTH", "max_days": 20},
+     "Example: keep each day's trade small against the market"),
+    ("Glide down over four weeks (40/30/20/10)", "pattern", {"pcts": [40, 30, 20, 10], "every_n_days": 5, "sides": "SELL"},
+     "Example: weekly steps, front-loaded"),
+]
+SYSTEM_ACTOR = {"name": "Meridian (example template)", "email": ""}
+
+
+def calc_state(s) -> dict:
+    row = s.get(TradingSetting, "calcs")
+    if row:
+        return row.body
+    tpls = []
+    for n, (name, kind, params, note) in enumerate(CALC_SEED, 1):
+        p = calcs_mod.clean_params(kind, params)
+        tpls.append({"id": f"CALC-{n}", "name": name, "retired": False, "versions": [{
+            "version": 1, "kind": kind, "kind_label": calcs_mod.KINDS[kind], "params": p,
+            "description": calcs_mod.describe(kind, p), "status": "approved", "requested_by": SYSTEM_ACTOR,
+            "requested_at": "2026-11-18T00:00:00+00:00", "reason": note, "decided_by": SYSTEM_ACTOR,
+            "decided_at": "2026-11-18T00:00:00+00:00", "decision_reason": "Shipped as an example; review before use"}]})
+    return {"templates": tpls, "next": len(tpls) + 1}
+
+
+def _calc_view(t: dict) -> dict:
+    cur = next((v for v in reversed(t["versions"]) if v["status"] == "approved"), None)
+    pend = next((v for v in reversed(t["versions"]) if v["status"] == "pending"), None)
+    return dict(t, current=cur, pending=pend, usable=bool(cur) and not t["retired"])
+
+
+def _calc_or_404(st: dict, cid: str) -> dict:
+    t = next((x for x in st["templates"] if x["id"] == cid), None)
+    if not t:
+        raise HTTPException(404, "Unknown calculation template")
+    return t
+
+
+@router.post("/api/trading/calcs")
+def calc_propose(request: Request, body: dict = Body(...)):
+    """Propose a new template, or a new version of one. It can be used once a second person approves it."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    reason = _reason(body)
+    kind = body.get("kind")
+    try:
+        params = calcs_mod.clean_params(kind, body.get("params") or {})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    with _store().Session.begin() as s:
+        st = json.loads(json.dumps(calc_state(s)))
+        if body.get("template_id"):
+            t = _calc_or_404(st, body["template_id"])
+            if t["retired"]:
+                raise HTTPException(409, "This template is retired")
+            if any(v["status"] == "pending" for v in t["versions"]):
+                raise HTTPException(409, "A version of this template is already waiting for approval")
+            name = str(body.get("name") or t["name"]).strip()
+        else:
+            name = str(body.get("name", "")).strip()
+            if len(name) < 3:
+                raise HTTPException(400, "Give the template a name")
+            if any(x["name"].lower() == name.lower() and not x["retired"] for x in st["templates"]):
+                raise HTTPException(400, "A template with this name already exists; propose a new version of it instead")
+            t = {"id": f"CALC-{st['next']}", "name": name, "retired": False, "versions": []}
+            st["next"] += 1
+            st["templates"].append(t)
+        t["name"] = name
+        v = {"version": len(t["versions"]) + 1, "kind": kind, "kind_label": calcs_mod.KINDS[kind], "params": params,
+             "description": calcs_mod.describe(kind, params), "status": "pending", "requested_by": _who(user),
+             "requested_at": _ts(), "reason": reason}
+        t["versions"].append(v)
+        _put(s, "calcs", st)
+        _record(s, _who(user), "calcs.propose", f"{t['id']} {name} v{v['version']} proposed: {v['description']}",
+                {"template": t["id"], "version": v["version"], "kind": kind, "params": params}, reason)
+    return _calc_view(t)
+
+
+@router.post("/api/trading/calcs/{cid}/versions/{ver}/decide")
+def calc_decide(request: Request, cid: str, ver: int, body: dict = Body(...)):
+    """Approve or reject a proposed version: a portfolio manager or risk user with the Approver permission who
+    did not propose it. An approved version replaces the previous one for new tranches."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, "portfolio_manager", "risk")
+    auth.require_approver(user)
+    reason = _reason(body)
+    dec = body.get("decision")
+    if dec not in ("approve", "reject"):
+        raise HTTPException(400, "Decision must be approve or reject")
+    with _store().Session.begin() as s:
+        st = json.loads(json.dumps(calc_state(s)))
+        t = _calc_or_404(st, cid)
+        v = next((x for x in t["versions"] if x["version"] == ver), None)
+        if not v or v["status"] != "pending":
+            raise HTTPException(409, "This version is not waiting for a decision")
+        rb = v["requested_by"]
+        if rb["name"] == user["name"] or (rb.get("email") and rb.get("email") == user.get("email")):
+            raise HTTPException(403, "Segregation of duties: a second person approves a calculation template")
+        if dec == "approve":
+            for x in t["versions"]:
+                if x["status"] == "approved":
+                    x["status"] = "superseded"
+        v.update(status="approved" if dec == "approve" else "rejected", decided_by=_who(user), decided_at=_ts(),
+                 decision_reason=reason)
+        _put(s, "calcs", st)
+        _record(s, _who(user), f"calcs.{dec}", f"{cid} {t['name']} v{ver} {dec}d",
+                {"template": cid, "version": ver, "params": v["params"]}, reason)
+    return _calc_view(t)
+
+
+@router.post("/api/trading/calcs/{cid}/retire")
+def calc_retire(request: Request, cid: str, body: dict = Body(...)):
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *APPROVE_ROLES)
+    reason = _reason(body)
+    with _store().Session.begin() as s:
+        st = json.loads(json.dumps(calc_state(s)))
+        t = _calc_or_404(st, cid)
+        if t["retired"]:
+            raise HTTPException(409, "Already retired")
+        t.update(retired=True, retired_by=_who(user), retired_at=_ts(), retire_reason=reason)
+        for x in t["versions"]:
+            if x["status"] == "pending":
+                x["status"] = "withdrawn"
+        _put(s, "calcs", st)
+        _record(s, _who(user), "calcs.retire", f"{cid} {t['name']} retired", {"template": cid}, reason)
+    return _calc_view(t)
+
+
+@router.post("/api/trading/trade-lists/{tid}/calc")
+def apply_calc(request: Request, tid: str, body: dict = Body(...)):
+    """Run an approved calculation template over a draft trade list: every order in scope (whole list, one fund
+    or one security; "FUND|SECURITY") that the template applies to gets its own schedule. With dry_run nothing
+    is saved and the per-order result comes back for review."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    scope = str(body.get("scope") or "list")
+    m = model()
+    with _store().Session.begin() as s:
+        t = _calc_view(_calc_or_404(calc_state(s), str(body.get("template_id", ""))))
+        if not t["usable"]:
+            raise HTTPException(409, f"{t['name']} has no approved version that can be used"
+                                     + (" (retired)" if t["retired"] else ""))
+        v = t["current"]
+        row = _get_tl(s, tid)
+        b = json.loads(json.dumps(row.body))
+        if b["status"] != "draft":
+            raise HTTPException(409, "Tranches can only be changed while the trade list is a draft")
+        old = b.get("tranche_plan") or {}
+        plan = {"default": old.get("default"), "funds": dict(old.get("funds") or {}),
+                "securities": dict(old.get("securities") or {}), "excluded": list(old.get("excluded") or []),
+                "calcs": dict(old.get("calcs") or {})}
+        results, n_new = [], 0
+        for f in b["funds"]:
+            if scope.startswith("fund:") and f["fund_id"] != scope[5:]:
+                continue
+            for o in f["orders"]:
+                k = _okey(f["fund_id"], o["instrument"])
+                if scope.startswith("sec:") and k != scope[4:]:
+                    continue
+                sch, why = calcs_mod.schedule(v["kind"], v["params"], o, b["trade_date"], m.holidays,
+                                              m.instruments.get(o["instrument"], {}))
+                if sch:
+                    _parts, e = split_order(o, sch)
+                    if e:
+                        sch, why = None, "order too small to split this way: trades in one order"
+                res = {"key": k, "fund_id": f["fund_id"], "instrument": o["instrument"], "side": o["side"],
+                       "quantity": o["quantity"], "est_amount": o["est_amount"], "tranches": len(sch) if sch else 1,
+                       "first": sch[0]["date"] if sch else b["trade_date"], "last": sch[-1]["date"] if sch else b["trade_date"],
+                       "note": why}
+                results.append(res)
+                if sch:
+                    n_new += 1
+                    plan["securities"][k] = sch
+                    plan["excluded"] = [x for x in plan["excluded"] if x != k]
+                    plan["calcs"][k] = {"template_id": t["id"], "name": t["name"], "version": v["version"], "schedule": sch}
+        if not results:
+            raise HTTPException(400, "No orders in that scope")
+        out = {"template": {"id": t["id"], "name": t["name"], "version": v["version"], "description": v["description"]},
+               "scope": scope, "orders": results, "tranched": n_new}
+        if body.get("dry_run"):
+            return out
+        if not n_new:
+            raise HTTPException(400, "The template doesn't tranche any order in that scope: "
+                                     + "; ".join(sorted({r['note'] for r in results}))[:300])
+        saved = _save_tranches(s, row, b, plan, user, str(body.get("note", "")).strip(), step="trades.tranche_calc",
+                               summary_extra=f" (calculation {t['name']} v{v['version']}, {n_new} orders)",
+                               output_extra={"calculation": out})
+    return dict(saved, calc_result=out)
 
 
 def _get_tl(s, tid: str) -> TradeList:
