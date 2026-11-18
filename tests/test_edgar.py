@@ -66,3 +66,10 @@ def test_lookthrough_without_edgar():
                        "weight": 1.0, "asset_id": "a", "fund_ticker": "F", "date": "2026-11-05", "lines": 1}])
     fin = RK.lookthrough(h, ["a"], {}, {})["financials"]
     assert fin["available"] is False and fin["rows"] == {}
+
+
+def test_user_agent_from_config(monkeypatch):
+    monkeypatch.delenv("SEC_USER_AGENT", raising=False)
+    from meridian.data.registry import DataRegistry
+    DataRegistry.from_config().sources()["sec_edgar"]
+    assert "alex.w.eaton@outlook.com" in E.user_agent()

@@ -91,7 +91,9 @@ sources:
     provider: sec_edgar
     transport: http
     enabled: true
-    # company financials from SEC XBRL frames (data.sec.gov). Needs SEC_USER_AGENT ("name email") per SEC fair-access rules.
+    # company financials from SEC XBRL frames (data.sec.gov). SEC fair-access rules: declare a name and contact email.
+    # SEC_USER_AGENT (env or repository variable) overrides this.
+    options: {user_agent: "Meridian research alex.w.eaton@outlook.com"}
 
   manual:
     provider: manual
