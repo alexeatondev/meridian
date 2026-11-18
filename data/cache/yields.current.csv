@@ -1,9 +1,9 @@
 _source,asset_id,date,yield,duration,expected_loss,series
-fred,cash,2026-11-04,0.0403,0.25,0.0,DTB3
-fred,us_core_bond,2026-11-05,0.052000000000000005,6.0,0.001,"DGS5,BAMLC0A0CMEY"
-fred,us_long_treasury,2026-11-04,0.0528,15.5,0.0,DGS30
-fred,us_tips_short,2026-11-04,0.046900000000000004,2.5,0.0,DGS5
-fred,us_high_yield,2026-11-05,0.08070000000000001,3.3,0.015,BAMLH0A0HYM2EY
-fred,intl_bond_hedged,2026-11-04,0.049,7.0,0.0005,DGS10
-fred,em_debt,2026-11-05,0.0639,7.0,0.009,BAMLEMCBPIEY
-fred,commodities,2026-11-04,0.0403,0.0,0.0,DTB3
+fred,cash,2026-11-16,0.0416,0.25,0.0,DTB3
+fred,us_core_bond,2026-11-17,0.0544,6.0,0.001,"DGS5,BAMLC0A0CMEY"
+fred,us_long_treasury,2026-11-16,0.0546,15.5,0.0,DGS30
+fred,us_tips_short,2026-11-16,0.0493,2.5,0.0,DGS5
+fred,us_high_yield,2026-11-17,0.08310000000000001,3.3,0.015,BAMLH0A0HYM2EY
+fred,intl_bond_hedged,2026-11-16,0.0512,7.0,0.0005,DGS10
+fred,em_debt,2026-11-17,0.0661,7.0,0.009,BAMLEMCBPIEY
+fred,commodities,2026-11-16,0.0416,0.0,0.0,DTB3
