@@ -47,7 +47,9 @@ def console_html(results: dict, ledger: list[dict], ledger_verification: dict, b
         "products": products if products is not None else _example_products(policy),
     }
     html = TEMPLATE.read_text().replace("/*__MERIDIAN_DATA__*/null", json.dumps(data, default=str).replace("</", "<\\/"))
-    return html.replace("/*__MERIDIAN_LIVE__*/null", json.dumps(live).replace("</", "<\\/") if live else "null")
+    html = html.replace("/*__MERIDIAN_LIVE__*/null", json.dumps(live).replace("</", "<\\/") if live else "null")
+    from ..branding import theme_css          # the active brand theme (config/brand.yaml)
+    return html.replace("</head>", theme_css() + "</head>", 1)
 
 
 def build(run_dir: Path, out: Path | None = None) -> Path:

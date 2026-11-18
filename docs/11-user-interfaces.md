@@ -27,6 +27,18 @@ Every screen (console, Trading, Regulations, User access, Help) now shares one a
 | **Session expiry** | A 401 from any call opens "Your session has expired" with **Sign in** or **Stay on page**, instead of a failed action |
 | **Accessibility** | Skip link, visible focus outline, tab bars exposed as ARIA tablists with ←/→/Home/End, `aria-current` on navigation, live regions for messages, honours dark mode and reduced motion |
 
+## Brand themes (2026-11-18)
+Every screen takes its colours, fonts, corner rounding, app-bar look and chart colours from one file, `config/brand.yaml`, so the app can wear any company's brand without page changes. The active theme is **Principal Financial Group** (product owner's request), built from the public Principal Design System tokens: Principal blue `#0076CF` for actions and links, Dark Prussian blue `#002855` app bar and headings, sky-blue highlights, Gray 1–7 neutrals, utility success, warning and error colours (darkened where PDS marks them "not for text"), and data orange and purple in charts. The brand typeface FS Elliot is licensed by Fontsmith: it is used where installed, or through `fonts.css` once licensed; otherwise Helvetica Neue / Arial. The original look is kept as the `meridian` theme.
+
+| To | Do |
+|---|---|
+| Switch theme | `active:` in `config/brand.yaml`, or `MERIDIAN_BRAND=<key>` per deployment |
+| Add a company | Copy a theme block under a new key and change the values (colours, dark mode, app bar, charts, fonts, radius, product and company names) |
+| Add a logo | Put the company's licensed file in `config/brand/` and name it in `logo:`; it replaces the mark in the app bar (served at `/brand/logo`). No logo is shipped |
+| Check a theme | `meridian brand check`: every token present and every text/background pair at WCAG AA contrast (4.5:1); the same check runs in the test suite |
+
+How it works: pages keep using the shared CSS variables (`--bg`, `--surface`, `--accent`, `--crit`, `--radius-lg`, `--font`, `--appbar-bg`, `--s1`…); `src/meridian/branding.py` writes them for the active theme into every page (app shell, console, sign-in pages), after each page's own defaults. Code: `branding.py`, `config/brand.yaml`; tests `tests/test_branding.py`.
+
 ## Console update (product owner feedback, 2026-11-13)
 
 | Screen | What changed |

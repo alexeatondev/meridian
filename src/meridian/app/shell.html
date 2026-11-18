@@ -1,35 +1,36 @@
 <!-- Meridian shared shell: app bar, My work, dialogs, toasts, busy states, session expiry, accessibility -->
 <style id="mshell-css">
 :root{--appbar-h:52px}
-.mskip{position:absolute;left:8px;top:-60px;z-index:1000;background:#1f4e8c;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;font:600 14px ui-sans-serif,system-ui,sans-serif}
+.mskip{position:absolute;left:8px;top:-60px;z-index:1000;background:var(--accent,#1f4e8c);color:var(--accent-ink,#fff);padding:8px 12px;border-radius:var(--radius-sm,6px);text-decoration:none;font:600 14px ui-sans-serif,system-ui,sans-serif}
 .mskip:focus{top:8px}
-.mbar{position:sticky;top:0;z-index:50;height:var(--appbar-h);display:flex;align-items:center;gap:6px;padding:0 16px;background:#14233b;color:#f3f5f9;
+.mbar{position:sticky;top:0;z-index:50;height:var(--appbar-h);display:flex;align-items:center;gap:6px;padding:0 16px;background:var(--appbar-bg,#14233b);color:var(--appbar-text,#f3f5f9);
   font:14px/1.3 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 1px 0 rgba(0,0,0,.25)}
 .mbar a,.mbar button{color:inherit;font:inherit}
 .mbar .mbrand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;text-decoration:none;margin-right:14px;white-space:nowrap}
-.mbar .mbrand i{display:inline-block;width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#7aa7e6,#2f6bc1)}
+.mbar .mbrand img{height:24px;width:auto;display:block}.mbar .mbrand .mco{font-weight:400;font-size:12px;color:var(--appbar-muted,#c9d3e3);border-left:1px solid rgba(255,255,255,.3);padding-left:8px}
+.mbar .mbrand i{display:inline-block;width:22px;height:22px;border-radius:var(--radius-sm,6px);background:var(--appbar-mark,linear-gradient(135deg,#7aa7e6,#2f6bc1))}
 .mbar nav{display:flex!important;flex-direction:row!important;gap:2px!important;height:100%;align-items:stretch;overflow-x:auto;scrollbar-width:none}
-.mbar nav a{display:flex;align-items:center;padding:0 12px;text-decoration:none;color:#c9d3e3;border-bottom:3px solid transparent;white-space:nowrap}
-.mbar nav a:hover{color:#fff;background:rgba(255,255,255,.06)}
-.mbar nav a[aria-current=page]{color:#fff;border-bottom-color:#7aa7e6;font-weight:600}
+.mbar nav a{display:flex;align-items:center;padding:0 12px;text-decoration:none;color:var(--appbar-muted,#c9d3e3);border-bottom:3px solid transparent;white-space:nowrap}
+.mbar nav a:hover{color:var(--appbar-text,#fff);background:rgba(255,255,255,.06)}
+.mbar nav a[aria-current=page]{color:var(--appbar-text,#fff);border-bottom-color:var(--appbar-accent,#7aa7e6);font-weight:600}
 .mbar .msp{flex:1}
-.mbar .mbtn{background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:8px;padding:6px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap;text-decoration:none}
+.mbar .mbtn{background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:var(--radius-sm,8px);padding:6px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap;text-decoration:none}
 .mbar .mbtn:hover{background:rgba(255,255,255,.08)}
-.mbar .mbadge{min-width:20px;padding:0 6px;border-radius:999px;background:#e0b25a;color:#14233b;font-weight:700;font-size:12px;text-align:center}
-.mbar .mbadge.crit{background:#ef8a80}.mbar .mbadge.zero{background:rgba(255,255,255,.18);color:#fff}
+.mbar .mbadge{min-width:20px;padding:0 6px;border-radius:999px;background:var(--appbar-badge,#e0b25a);color:var(--appbar-badge-text,#14233b);font-weight:700;font-size:12px;text-align:center}
+.mbar .mbadge.crit{background:var(--appbar-badge-crit,#ef8a80)}.mbar .mbadge.zero{background:rgba(255,255,255,.18);color:#fff}
 .mpop{position:fixed;right:12px;top:calc(var(--appbar-h) + 4px);width:min(440px,94vw);max-height:70vh;overflow:auto;background:var(--surface,#fff);color:var(--text,#111);
-  border:1px solid var(--line,#ddd);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.22);z-index:60;padding:8px}
+  border:1px solid var(--line,#ddd);border-radius:var(--radius-lg,12px);box-shadow:0 12px 32px rgba(0,0,0,.22);z-index:60;padding:8px}
 .mpop h2{font-size:14px;margin:6px 8px 8px}.mpop .mhint{font-size:12px;color:var(--muted,#777);margin:0 8px 8px}
-.mpop a.mi{display:grid;grid-template-columns:8px 1fr auto;gap:10px;align-items:start;padding:9px 8px;border-radius:8px;text-decoration:none;color:inherit}
+.mpop a.mi{display:grid;grid-template-columns:8px 1fr auto;gap:10px;align-items:start;padding:9px 8px;border-radius:var(--radius-sm,8px);text-decoration:none;color:inherit}
 .mpop a.mi:hover,.mpop a.mi:focus{background:var(--surface-2,#f0efec);outline:none}
-.mpop .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:#7aa7e6}.mpop .dot.warn{background:#d39a2a}.mpop .dot.crit{background:#c0392b}
+.mpop .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--accent,#7aa7e6)}.mpop .dot.warn{background:#d39a2a}.mpop .dot.crit{background:#c0392b}
 .mpop .mt{font-weight:600;font-size:13px}.mpop .md{font-size:12px;color:var(--muted,#777)}.mpop .mk{font-size:11px;color:var(--muted,#777);white-space:nowrap;text-align:right}
 .mpop .mempty{padding:18px 8px;text-align:center;color:var(--muted,#777);font-size:13px}
-.muser{font-size:12px;color:#c9d3e3;text-align:right;line-height:1.2;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.muser b{color:#fff;font-size:13px}
+.muser{font-size:12px;color:var(--appbar-muted,#c9d3e3);text-align:right;line-height:1.2;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.muser b{color:var(--appbar-text,#fff);font-size:13px}
 @media (max-width:900px){.muser{display:none}.mbar nav a{padding:0 8px}.mbar .mlabel{display:none}}
 /* focus + motion */
-:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid #2f6bc1;outline-offset:2px}
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus,#2f6bc1);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 /* busy */
 [aria-busy=true]{position:relative;cursor:progress!important;opacity:.75}
@@ -37,21 +38,21 @@ button[aria-busy=true]::after{content:"";display:inline-block;width:12px;height:
 @keyframes mspin{to{transform:rotate(360deg)}}
 /* toasts */
 #mtoasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:200;max-width:min(440px,92vw)}
-.mtoast{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);font:13px/1.4 ui-sans-serif,system-ui,sans-serif;
-  background:#14233b;color:#fff;border-left:4px solid #7aa7e6}
-.mtoast.success{border-left-color:#3aa66b}.mtoast.error{background:#4a1714;border-left-color:#ef8a80}.mtoast.warn{border-left-color:#e0b25a}
+.mtoast{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:var(--radius-lg,10px);box-shadow:0 8px 24px rgba(0,0,0,.2);font:13px/1.4 ui-sans-serif,system-ui,sans-serif;
+  background:var(--appbar-bg,#14233b);color:var(--appbar-text,#fff);border-left:4px solid var(--appbar-accent,#7aa7e6)}
+.mtoast.success{border-left-color:var(--ok,#3aa66b)}.mtoast.error{background:#4a1714;border-left-color:#ef8a80}.mtoast.warn{border-left-color:#e0b25a}
 .mtoast .mx{margin-left:auto;background:none;border:0;color:inherit;cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
 #toast{display:none!important}
 /* dialogs */
-dialog.mdlg{border:0;border-radius:14px;padding:0;width:min(520px,94vw);background:var(--surface,#fff);color:var(--text,#111);box-shadow:0 24px 64px rgba(0,0,0,.35)}
+dialog.mdlg{border:0;border-radius:var(--radius-lg,14px);padding:0;width:min(520px,94vw);background:var(--surface,#fff);color:var(--text,#111);box-shadow:0 24px 64px rgba(0,0,0,.35)}
 dialog.mdlg::backdrop{background:rgba(10,16,28,.45)}
 dialog.mdlg form{padding:20px 22px}dialog.mdlg h2{margin:0 0 8px;font-size:17px}
 dialog.mdlg p{margin:0 0 12px;color:var(--text-2,#444);font-size:14px;white-space:pre-line}
 dialog.mdlg label{display:block;font-size:12px;color:var(--text-2,#444);margin:8px 0 4px;font-weight:600}
-dialog.mdlg textarea{width:100%;min-height:76px;padding:8px 10px;border:1px solid var(--line-strong,#ccc);border-radius:8px;background:var(--surface,#fff);color:inherit;font:inherit;box-sizing:border-box}
+dialog.mdlg textarea{width:100%;min-height:76px;padding:8px 10px;border:1px solid var(--line-strong,#ccc);border-radius:var(--radius-sm,8px);background:var(--surface,#fff);color:inherit;font:inherit;box-sizing:border-box}
 dialog.mdlg .mrow{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-dialog.mdlg .mb{border:1px solid var(--line-strong,#ccc);background:var(--surface,#fff);color:inherit;padding:8px 14px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}
-dialog.mdlg .mb.p{background:#1f4e8c;border-color:#1f4e8c;color:#fff}dialog.mdlg .mb.d{background:#a3261b;border-color:#a3261b;color:#fff}
+dialog.mdlg .mb{border:1px solid var(--line-strong,#ccc);background:var(--surface,#fff);color:inherit;padding:8px 14px;border-radius:var(--radius-sm,8px);cursor:pointer;font:inherit;font-weight:600}
+dialog.mdlg .mb.p{background:var(--accent,#1f4e8c);border-color:var(--accent,#1f4e8c);color:var(--accent-ink,#fff)}dialog.mdlg .mb.d{background:var(--crit,#a3261b);border-color:var(--crit,#a3261b);color:#fff}
 dialog.mdlg .mb:disabled{opacity:.5;cursor:not-allowed}
 /* reason counter */
 .mcount{display:block;font-size:11px;color:var(--muted,#777);margin-top:3px}.mcount.ok{color:var(--ok,#1d7a46)}
@@ -194,7 +195,8 @@ function bar(){
   const skip=document.createElement('a'); skip.className='mskip'; skip.href='#'+(main?main.id:'main'); skip.textContent='Skip to main content';
   const h=document.createElement('div'); h.className='mbar'; h.setAttribute('role','banner');
   const u=n.user, roleTxt=(u.roles||[]).map(r=>r.replace(/_/g,' ')).join(', ')+((u.permissions||[]).length?' · '+u.permissions.join(', '):'');
-  h.innerHTML=`<a class="mbrand" href="/runs/latest" aria-label="Meridian home"><i aria-hidden="true"></i>Meridian</a>
+  const B=n.brand||{product:"Meridian"};
+  h.innerHTML=`<a class="mbrand" href="/runs/latest" aria-label="${esc(B.product)} home">${B.logo?`<img src="${B.logo}" alt="${esc(B.company||B.product)}">`:'<i aria-hidden="true"></i>'}${esc(B.product)}${B.company?`<span class="mco">${esc(B.company)}</span>`:''}</a>
     <nav aria-label="Primary">${n.links.map(l=>`<a href="${l.href}" ${l.key===n.current?'aria-current="page"':''}>${esc(l.label)}</a>`).join('')}</nav>
     <span class="msp"></span>
     <button class="mbtn" id="mwork" aria-haspopup="dialog" aria-expanded="false" aria-controls="mworkPop" title="My work"><span class="mlabel">My work</span><span class="mbadge zero" id="mworkN">·</span></button>

@@ -95,13 +95,18 @@ def _set_session(resp: Response, user: dict) -> None:
                     secure=_secure(), samesite="lax")
 
 
+def _brand_css() -> str:
+    from ..branding import theme_css
+    return theme_css()
+
+
 def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
     return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title}</title><style>body{{font-family:system-ui,sans-serif;background:#f4f3f0;color:#111;display:grid;place-items:center;min-height:100vh;margin:0}}
-.card{{background:#fff;border:1px solid #e2e0da;border-radius:12px;padding:28px;max-width:440px;width:100%}}h1{{font-size:20px;margin:0 0 6px}}
-label{{display:block;margin:10px 0 4px;font-size:13px}}input[type=text]{{width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box}}
-.btn{{display:inline-block;margin-top:16px;background:#1f4e8c;color:#fff;border:0;padding:10px 16px;border-radius:8px;font-weight:600;text-decoration:none;cursor:pointer}}
-.muted{{color:#666;font-size:13px}}</style></head><body><div class="card">{body}</div></body></html>""", status_code=status)
+<title>{title}</title><style>body{{font-family:system-ui,sans-serif;background:var(--bg,#f4f3f0);color:var(--text,#111);display:grid;place-items:center;min-height:100vh;margin:0}}
+.card{{background:var(--surface,#fff);border:1px solid var(--line,#e2e0da);border-top:4px solid var(--accent,#1f4e8c);border-radius:var(--radius-lg,12px);padding:28px;max-width:440px;width:100%}}h1{{font-size:20px;margin:0 0 6px}}
+label{{display:block;margin:10px 0 4px;font-size:13px}}input[type=text]{{width:100%;padding:8px;border:1px solid var(--line-strong,#ccc);border-radius:var(--radius-sm,8px);box-sizing:border-box}}
+.btn{{display:inline-block;margin-top:16px;background:var(--accent,#1f4e8c);color:var(--accent-ink,#fff);border:0;padding:10px 16px;border-radius:var(--radius-sm,8px);font-weight:600;text-decoration:none;cursor:pointer}}
+.muted{{color:var(--muted,#666);font-size:13px}}</style>{_brand_css()}</head><body><div class="card">{body}</div></body></html>""", status_code=status)
 
 
 # ------------------------------------------------------------------ auth routes

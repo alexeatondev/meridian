@@ -79,13 +79,15 @@ def _quarters_back(as_of: date, n: int = 6) -> list[str]:
     return out
 
 
-def frames_to_frame(tickers: dict, frames: dict[str, tuple[str, list[dict]]]) -> pd.DataFrame:
-    """tickers: SEC company_tickers.json; frames: column -> (period, data rows). Pure, for tests."""
+def frames_to_frame(tickers: dict, frames: dict) -> pd.DataFrame:
+    """tickers: SEC company_tickers.json; frames: column -> (period, rows) or a list of them in priority order
+    (newest period first, preferred concept first); each company takes the first value it has. Pure, for tests."""
     by_cik: dict[int, dict] = {}
     for v in tickers.values():
         by_cik.setdefault(int(v["cik_str"]), {"ticker": str(v["ticker"]).upper(), "name": v.get("title", "")})
     rows: dict[int, dict] = {}
-    for col, (period, data) in frames.items():
+    for col, got in frames.items():
+      for period, data in ([got] if isinstance(got, tuple) else got):
         for d in data:
             cik = int(d["cik"])
             if cik not in by_cik:
@@ -95,7 +97,7 @@ def frames_to_frame(tickers: dict, frames: dict[str, tuple[str, list[dict]]]) ->
                 r[col] = float(d["val"])
                 if col in DURATION and not r.get("fiscal_period"):
                     r["fiscal_period"] = period
-                if col in INSTANT and not r.get("balance_date"):
+                if col in INSTANT and col != "shares_outstanding" and not r.get("balance_date"):
                     r["balance_date"] = d.get("end", period)
     df = pd.DataFrame(rows.values())
     for c in COLUMNS:
@@ -116,22 +118,21 @@ class EdgarSource(DataSource):
     def fetch(self, req: Request) -> pd.DataFrame:
         as_of = date.fromisoformat(str(req.as_of or req.end or date.today())[:10])
         tickers = _get(TICKERS_URL)
-        frames: dict[str, tuple[str, list[dict]]] = {}
+        frames: dict[str, list] = {}
         notes = []
-        for spec, periods in ((DURATION, _years_back(as_of)), (INSTANT, _quarters_back(as_of))):
+        # every concept and the most recent periods, newest first: companies report revenue under different
+        # concepts and file on different dates, so each fills its own gaps (about 70 requests in all)
+        for spec, periods in ((DURATION, _years_back(as_of, 2)), (INSTANT, _quarters_back(as_of, 3))):
             for col, concepts in spec.items():
-                got = None
-                for period in periods:                     # newest period that has data
+                got = []
+                for period in periods:
                     for tax, concept, unit in concepts:
                         try:
                             d = _get(FRAME_URL.format(tax=tax, concept=concept, unit=unit, period=period))
                         except DataUnavailable:
                             continue
                         if d.get("data"):
-                            got = (period, d["data"])
-                            break
-                    if got:
-                        break
+                            got.append((period, d["data"]))
                 if got:
                     frames[col] = got
                 else:

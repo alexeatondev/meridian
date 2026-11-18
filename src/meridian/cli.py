@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from . import entities
@@ -60,6 +61,9 @@ def main(argv=None):
     rbp.add_argument("--role")
     rbp.add_argument("--decision", choices=["approve", "reject"], default="approve")
     rbp.add_argument("--reason", default="")
+
+    br = sub.add_parser("brand", help="list or check brand themes (config/brand.yaml)")
+    br.add_argument("action", choices=["list", "check"], nargs="?", default="list")
 
     v = sub.add_parser("verify", help="verify a run's ledger integrity")
     v.add_argument("ledger", type=Path)
@@ -145,6 +149,17 @@ def main(argv=None):
         else:
             for cr in gv.list_requests():
                 print(f"{cr['id']} {cr['status']:9s} {cr['kind']} {cr['target']} {cr['current']:.2%}->{cr['proposed']:.2%} by {cr['requested_by']['name']}")
+    elif a.cmd == "brand":
+        from . import branding
+        bad = 0
+        for k, t in branding.themes().items():
+            probs = branding.check(t)
+            bad += bool(probs)
+            mark = "*" if k == branding.active_name() else " "
+            print(f"{mark} {k:16s} {t.get('label', '')}" + ("" if a.action == "list" else
+                  ("  OK" if not probs else "\n    - " + "\n    - ".join(probs))))
+        if a.action == "check" and bad:
+            sys.exit(1)
     elif a.cmd == "verify":
         ok, msg = verify(a.ledger)
         print(("OK " if ok else "FAILED ") + msg)
