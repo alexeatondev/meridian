@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import NormalDist
 
+import re
+
 import numpy as np
 import pandas as pd
 import yaml
@@ -424,14 +426,15 @@ def _financials(h: pd.DataFrame, sec: pd.DataFrame, edgar: pd.DataFrame | None) 
     if edgar is None or edgar.empty:
         return out
     e = edgar.copy()
-    e["ticker"] = e["ticker"].astype(str).str.upper().str.replace(".", "-", regex=False)
+    # match on letters and digits only: iShares writes BRKB or BRK.B where SEC writes BRK-B
+    e["ticker"] = e["ticker"].astype(str).str.upper().str.replace(r"[^A-Z0-9]", "", regex=True)
     e = e.drop_duplicates("ticker").set_index("ticker")
     price = (h.dropna(subset=["price"]).groupby("security_id")["price"].first() if "price" in h else pd.Series(dtype=float))
     rows = {}
     for i, r in sec.iterrows():
         if r["asset_class"] != "Equity" or r["country"] != "United States":
             continue
-        t = str(r["ticker"]).upper().replace(".", "-").replace(" ", "-")
+        t = re.sub(r"[^A-Z0-9]", "", str(r["ticker"]).upper())
         if t not in e.index:
             continue
         x = e.loc[t]

@@ -44,7 +44,14 @@ def nav_for(user: dict, current: str) -> dict:
     return {"user": {"name": user.get("name", ""), "email": user.get("email", ""),
                      "roles": sorted(r for r in roles if r not in PERMISSION_LABELS),
                      "permissions": [PERMISSION_LABELS[r] for r in sorted(roles) if r in PERMISSION_LABELS]},
-            "current": current, "links": links, "help": "/help#" + help_anchor(current)}
+            "current": current, "links": links, "help": "/help#" + help_anchor(current), "brand": brand_info()}
+
+
+def brand_info() -> dict:
+    from .. import branding
+    t = branding.active()
+    return {"key": t["key"], "product": t.get("product") or "Meridian", "company": t.get("company") or "",
+            "logo": "/brand/logo" if branding.logo_path(t) else ""}
 
 
 def help_anchor(page: str) -> str:
@@ -64,9 +71,22 @@ def _assets() -> str:
 
 def wrap(html: str, user: dict, current: str) -> str:
     """Insert the shared shell into a page: assets before </head>, the nav data right after <body…>."""
+    from .. import branding
     data = json.dumps(nav_for(user, current)).replace("</", "<\\/")
-    html = html.replace("</head>", _assets() + "</head>", 1)
+    brand = "" if 'id="meridian-brand"' in html else branding.theme_css()
+    html = html.replace("</head>", _assets() + brand + "</head>", 1)
     return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + f'<script>window.MERIDIAN_NAV={data};</script>', html, count=1)
+
+
+@router.get("/brand/logo")
+def brand_logo():
+    """The active theme's logo file (config/brand/<file>), if the company supplied one."""
+    from fastapi import HTTPException
+    from .. import branding
+    p = branding.logo_path()
+    if not p:
+        raise HTTPException(404, "No logo configured")
+    return FileResponse(p, headers={"Cache-Control": "public, max-age=3600"})
 
 
 # ---------------------------------------------------------------------------------------------- My work

@@ -21,9 +21,19 @@ def test_frames_to_frame_maps_ciks_to_tickers():
     df = E.frames_to_frame(TICKERS, frames())
     a = df.set_index("ticker").loc["AAPL"]
     assert a["revenue"] == 400e9 and a["shares_outstanding"] == 15e9 and a["fiscal_period"] == "CY2025"
-    assert a["balance_date"] == "2026-10-17" and a["name"] == "Apple Inc."
+    assert a["balance_date"] is None and a["name"] == "Apple Inc."      # cover-page share counts don't set it
     assert 1 not in set(df["cik"])                      # unknown CIK dropped
     assert list(df.columns) == E.COLUMNS
+
+
+def test_later_concepts_and_periods_fill_gaps():
+    f = {"revenue": [("CY2025", [{"cik": 1067983, "val": 1.0}]),              # Revenues: Berkshire only
+                     ("CY2025", [{"cik": 320193, "val": 2.0}, {"cik": 1067983, "val": 9.0}]),   # other concept
+                     ("CY2024", [{"cik": 999, "val": 3.0}])],                  # older year for the rest
+         "total_assets": [("CY2026Q3I", [{"cik": 320193, "val": 5.0, "end": "2026-09-27"}])]}
+    df = E.frames_to_frame(TICKERS, f).set_index("ticker")
+    assert df.loc["BRK-B", "revenue"] == 1.0 and df.loc["AAPL", "revenue"] == 2.0 and df.loc["TM", "revenue"] == 3.0
+    assert df.loc["TM", "fiscal_period"] == "CY2024" and df.loc["AAPL", "balance_date"] == "2026-09-27"
 
 
 def test_periods_walk_back_from_as_of():
@@ -43,7 +53,7 @@ def test_lookthrough_market_cap_us_equities_only():
         {"security_id": "AAPL|United States|Equity", "ticker": "AAPL", "name": "APPLE", "sector": "IT", "asset_class": "Equity",
          "country": "United States", "weight": 0.07, "duration": None, "asset_id": "us_large_cap", "fund_ticker": "IVV",
          "date": "2026-11-05", "price": 230.0, "lines": 1},
-        {"security_id": "BRK.B|United States|Equity", "ticker": "BRK.B", "name": "BERKSHIRE", "sector": "Fin", "asset_class": "Equity",
+        {"security_id": "BRK B|United States|Equity", "ticker": "BRK B", "name": "BERKSHIRE", "sector": "Fin", "asset_class": "Equity",
          "country": "United States", "weight": 0.02, "duration": None, "asset_id": "us_large_cap", "fund_ticker": "IVV",
          "date": "2026-11-05", "price": 480.0, "lines": 1},
         {"security_id": "TM|Japan|Equity", "ticker": "TM", "name": "TOYOTA", "sector": "Cons", "asset_class": "Equity",
@@ -57,7 +67,7 @@ def test_lookthrough_market_cap_us_equities_only():
     secs = {s[0]: i for i, s in enumerate(look["securities"])}
     aapl = fin["rows"][str(secs["AAPL"])]
     assert aapl["market_cap"] == 15e9 * 230.0 and aapl["net_income"] == 100e9
-    assert fin["rows"][str(secs["BRK.B"])]["market_cap"] == 1.3e9 * 480.0      # BRK.B matched to SEC's BRK-B
+    assert fin["rows"][str(secs["BRK B"])]["market_cap"] == 1.3e9 * 480.0      # iShares "BRK B" matched to SEC's BRK-B
     assert str(secs["TM"]) not in fin["rows"]                                  # foreign listing never matched
 
 
