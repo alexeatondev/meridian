@@ -19,9 +19,9 @@ def _qty(inst: dict, amount: float, side: str) -> float:
         face = abs(amount) / price * 100
         face = math.floor(face / 1000) * 1000 if side == "BUY" else round(face / 1000) * 1000
         return float(face)
-    if inst["type"] in ("etf", "stock"):       # whole shares; round buys down so cash can't go negative
-        sh = abs(amount) / price
-        return float(math.floor(sh) if side == "BUY" else round(sh))
+    if inst["type"] in ("etf", "stock"):       # whole shares: buys round down so cash can't go negative; sells round
+        sh = abs(amount) / price               # up so they raise at least the cash needed (callers cap at shares held)
+        return float(math.floor(sh + 1e-9) if side == "BUY" else math.ceil(sh - 1e-9))
     u = abs(amount) / price                    # fund units (mutual funds, CITs) to 3 decimals
     return math.floor(u * 1000 + 1e-9) / 1000     # floored, so sells never exceed and buys never overdraw
 
@@ -204,6 +204,8 @@ def ticket_fund(model: TradingModel, fund_id: str, tickets: list[dict], position
             q = float(t["quantity"])
         else:
             q = _qty(i, float(t.get("amount") or 0), side)
+            if side == "SELL" and i["type"] in ("etf", "stock") and float(t.get("amount") or 0) <= held + 0.01:
+                q = min(q, math.floor(held / unit + 1e-9))     # rounding a sell up never sells more than is held
         if q <= 0:
             errors.append(f"{k}: nothing to trade")
             continue

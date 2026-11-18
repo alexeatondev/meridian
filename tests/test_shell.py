@@ -27,16 +27,16 @@ def login(c, name, *roles):
 
 def test_nav_is_filtered_by_role():
     pm = [l["key"] for l in nav_for({"roles": ["portfolio_manager"]}, "trading")["links"]]
-    assert pm == ["console", "trading", "regulations"]
+    assert pm == ["console", "trading", "policy", "regulations"]
     adm = nav_for({"roles": ["admin"]}, "admin")
-    assert [l["key"] for l in adm["links"]] == ["console", "trading", "regulations", "admin"]
+    assert [l["key"] for l in adm["links"]] == ["console", "trading", "policy", "regulations", "admin"]
     lead = nav_for({"roles": ["leadership", "investment_committee"]}, "console")
     assert lead["user"]["roles"] == ["leadership"] and lead["user"]["permissions"] == ["Investment Committee"]
 
 
 def test_every_page_carries_the_shell_without_duplicate_links(client):
     login(client, "Maya Chen", "portfolio_manager", "admin", "compliance", "approver")
-    for path in ("/trading", "/regulations", "/admin"):
+    for path in ("/trading", "/policy", "/regulations", "/admin"):
         html = client.get(path).text
         assert "window.MERIDIAN_NAV=" in html and 'id="mshell-css"' in html, path
         assert "Back to console" not in html and "=prompt(" not in html, path

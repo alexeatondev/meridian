@@ -143,6 +143,25 @@ def test_end_to_end_cashflows_to_charles_river_file(client):
     assert {r["Side"] for r in rows if r["Account"] == "MF2030"} == {"SELL"}
     assert {r["Destination"] for r in rows} <= {"SS&C (formerly DST)", "Internal trading desk"}
     assert client.get(f"/api/trading/trade-lists/{tl2['id']}").json()["status"] == "exported"
+    # the exported file is kept and can be opened or downloaded again, exactly as sent
+    files = client.get("/api/trading/files").json()["files"]
+    ex = next(x for x in files if x["trade_list"] == tl2["id"] and x["kind"] == "export")
+    view = client.get(f"/api/trading/files/{ex['id']}").json()
+    assert view["columns"][0] == "External Order ID" and len(view["data"]) == len(rows) and ex["rows"] == len(rows)
+    assert client.get(f"/api/trading/files/{ex['id']}?download=true").text == f.text
+    import hashlib
+    assert ex["sha256"] == hashlib.sha256(f.text.encode()).hexdigest()
+    prog = client.get("/api/trading/in-progress").json()
+    assert [x["id"] for x in prog["stages"]["exported"]] == [tl2["id"]] and tl["id"] in [x["id"] for x in prog["stages"]["draft"]]
+    assert {o["status"] for o in prog["orders"]} == {"Sent"} and prog["upcoming"][0]["date"] == "2026-11-10"
+    fl = client.post(f"/api/trading/trade-lists/{tl2['id']}/fills", headers=hp, json={"fills": [
+        {"order_id": rows[0]["External Order ID"], "quantity": float(rows[0]["Quantity"]) / 2, "price": float(rows[0]["Est. Price"]),
+         "status": "PARTIAL"}]})
+    assert fl.status_code == 200, fl.text
+    prog = client.get("/api/trading/in-progress").json()
+    assert [x["id"] for x in prog["stages"]["partly_filled"]] == [tl2["id"]]
+    assert 0 < prog["stages"]["partly_filled"][0]["filled_pct"] < 1
+    assert any(x["kind"] == "fills" and x["trade_list"] == tl2["id"] for x in client.get("/api/trading/files").json()["files"])
 
     # cancelling the CIT list releases its cashflow
     assert client.post(f"/api/trading/trade-lists/{tl2['id']}/cancel", headers=hp, json={"reason": R}).status_code == 409
@@ -153,7 +172,7 @@ def test_end_to_end_cashflows_to_charles_river_file(client):
     from meridian.app.main import _verify_records, store
     gov = [r for r in store().ledger("governance") if r["dr_type"] == "trading"]
     assert [r["step"] for r in gov] == ["cashflow.load", "cashflow.load", "trades.generate", "trades.generate",
-                                        "trades.approve", "trades.export", "trades.cancel"]
+                                        "trades.approve", "trades.export", "trades.fills", "trades.cancel"]
     assert _verify_records(store().ledger("governance"))[0]
 
 
@@ -584,3 +603,12 @@ def test_calc_templates_governance_and_use_on_trade_list(client):
     assert client.post(f"/api/trading/calcs/{cid}/retire", headers=hp, json={"reason": R}).status_code == 200
     assert client.post(f"/api/trading/trade-lists/{tl['id']}/calc", headers=hp,
                        json={"template_id": cid, "scope": "list"}).status_code == 409
+
+
+def test_etf_rounding_sells_up_buys_down():
+    from meridian.trading.allocate import _qty
+    etf = {"type": "etf", "price": 100.0}
+    assert _qty(etf, 1050, "BUY") == 10 and _qty(etf, -1050, "SELL") == 11
+    assert _qty(etf, 1000, "BUY") == 10 and _qty(etf, -1000, "SELL") == 10        # exact amounts don't move
+    fund = {"type": "mutual_fund", "price": 10.0}
+    assert _qty(fund, -1050.55, "SELL") == pytest.approx(105.055)

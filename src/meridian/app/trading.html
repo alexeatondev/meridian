@@ -33,6 +33,11 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 .warnbox{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:13px}.warnbox ul{margin:4px 0 0 18px;padding:0}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;display:none;max-width:90vw;z-index:9}
 .matrix td,.matrix th{text-align:center}.matrix td:first-child,.matrix th:first-child{text-align:left}
+.stages{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}.stage{border:1px solid var(--line);border-radius:10px;padding:10px;min-height:120px}
+.stage-h{display:flex;justify-content:space-between;align-items:center}.stage-i{display:block;margin-top:8px;padding:8px;border-radius:8px;background:var(--surface-2,#f3f2ef);text-decoration:none;color:inherit}
+.stage-i:hover{outline:2px solid var(--accent,#1f4e8c)}.bar{display:block;height:4px;background:var(--line);border-radius:2px;margin-top:6px}.bar i{display:block;height:4px;background:#2f8f5b;border-radius:2px}
+.filegrid td,.filegrid th{white-space:nowrap;padding:4px 8px}
+@media(max-width:1100px){.stages{grid-template-columns:1fr 1fr}}
 </style></head><body>
 <style>
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}.seg button{border:0;background:var(--surface);color:var(--text);padding:6px 12px;cursor:pointer;font:inherit}
@@ -63,9 +68,9 @@ tr.grp td{font-weight:600;background:var(--surface-2)}
 <main>
 <div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
 <div class="tabs" role="tablist">
-  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="settings">Routing &amp; settings</button>
+  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="settings">Routing &amp; settings</button>
 </div>
-<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="bulk" hidden></section><section id="settings" hidden></section>
+<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="settings" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -98,8 +103,8 @@ async function load(){ S.st = await api('GET','/api/trading/state'); if(!S.tab) 
 function render(){
   document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
-  for (const t of ['trade','funds','cashflows','trades','bulk','settings']) $('#'+t).hidden = t!==S.tab;
-  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, bulk:vBulk, settings:vSettings})[S.tab]();
+  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','settings']) $('#'+t).hidden = t!==S.tab;
+  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, settings:vSettings})[S.tab]();
 }
 
 // ------------------------------------------------------------------ Funds & securities
@@ -234,7 +239,7 @@ function tlDetail(t){
   if (t.status==='draft' && BOOT.can_approve && !BOOT.can_approve_lists) h += `<div class="card"><h2>Approve</h2><p class="small muted">Approving trade lists needs the <b>Approver</b> permission. An admin can switch it on in User access.</p></div>`;
   if (t.status==='draft' && BOOT.can_approve_lists) h += `<div class="card"><h2>Approve</h2><label class="opt"><input type="checkbox" id="taChk"> <span>I reviewed the orders, the impact (now vs after), the compliance check and the notes.</span></label><label class="f" for="taReason">Reason</label><input type="text" id="taReason" placeholder="At least 10 characters"><div class="row" style="margin-top:10px"><button class="btn primary" id="taGo" ${t.blocked_funds.length?'disabled':''}>Approve trade list</button>${t.blocked_funds.length?'<span class="small neg">Blocked by errors or a compliance FAIL</span>':''}</div></div>`;
   else if (t.status==='draft') h += `<p class="small muted">A portfolio manager approves trade lists.</p>`;
-  if (['approved','exported'].includes(t.status) && BOOT.can_prepare) h += `<div class="card"><h2>Charles River</h2><p class="small">Download the import file and load it into Charles River, which runs its own compliance check and executes. <b>Mock format</b>: column names are placeholders until mapped to your Charles River import specification. Each download is recorded with a fingerprint (SHA-256).</p><a class="btn primary" id="taCrd" href="/api/trading/trade-lists/${t.id}/crd.csv">Download Charles River import file</a>${(t.exports||[]).map(x=>`<div class="small muted" style="margin-top:6px">Exported ${esc(x.at.slice(0,16).replace('T',' '))} by ${esc(x.by.name)} · ${esc(x.sha256.slice(0,16))}…</div>`).join('')}</div>`;
+  if (['approved','exported'].includes(t.status) && BOOT.can_prepare) h += `<div class="card"><h2>Charles River</h2><p class="small">Download the import file and load it into Charles River, which runs its own compliance check and executes. <b>Mock format</b>: column names are placeholders until mapped to your Charles River import specification. Each download is recorded with a fingerprint (SHA-256).</p><a class="btn primary" id="taCrd" href="/api/trading/trade-lists/${t.id}/crd.csv">Download Charles River import file</a>${(t.exports||[]).map(x=>`<div class="small muted" style="margin-top:6px">Exported ${esc(x.at.slice(0,16).replace('T',' '))} by ${esc(x.by.name)} · ${esc(x.sha256.slice(0,16))}… ${x.file_id?`<a href="#" data-openfile="${x.file_id}">View file</a> · <a href="/api/trading/files/${x.file_id}?download=true">Download again</a>`:'(file not kept: exported before files were stored)'}</div>`).join('')}</div>`;
   if (['exported','filled'].includes(t.status)) {
     const fl = t.fills||{}, n = Object.keys(fl).length;
     h += `<div class="card"><h2>Fills and booking</h2><p class="small">Record what executed so positions and cash update. Upload the fills file (<span class="mono">External Order ID, Filled Quantity, Fill Price, Status</span> = FILLED, PARTIAL or CANCELLED; IDs as in the Charles River file), or in shadow mode mark every open order filled at its estimated price.</p>
@@ -248,11 +253,56 @@ function tlDetail(t){
   document.querySelectorAll('#tlv button').forEach(b=>b.onclick=()=>{S.tlView=b.dataset.x;tlDetail(t)});
   bindImpact('tl');
   bindTranches(t);
+  document.querySelectorAll('#tlDetail [data-openfile]').forEach(a=>a.onclick=e=>{e.preventDefault(); S.file=a.dataset.openfile; S.tab='files'; sessionStorage.setItem('tr_tab','files'); render()});
   if ($('#taGo')) $('#taGo').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/approve`,{checked:$('#taChk').checked, reason:$('#taReason').value}); await load(); toast('Trade list approved and recorded'+(r.self_approved?' (you also prepared it; this is flagged)':'')) }catch(e){toast(e.message,'error')} };
   if ($('#taCrd')) $('#taCrd').onclick = ()=>setTimeout(load, 1500);
   if ($('#flAll')) $('#flAll').onclick = async()=>{ try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/fills`,{all:true}); await load(); toast(`Fills booked for ${r.booked_funds.length} funds; status ${r.fill_status}`) }catch(e){toast(e.message,'error')} };
   if ($('#flUpload')) $('#flUpload').onclick = async()=>{ const f=$('#flFile').files[0]; if(!f) return toast('Choose a file first'); const fd=new FormData(); fd.append('file', f); try{ const r=await api('POST',`/api/trading/trade-lists/${t.id}/fills`,null,fd); await load(); toast(`Fills booked for ${r.booked_funds.length} funds; status ${r.fill_status}`) }catch(e){toast(e.message,'error')} };
   if ($('#taCancel')) $('#taCancel').onclick = async()=>{ const reason=await MUI.ask(`Cancel trade list ${t.id}?`,{message:'Its cashflows return to the queue so they can be traded in a new list. This is recorded in the decision ledger.',label:'Reason for cancelling',okText:'Cancel trade list',danger:true}); if(!reason) return; try{await api('POST',`/api/trading/trade-lists/${t.id}/cancel`,{reason}); await load(); toast('Trade list cancelled; its cashflows are available again')}catch(e){toast(e.message,'error')} };
+}
+
+// ------------------------------------------------------------------ In progress (blotter)
+const STAGES = [['draft','Waiting for approval','Drafts a PM with the Approver permission still has to approve'],['approved','Approved, not sent','Approved; the Charles River file hasn\'t been downloaded yet'],['exported','Sent to Charles River','File exported; no fills recorded yet'],['partly_filled','Partly filled','Some fills booked; orders still open'],['filled','Filled and booked','Every order filled or cancelled (last 30 days)']];
+async function vProgress(){
+  $('#progress').innerHTML = '<div class="card"><p class="muted">Loading…</p></div>';
+  const tok = S.prTok = (S.prTok||0)+1;
+  let d; try { d = await api('GET','/api/trading/in-progress'); } catch(e) { return toast(e.message,'error'); }
+  if (tok !== S.prTok || S.tab !== 'progress') return;
+  const inVeh = id => { const t=S.st.trade_lists.find(x=>x.id===id); return !t || S.veh==='all' || t.vehicle===S.veh || t.vehicle==='all'; };
+  const open = d.orders.filter(o=>inVeh(o.trade_list) && !['FILLED','CANCELLED'].includes(o.status));
+  const qs = S.pq||'', ost = S.pst||'open';
+  let h = `<div class="card"><h2>Trades in progress</h2><p class="small muted">Every trade list on its way from draft to booked. Click a list to open it. Fills come from the fills file (or "mark all filled" in shadow mode) on the list.</p><div class="stages">${STAGES.map(([k,l,why])=>{const xs=d.stages[k].filter(x=>inVeh(x.id));return `<div class="stage"><div class="stage-h"><b>${l}</b> <span class="chip ${k==='filled'?'ok':k==='draft'?'warn':'perm'}">${xs.length}</span></div><div class="small muted">${why}</div>${xs.map(x=>`<a href="#" class="stage-i" data-gotl="${x.id}"><b>${x.id}</b> · ${x.trade_date}<br><span class="small">${x.orders} orders · ${musd(x.gross)}${x.tranched?' · tranched':''}${k==='partly_filled'||k==='filled'?' · '+Math.round(x.filled_pct*100)+'% filled':''}${x.blocked?' · blocked':''}</span><span class="bar"><i style="width:${Math.round(x.filled_pct*100)}%"></i></span></a>`).join('')||'<div class="small muted" style="margin-top:6px">None</div>'}</div>`}).join('')}</div></div>`;
+  h += `<div class="card"><h2>Coming up: dates with open orders</h2><table><tr><th>Date</th><th class="n">Open orders</th><th class="n">Buys</th><th class="n">Sells</th><th>Trade lists</th></tr>${d.upcoming.filter(u=>u.lists.some(inVeh)).map(u=>`<tr><td>${u.date}${u.date<S.st.as_of?' '+chip('Past due','crit'):''}</td><td class="n">${u.orders}</td><td class="n">${usd(u.buys)}</td><td class="n">${usd(u.sells)}</td><td>${u.lists.map(esc).join(', ')}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">Nothing open</td></tr>'}</table></div>`;
+  const rows = d.orders.filter(o=>inVeh(o.trade_list) && (ost==='all' || !['FILLED','CANCELLED'].includes(o.status)) && (!qs || (o.instrument+' '+o.fund_id+' '+o.trade_list).toLowerCase().includes(qs.toLowerCase())));
+  h += `<div class="card"><h2>Orders (${open.length} open)</h2><div class="row"><input type="search" id="pq" placeholder="Filter by security, fund or list" value="${esc(qs)}" style="max-width:280px"><select id="pst"><option value="open" ${ost==='open'?'selected':''}>Open only</option><option value="all" ${ost==='all'?'selected':''}>Include filled and cancelled</option></select></div>
+  <table><tr><th>Date</th><th>Order ID</th><th>Fund</th><th>Security</th><th>Side</th><th class="n">Quantity</th><th class="n">Filled</th><th class="n">Est. amount</th><th>Destination</th><th>Status</th></tr>${rows.slice(0,400).map(o=>`<tr><td>${o.date}</td><td class="mono small"><a href="#" data-gotl="${o.trade_list}">${esc(o.order_id)}</a>${o.tranche?'<br><span class="muted">tranche '+o.tranche+'</span>':''}</td><td>${esc(o.fund_id)}</td><td>${esc(o.instrument)}</td><td class="${o.side==='BUY'?'pos':'neg'}">${o.side}</td><td class="n">${o.quantity.toLocaleString('en-US')}</td><td class="n">${o.filled?o.filled.toLocaleString('en-US'):'—'}</td><td class="n">${usd(o.est_amount)}</td><td class="small">${esc(o.route)}</td><td>${chip(o.status.replace('_',' '), o.status==='FILLED'?'ok':o.status==='PARTIAL'?'warn':o.status==='CANCELLED'?'':'perm')}</td></tr>`).join('')||'<tr><td colspan=10 class="muted">No orders</td></tr>'}</table>${rows.length>400?`<p class="small muted">Showing 400 of ${rows.length}.</p>`:''}</div>`;
+  $('#progress').innerHTML = h;
+  document.querySelectorAll('#progress [data-gotl]').forEach(a=>a.onclick=e=>{e.preventDefault(); S.tl=a.dataset.gotl; sessionStorage.setItem('tr_tl',S.tl); S.tab='trades'; sessionStorage.setItem('tr_tab','trades'); render()});
+  $('#pq').oninput = e => { S.pq = e.target.value; clearTimeout(S.pqT); S.pqT=setTimeout(()=>{vProgress().then(()=>{const i=$('#pq'); i.focus(); i.setSelectionRange(i.value.length,i.value.length)})},300); };
+  $('#pst').onchange = e => { S.pst = e.target.value; vProgress(); };
+}
+
+// ------------------------------------------------------------------ Files (Charles River import and fills files)
+async function vFiles(){
+  const tok = S.fTok = (S.fTok||0)+1;
+  let d; try { d = await api('GET','/api/trading/files'); } catch(e) { return toast(e.message,'error'); }
+  if (tok !== S.fTok || S.tab !== 'files') return;
+  const inVeh = id => { const t=S.st.trade_lists.find(x=>x.id===id); return !t || S.veh==='all' || t.vehicle===S.veh || t.vehicle==='all'; };
+  const fs = d.files.filter(f=>inVeh(f.trade_list));
+  let h = `<div class="card"><h2>Files</h2><p class="small muted">Every Charles River import file exactly as it was exported, and every fills file as it was loaded. Each is fingerprinted (SHA-256) and the fingerprint is in the ledger. Files are kept in Meridian's database; nothing is sent anywhere automatically (shadow mode). Exports made before 2026-11-18 have only their fingerprint.</p>
+  <table><tr><th>When</th><th>File</th><th>Kind</th><th>Trade list</th><th class="n">Rows</th><th>By</th><th>Fingerprint</th><th></th></tr>${fs.map(f=>`<tr class="${S.file===f.id?'sel':''}"><td class="small">${esc(f.at.slice(0,16).replace('T',' '))}</td><td>${esc(f.name)}${f.source&&f.source!=='manual'?`<br><span class="small muted">from ${esc(f.source)}</span>`:''}</td><td>${f.kind==='export'?chip('Charles River import','perm'):chip('Fills','ok')}</td><td><a href="#" data-gotl="${f.trade_list}">${esc(f.trade_list)}</a></td><td class="n">${f.rows??'—'}</td><td>${esc(f.by.name)}</td><td class="mono small">${esc(f.sha256.slice(0,12))}…</td><td>${f.id?`<button class="btn small" data-openfile="${f.id}">View</button> <a class="btn small" href="/api/trading/files/${f.id}?download=true">Download</a>`:'<span class="small muted">Not kept</span>'}</td></tr>`).join('')||'<tr><td colspan=8 class="muted">No files yet. A file appears here when an approved list is exported or fills are loaded.</td></tr>'}</table></div><div id="fileView"></div>`;
+  $('#files').innerHTML = h;
+  document.querySelectorAll('#files [data-gotl]').forEach(a=>a.onclick=e=>{e.preventDefault(); S.tl=a.dataset.gotl; S.tab='trades'; sessionStorage.setItem('tr_tab','trades'); render()});
+  document.querySelectorAll('#files [data-openfile]').forEach(b=>b.onclick=()=>{S.file=b.dataset.openfile; showFile()});
+  if (S.file) showFile();
+}
+async function showFile(){
+  let f; try { f = await api('GET','/api/trading/files/'+S.file); } catch(e) { return toast(e.message,'error'); }
+  $('#fileView').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(f.name)}</h2><span class="row"><a class="btn" href="/api/trading/files/${f.id}?download=true">Download</a><button class="btn" id="fvClose">Close</button></span></div>
+   <p class="small muted">${f.kind==='export'?'Charles River import file (mock layout)':'Fills file'} for ${esc(f.trade_list)} · ${f.rows} rows · ${esc(f.by.name)}, ${esc(f.at.slice(0,16).replace('T',' '))} · SHA-256 <span class="mono">${esc(f.sha256)}</span></p>
+   <div style="overflow:auto;max-height:60vh"><table class="small filegrid"><tr>${f.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${f.data.map(r=>`<tr>${r.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div></div>`;
+  $('#fvClose').onclick = ()=>{ S.file=null; $('#fileView').innerHTML=''; };
+  $('#fileView').scrollIntoView({block:'start'});
 }
 
 // ------------------------------------------------------------------ Routing & settings

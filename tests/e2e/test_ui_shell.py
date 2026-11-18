@@ -8,9 +8,9 @@ def test_ux_01_app_bar_on_every_screen_filtered_by_role(sign_in, app_url):
     """UX-1: the same app bar on every screen; links follow the person's access; the current screen is marked."""
     page = sign_in("Maya Chen", "portfolio_manager", "approver")
     bar = page.locator(".mbar")
-    expect(bar.locator("nav")).to_have_text("ConsoleTradingRegulations")
+    expect(bar.locator("nav")).to_have_text("ConsoleTradingPolicyRegulations")
     expect(bar.locator("nav a[aria-current=page]")).to_have_text("Console")
-    for path, label in (("/trading", "Trading"), ("/regulations", "Regulations")):
+    for path, label in (("/trading", "Trading"), ("/policy", "Policy"), ("/regulations", "Regulations")):
         page.goto(app_url + path)
         expect(page.locator(".mbar nav a[aria-current=page]")).to_have_text(label)
         assert page.locator("text=Back to console").count() == 0

@@ -89,10 +89,19 @@ class TradingModel:
         return routes.get(inst["type"], "Internal trading desk")
 
     # ----------------------------------------------------------------- glide path and targets
-    def neutral_asset_weights(self, fund_id: str, as_of: date | None = None) -> dict[str, float]:
+    def years_to_target(self, fund_id: str, as_of: date | None = None) -> float:
         f = self.funds[fund_id]
-        roll = last_roll_date(as_of or self.as_of, f.roll_down)
-        w = self.policy.neutral_weights(f.vintage - year_frac(roll))
+        return f.vintage - year_frac(last_roll_date(as_of or self.as_of, f.roll_down))
+
+    def neutral_asset_weights(self, fund_id: str, as_of: date | None = None) -> dict[str, float]:
+        """The IPS glide path on the fund's roll-down schedule."""
+        w = self.policy.neutral_weights(self.years_to_target(fund_id, as_of))
+        return dict(zip(self.policy.assets, (float(x) for x in w)))
+
+    def path_asset_weights(self, fund_id: str, anchors: list, as_of: date | None = None) -> dict[str, float]:
+        """A named glide path (anchor table) on the fund's roll-down schedule."""
+        from .glidepaths import interp
+        w = interp(anchors, self.years_to_target(fund_id, as_of))
         return dict(zip(self.policy.assets, (float(x) for x in w)))
 
     def neutral_table(self, fund_id: str, as_of: date | None = None) -> dict[str, float]:

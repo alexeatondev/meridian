@@ -39,12 +39,8 @@ class Policy:
 
     def neutral_weights(self, years_to_target: float) -> np.ndarray:
         """Strategic (glide path) weights for a given number of years to the target date."""
-        anchors = np.array(self.raw["glide_path"]["anchors"], dtype=float)
-        anchors = anchors[np.argsort(anchors[:, 0])]  # ascending years
-        yrs, w = anchors[:, 0], anchors[:, 1:] / 100.0
-        y = float(np.clip(years_to_target, yrs.min(), yrs.max()))
-        out = np.array([np.interp(y, yrs, w[:, j]) for j in range(w.shape[1])])
-        return out / out.sum()
+        from .trading.glidepaths import interp
+        return interp(self.raw["glide_path"]["anchors"], years_to_target)
 
     def glide_adjustment(self, vintage: int) -> dict:
         """Investment Committee glide-path adjustments approved in the app (exported into the policy file as
@@ -55,22 +51,30 @@ class Policy:
         ga = (self.raw.get("glide_adjustments") or {}).get("vintages") or {}
         d = ga.get(vintage) or ga.get(str(vintage)) or {}
         lines = {k: {a: float(x) for a, x in (v or {}).items()} for k, v in (d.get("by_line") or {}).items()}
+        zero = np.zeros(len(self.assets))
         if not lines:
-            return {"delta": np.zeros(len(self.assets)), "by_line": {}, "ids": [], "lines_differ": False}
+            return {"delta": zero, "by_line": {}, "ids": [], "lines_differ": False, "path_delta": zero, "paths": {}}
         vecs = [np.array([lines[k].get(a, 0.0) for a in self.assets]) for k in sorted(lines)]
         unknown = sorted({a for v in lines.values() for a in v} - set(self.assets))
         if unknown:
             raise ValueError(f"glide_adjustments for {vintage}: unknown asset classes {unknown}")
+        # part of each line's delta that comes from a named glide path (not an adjustment): the IPS bands are
+        # measured around the fund's own path, so the band centre moves by this part only
+        pl = {k: {a: float(x) for a, x in (v or {}).items()} for k, v in (d.get("path_by_line") or {}).items()}
+        pvec = np.mean([np.array([pl.get(k, {}).get(a, 0.0) for a in self.assets]) for k in sorted(lines)], axis=0)
         return {"delta": np.mean(vecs, axis=0), "by_line": lines, "ids": list(d.get("ids") or []),
                 "lines_differ": any(not np.allclose(vecs[0], x, atol=1e-9) for x in vecs[1:]),
-                "labels": list(d.get("labels") or [])}
+                "labels": list(d.get("labels") or []), "path_delta": pvec, "paths": dict(d.get("paths") or {})}
 
     def adjusted_neutral(self, years_to_target: float, vintage: int) -> tuple[np.ndarray, np.ndarray, dict]:
-        """(glide path including approved adjustments, IPS glide path, adjustment info)."""
+        """(glide path including approved adjustments, the fund's base path that the IPS bands are measured
+        from, adjustment info). The base path is the IPS glide path unless the Investment Committee assigned
+        the vintage a named glide path."""
         ips = self.neutral_weights(years_to_target)
         adj = self.glide_adjustment(vintage)
         n = np.clip(ips + adj["delta"], 0, None)
-        return n / n.sum(), ips, adj
+        base = np.clip(ips + adj["path_delta"], 0, None)
+        return n / n.sum(), base / base.sum(), adj
 
     def risk_budget(self, vintage: int) -> float:
         rb = self.raw.get("risk_budgets") or {}

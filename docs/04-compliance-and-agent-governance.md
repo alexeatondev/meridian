@@ -135,7 +135,7 @@ Rule library maintenance · exception queue · daily breach dashboard · approva
 | GOV-3 Autonomy level per pipeline | Fixed at L3 shadow; no in-app control |
 | GOV-4 Kill switch | Not built |
 | PC-1 Policy-as-code | **Built** (`policies/target_date_series.yaml`, `ips-mtrs@1.0.0`) |
-| PC-2 Dual sign-off on policy changes | **Partial:** risk-budget changes need requester + second approver; CCO permission exists for policy approvals |
+| PC-2 Dual sign-off on policy changes | **Partial:** IPS text changes need an Investment Committee member + the CCO, two people other than the drafter, with the redline stored (Policy screen, 2026-11-18); named glide paths and fund assignments need an IC member other than the requester; risk-budget changes need requester + second approver. Still manual: a rule change in the IPS text must be made in the policy file too (the version is flagged "Changes engine rules") |
 | PC-3 Deterministic rule engine | **Built** |
 | PC-4 Pre-trade checks | **Built (shadow):** IPS rules on post-trade weights of every trade list; FAIL blocks approval (doc 17). Charles River runs its own check |
 | PC-5 Post-trade monitoring | **Partial:** regulation controls run on current holdings (uploaded or booked positions) on the Regulations screen; no daily job yet |

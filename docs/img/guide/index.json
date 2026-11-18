@@ -75,9 +75,17 @@
  "nav-03-dialog",
  "nav-04-messages",
  "nav-05-help",
- "trd-21-calc-preview",
- "trd-22-calc-applied",
- "trd-23-calc-templates",
+ "trd-29-calc-preview",
+ "trd-30-calc-applied",
+ "trd-31-calc-templates",
  "reg-07-fiscal-year",
- "reg-08-fiscal-task"
+ "reg-08-fiscal-task",
+ "trd-32-in-progress",
+ "trd-33-blotter",
+ "trd-34-files",
+ "pol-01-ips",
+ "pol-02-ips-redline",
+ "pol-03-glide-paths",
+ "pol-04-new-path",
+ "pol-05-path-approval"
 ]

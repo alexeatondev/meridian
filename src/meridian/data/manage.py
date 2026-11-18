@@ -19,7 +19,7 @@ _yaml.preserve_quotes = True
 _yaml.width = 200
 
 REFRESH_DATASETS = ["returns.monthly", "macro.indicators", "yields.current", "fundamentals.valuation",
-                    "fund.characteristics", "holdings.lookthrough"]
+                    "fund.characteristics", "holdings.lookthrough", "fundamentals.edgar"]
 
 
 def _load(path: Path = CONFIG_PATH):

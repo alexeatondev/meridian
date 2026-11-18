@@ -28,10 +28,11 @@ router = APIRouter()
 PAGES = [  # key, label, href, roles that see it
     ("console", "Console", "/runs/latest", None),
     ("trading", "Trading", "/trading", ("portfolio_manager", "analyst", "risk", "compliance", "audit", "admin", "leadership")),
+    ("policy", "Policy", "/policy", ("portfolio_manager", "risk", "analyst", "manager_selection", "leadership", "compliance", "audit", "admin")),
     ("regulations", "Regulations", "/regulations", ("compliance", "audit", "admin", "leadership", "portfolio_manager", "risk", "analyst")),
     ("admin", "User access", "/admin", ("admin", "audit", "compliance")),
 ]
-HELP_SECTION = {"console": "1", "trading": "10", "regulations": "12", "admin": "11"}  # user guide (doc 06) section numbers
+HELP_SECTION = {"console": "1", "trading": "10", "regulations": "12", "admin": "11", "policy": "13"}  # user guide (doc 06) section numbers
 PERMISSION_LABELS = {"investment_committee": "Investment Committee", "chief_compliance_officer": "CCO",
                      "route_manager": "Route manager", "approver": "Approver"}
 
@@ -103,6 +104,21 @@ def my_work(request: Request):
                     items.append(_item("Glide path", f"Committee decision on {r['id']}",
                                        f"{r.get('scope_label', '')} · requested by {(r.get('requested_by') or {}).get('name', '')}",
                                        "/trading", severity="warn", go={"tr_tab": "bulk"}))
+    from . import policy_admin as PA
+    if roles & {PA.IC, PA.CCO}:
+        with PA._store().Session() as s:
+            for v in s.execute(select(PA.IpsVersion).where(PA.IpsVersion.status == "pending")).scalars():
+                b = v.body
+                need = [x for x, perm in (("ic", PA.IC), ("cco", PA.CCO)) if perm in roles
+                        and not any(a["as"] == x for a in b["approvals"])]
+                if need and not PA._same(b["drafted_by"], user) and not any(PA._same(a["by"], user) for a in b["approvals"]):
+                    items.append(_item("IPS", f"Approve IPS version {v.version}", f"{b['summary'][:80]} · drafted by {b['drafted_by']['name']}",
+                                       "/policy", severity="warn", go={"po_tab": "ips", "po_ver": str(v.version)}))
+            if PA.IC in roles:
+                for r in PA._gp_state(s)["requests"]:
+                    if r["status"] == "pending" and not PA._same(r["requested_by"], user):
+                        items.append(_item("Glide path", f"Committee decision on {r['id']}", f"{r['label']} · requested by {r['requested_by']['name']}",
+                                           "/policy", severity="warn", go={"po_tab": "paths"}))
     if roles & {"compliance", "risk", "leadership", "portfolio_manager"}:
         with regulations._store().Session() as s:
             for t in s.execute(select(regulations.ComplianceTask).where(

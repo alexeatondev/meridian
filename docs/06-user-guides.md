@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -48,7 +48,8 @@ Not sure where to start? Use this table.
 10. Trading (PMs, analysts; read-only for Risk, Compliance, Audit, Leadership, Admin)
 11. Platform Admin: User access
 12. Regulations & obligations
-13. Not built yet
+13. Policy: the IPS and glide paths
+14. Not built yet
 Appendix A: Approval checklist · Appendix B: Glossary · Appendix C: Messages and what they mean
 
 ---
@@ -394,6 +395,13 @@ Methods and definitions: doc 13.
 
 US Treasury securities are grouped under one issuer, **UNITED STATES TREASURY**.
 
+**How much of a company Meridian owns (% of market cap).** For US-listed stocks the page shows, across every mutual fund and CIT:
+- **Meridian $**: the dollars held through the look-through (each fund's NAV × its weight in each building block × the security's weight in that block's proxy fund);
+- **Market cap**: shares outstanding from the company's latest SEC filing × the last price in the holdings file;
+- **% of mkt cap**: Meridian $ ÷ market cap.
+
+The **Largest ownership of market cap** card lists the 25 largest, the **Largest look-through exposures** table has both columns, and a selected security shows the three numbers plus its **Company financials** from SEC EDGAR (revenue, operating and net income, diluted EPS, operating cash flow, capex, free cash flow, assets, liabilities, equity, cash, long-term debt, net margin, return on equity, price/earnings). **Download financials (CSV)** gives every matched company with Meridian's holding, market cap and the ratios, for quantitative work. Financials and prices come with the monthly data refresh; until the first refresh with SEC data the card says they are not loaded. Only US equities are matched (a foreign listing can share a ticker with an unrelated US company), and the percentage is a look-through estimate from proxy-fund holdings, not a regulatory ownership filing figure.
+
 ### 4.5 Trend monitoring, limits and co-approval
 ![Risk history](img/guide/risk-05-history.png)
 *Image: `risk-05-history.png`*
@@ -600,6 +608,8 @@ The tabs, in order:
 |---|---|
 | **New trade** (opens first) | Set up any trade, see its impact, save it as a draft |
 | **Trade lists** | Open saved drafts: impact, orders, tranches, approve, export, fills |
+| **In progress** | Every list from draft to booked, upcoming dates with open orders, and the order blotter (10.10b) |
+| **Files** | Every Charles River import file as exported and every fills file as loaded; view or download (10.10a) |
 | **Funds & securities** | See each fund's holdings and targets, edit a strategic table, load positions |
 | **Cashflows** | Load subscriptions and redemptions |
 | **Glide path & bulk changes** | Change many funds at once (10.12) |
@@ -779,7 +789,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
    - Right, a table grouped into Equity, Fixed income, Real assets and Cash: **Now**, **After**, **Change**, **Target**, **Glide path**, **Gap now** and **Gap after** (weight minus target, in pp; negative = under target).
 4. Notes (e.g. cash buffer held back), errors, and compliance details. Post-trade asset-class weights are checked against the IPS rules and that fund's own glide path, plus the controls of any regulation tagged on the fund (section 12). An error or FAIL blocks approval.
 5. **Securities: now vs after** (click to open): every security's value and weight now, the trade, value and weight after, target and gap after.
-6. **Orders** (click to open): side, security, type, quantity (units, whole shares or $1,000 face), estimated price and amount, destination.
+6. **Orders** (click to open): side, security, type, quantity (units, whole shares or $1,000 face; ETF and stock sells round up to the next whole share, never more than is held, and buys round down), estimated price and amount, destination.
 
 **What a good result looks like:** for a rebalance, *Off target* falls and gaps shrink toward 0; for cash investment, cash after is close to the buffer and gaps don't widen; compliance stays PASS.
 
@@ -839,7 +849,7 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 ![Download the Charles River import file](img/guide/trd-10-charles-river.png)
 *Image: `trd-10-charles-river.png`*
 
-**You're done when** the list shows **Exported**. The file has one row per order, or per tranche with its date, parent order ID and "n of N". The layout is a **mock** until mapped to your Charles River import specification. Each download is recorded with a SHA-256 fingerprint.
+**You're done when** the list shows **Exported**. The file has one row per order, or per tranche with its date, parent order ID and "n of N". The layout is a **mock** until mapped to your Charles River import specification. Each download is recorded with a SHA-256 fingerprint, and the file itself is kept: the Charles River card on the list has **View file** (opens it in Trading → **Files**) and **Download again** (10.10a).
 
 **Cancel instead:** before export, click **Cancel trade list and release cashflows**, give a reason in the box and click **Cancel trade list**. Its cashflows go back to **New**.
 
@@ -855,6 +865,31 @@ The same panel appears in step 3 of **New trade** and on every saved list (**Tra
 2. Upload the fills file (`External Order ID, Filled Quantity, Fill Price, Status` = FILLED, PARTIAL or CANCELLED; IDs as in the Charles River file, one per order or tranche). In shadow mode you can instead click **Mark all open orders filled at estimated prices**.
 
 **You're done when** the list shows **Filled and booked** and the fund's **Positions** column on Funds & securities shows "Booked from …". Each fill updates the fund's positions and cash; the list's cashflows settle into cash at the first booking.
+
+### 10.10a See the files sent to Charles River and the fills that came back
+**Where:** Trading → **Files**.
+
+![The Charles River import file, opened in the app](img/guide/trd-34-files.png)
+*Image: `trd-34-files.png`*
+
+1. Click **Files**. Each row is one file: when, name, kind (**Charles River import** or **Fills**), trade list, rows, who, and its fingerprint.
+2. Click **View** to open the file as a table under the list, or **Download** for the same file again. Click the trade list to open it.
+
+Files are stored in Meridian's database; nothing is sent anywhere automatically (shadow mode). An export downloaded before 2026-11-18 shows **Not kept**: only its fingerprint was recorded then.
+
+### 10.10b Follow trades in progress
+**Where:** Trading → **In progress**.
+
+![Trades in progress](img/guide/trd-32-in-progress.png)
+*Image: `trd-32-in-progress.png`*
+
+1. The five columns show every trade list by stage: **Waiting for approval**, **Approved, not sent**, **Sent to Charles River**, **Partly filled**, **Filled and booked** (last 30 days), with orders, gross amount and how much is filled. Click a list to open it.
+2. **Coming up** lists each date with open orders (tranches included) and the buys and sells due.
+
+![The order blotter](img/guide/trd-33-blotter.png)
+*Image: `trd-33-blotter.png`*
+
+3. **Orders** is the blotter: one row per order or tranche with quantity, filled quantity, destination and status. Type in the filter to find a security, fund or list; choose **Include filled and cancelled** to see everything.
 
 ### 10.11 Routing & settings
 **Where:** Trading → **Routing & settings**.
@@ -906,7 +941,7 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 2. Type one reason; it is recorded with every change made on this tab.
 3. **Glide path** (needs Investment Committee approval; same as 3.6):
    - Add one or more shifts: asset class, ± pp, funded from another asset class.
-   - Click **Preview**. For each fund: the IPS glide path, the current one and the new one, and whether it stays inside the IPS bands.
+   - Click **Preview**. For each fund: its base glide path (the IPS path, or the named path it follows, 13.4), the current one and the new one, and whether it stays inside the IPS bands around the base path.
 
 ![Glide-path preview](img/guide/trd-18-glide-preview.png)
 *Image: `trd-18-glide-preview.png`*
@@ -1065,7 +1100,64 @@ Annual and semiannual obligations (N-CEN, shareholder reports, the CCO report, 1
 
 ---
 
-## 13. Not built yet
+## 13. Policy: the IPS and glide paths (doc 07)
+**Who:** everyone can read. PMs, Compliance, Risk and Leadership propose changes. Investment Committee members and the CCO approve. **Where:** app bar → **Policy**.
+
+### 13.1 Read the IPS and earlier versions
+![The IPS with its versions](img/guide/pol-01-ips.png)
+*Image: `pol-01-ips.png`*
+
+1. **Investment Policy Statement** shows the current version. **Versions** on the left lists every version with its status (**Current**, **Waiting for approval**, **Superseded**, **Rejected**, **Withdrawn**), summary, drafter and date.
+2. Click a version. **Read** shows the text; **Redline vs version n** shows what changed from the version before it (red removed, green added, long unchanged stretches folded). **Download** saves the text.
+
+### 13.2 Propose a change to the IPS
+1. Click **Propose a change** (only when no other version is waiting).
+2. Edit the text, write what changes and why, and say whether it **changes a limit or rule the engine checks**. Click **Preview changes** to see the redline, then **Submit for approval**.
+3. The current version stays in force until the new one is approved. You can **Withdraw draft** while it waits.
+
+If the change alters a limit or rule, the policy file (`policies/target_date_series.yaml`) must change too before the rule engine enforces it; the version carries a **Changes engine rules** flag so nobody misses it.
+
+### 13.3 Approve an IPS version (Investment Committee and CCO)
+![Approving with the redline open](img/guide/pol-02-ips-redline.png)
+*Image: `pol-02-ips-redline.png`*
+
+1. Open the waiting version (or click it in **My work**). Read the redline.
+2. Click **Approve as Investment Committee** or **Approve as CCO**, type a reason and confirm. Or **Reject**.
+
+**You're done when** both approvals are recorded: the version becomes **Current** and the old one **Superseded**. The two approvals must come from two different people, neither of them the drafter.
+
+### 13.4 Glide paths
+![The glide-path library](img/guide/pol-03-glide-paths.png)
+*Image: `pol-03-glide-paths.png`*
+
+- **Glide paths** lists the IPS glide path (set in the policy file, read-only here) and every named path: version, equity at 40, 0 and −7 years, the largest gap to the IPS path, and how many funds follow it. Click one for its chart (against the IPS path), its anchor table and its versions.
+- **Which path each fund follows** lists every fund.
+
+**Create or change a path.** Click **New glide path** (starts from the IPS path), **Copy to a new path**, or **Propose a new version** on a named path.
+
+![Editing the anchors of a new path](img/guide/pol-04-new-path.png)
+*Image: `pol-04-new-path.png`*
+
+1. Give it a name and description. Edit the anchors: one row per number of years to the target date (negative = after it) with each asset class in %. Each row must total 100 (the Total turns red if not). **Add a row** or **×** to remove one. The chart shows the draft's equity share against the IPS path.
+2. Click **Submit for approval** and give the reason.
+
+**Move funds to a path.** Tick the funds, choose the path, click **Request change** and give a reason.
+
+**Approve (Investment Committee).**
+
+![A path waiting for the committee](img/guide/pol-05-path-approval.png)
+*Image: `pol-05-path-approval.png`*
+
+Open **Glide paths** (or click the item in **My work**). Requests waiting are at the top with the reason and the largest gap to the IPS path. Click **Approve** or **Reject** and give a reason. You can't decide your own request.
+
+**What changes when a fund moves to a path:** its Neutral table and following Strategic tables, the glide-path preview, the IPS check on trade lists and the next agent run all use the fund's path. The IPS bands (±3pp per asset class, ±5pp equity) sit around the fund's path, and approved glide-path adjustments (10.12) are added on top. A new version of a path takes effect for every fund on it when approved.
+
+### 13.5 Change log
+Every proposal, approval, rejection and withdrawal, from the governance ledger (`policy_change` records).
+
+---
+
+## 14. Not built yet
 Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · replay of an approver's screen · due diligence workflow · CMA forecast-vs-realized · derivatives, in-kind redemptions, mandates, margin and capital calls (doc 17 Phase F) · Charles River API and results coming back automatically.
 
 ---

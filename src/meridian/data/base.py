@@ -22,6 +22,8 @@ CANONICAL = {
     # look-through holdings of each building-block fund; weight = fraction of that fund (decimal).
     # Optional columns: ticker, asset_class, sector, country, duration, lines (positions aggregated)
     "holdings.lookthrough": ["asset_id", "fund_ticker", "date", "security_id", "name", "weight"],
+    # company financials as filed with the SEC (EDGAR XBRL); USD unless noted, shares in shares
+    "fundamentals.edgar": ["ticker", "cik", "date"],
 }
 
 
@@ -34,6 +36,7 @@ MERGE_KEYS = {
     "yields.current": ["asset_id"],
     "fund.characteristics": ["asset_id"],
     "holdings.lookthrough": ["asset_id", "fund_ticker", "security_id"],
+    "fundamentals.edgar": ["ticker"],
 }
 TIME_SERIES = {"returns.monthly"}
 

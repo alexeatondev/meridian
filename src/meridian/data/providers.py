@@ -269,9 +269,10 @@ SOURCE_TYPES = {
 
 
 def build_source(name: str, cfg: dict, connections: dict) -> DataSource:
+    from .edgar import EdgarSource
     from .public import CsvUrlSource, FredSource, IsharesSource, ManualSource, TreasurySource, YahooSource
     public = {"fred": FredSource, "yahoo": YahooSource, "manual": ManualSource, "csv_url": CsvUrlSource,
-              "treasury": TreasurySource, "ishares": IsharesSource}
+              "treasury": TreasurySource, "ishares": IsharesSource, "sec_edgar": EdgarSource}
     if cfg.get("provider") in public:
         return public[cfg["provider"]](name, cfg, connections)
     if cfg.get("transport") == "snowflake":
