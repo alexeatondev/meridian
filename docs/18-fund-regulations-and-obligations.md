@@ -1,6 +1,6 @@
 # 18 — Fund Regulations & Obligations
 
-**Version 0.1 · 2026-11-10 · Status: built and live (Regulations screen, `/regulations`). Citations, limits and due dates are a design aid: the CCO and counsel must confirm them before production.**
+**Version 0.2 · 2026-11-18 (fiscal year ends per fund) · Status: built and live (Regulations screen, `/regulations`). Citations, limits and due dates are a design aid: the CCO and counsel must confirm them before production.**
 
 ## 1. What it does
 Any fund or portfolio can be tagged with the regulations it is subject to, such as **ACT 40** (Investment Company Act of 1940), ERISA or UCITS. Domestic (US) and international (ex-US) regulations can be combined on the same fund. Tagging a fund switches on, for that fund only:
@@ -41,14 +41,26 @@ New regulations, controls and obligations are added in the YAML file and go thro
 | Remove a regulation (lowers controls) | **Chief Compliance Officer permission** only, with a reason; open obligations are cancelled |
 | Assign, start, note and complete obligations | Compliance, Risk, Leadership, PM; completion needs evidence (≥ 10 characters) |
 | Waive an obligation | Chief Compliance Officer permission only |
+| Set a fund's fiscal year end | Compliance, with a reason (one fund or many at once) |
 
-Every step is a governance ledger record (`dr_type` "regulation": `regulation.tag`, `regulation.remove`, `obligation.assign|start|note|complete|waive`). Escalations appear in the console's Exceptions tab with source "obligation".
+Every step is a governance ledger record (`dr_type` "regulation": `regulation.tag`, `regulation.remove`, `obligation.assign|start|note|complete|waive`, `fund.fiscal_year_end`). Escalations appear in the console's Exceptions tab with source "obligation".
+
+## 3a. Fiscal year ends (built 2026-11-18)
+Each fund has a fiscal year end (a month end; default December 31), set on **Regulations → Funds** by ticking funds and choosing **Fiscal year ends**. Which obligations follow it is set per obligation in the library (`basis`):
+
+| Obligations | Periods |
+|---|---|
+| Annual and semiannual (e.g. Form N-CEN, N-CSR shareholder reports, 38a-1 CCO report, 15(c), Form 5500, OCC audit, UCITS annual and half-yearly reports) | The fund's fiscal year and half-years. Labels read "FY to Sep 2027" or "Half-year to Mar 2027" when the year doesn't end in December |
+| Quarterly obligations marked `basis: fiscal` (the RIC diversification test, ICA-RIC) | Fiscal quarters |
+| Everything marked `basis: calendar` (the CFTC 4.5 annual affirmation) and other monthly, quarterly and daily obligations | Calendar periods |
+
+Changing a fund's fiscal year end moves its **open** fiscal obligations: each becomes the fiscal period that has just ended if its report is still due, otherwise the period running now. Done, waived and calendar-based obligations are not changed. Each moved obligation's history shows the old and new period and due date, and the change is one `fund.fiscal_year_end` record listing every fund and obligation moved. Because a just-ended year whose due date has already passed moves to the current year, check after a change whether that report was filed. New tags and the next occurrence of a completed obligation use the fund's fiscal year automatically. The library tab shows each obligation's basis.
 
 ## 4. How controls reach trading
 `_compliance` in the Trading API runs the IPS rules and then every control of every regulation tagged on the fund against post-trade weights. Each trade list shows the IPS result and the regulation result separately, and lists each failing control with its measured value and limit. Instrument attributes used: `affiliated` (Meridian funds), `ucits` (none today), `government`, `liquidity`, `issuer` (defaults in `config/trading.yaml`).
 
 ## 5. Open points for the CCO and counsel
 1. Confirm each regulation's controls, citations, due dates and owners before production.
-2. Fiscal year ends: annual and semiannual obligations use calendar periods today; per-fund fiscal year ends can be added.
+2. Fiscal year ends: built (§3a). Confirm each fund's fiscal year end, and which obligations follow the fiscal year rather than the calendar (`basis` in the library; today only the CFTC 4.5 affirmation is pinned to the calendar and only the RIC test uses fiscal quarters).
 3. Whether the target-date CITs need ERISA, the OCC rule, or both (and whether `bank_cit` applies at firm level).
 4. Whether any fund will rely on Rule 12d1-4 (set per fund when tagging ACT 40).

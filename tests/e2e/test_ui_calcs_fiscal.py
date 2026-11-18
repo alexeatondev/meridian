@@ -1,4 +1,4 @@
-"""UAT-TRD-25/26 (calculation templates) and REG-7 (fiscal year ends), 2026-11-18."""
+"""UAT-TRD-26/27 (calculation templates) and REG-7 (fiscal year ends), 2026-11-18."""
 from playwright.sync_api import expect
 
 from conftest import trade_create, trade_preview, trade_setup, trading_tab
@@ -10,8 +10,8 @@ def _toast(page, text):
     expect(page.locator("#mtoasts")).to_contain_text(text, timeout=8000)
 
 
-def test_trd_25_calculation_tranches_a_trade_list(sign_in, app_url):
-    """TRD-25: run the seeded 'Sell 20% a day' template over a draft list with sells: preview, apply, recorded."""
+def test_trd_26_calculation_tranches_a_trade_list(sign_in, app_url):
+    """TRD-26: run the seeded 'Sell 20% a day' template over a draft list with sells: preview, apply, recorded."""
     page = sign_in("Maya Chen", "portfolio_manager", "approver")
     page.goto(app_url + "/trading")
     trading_tab(page, "Cashflows")
@@ -40,8 +40,8 @@ def test_trd_25_calculation_tranches_a_trade_list(sign_in, app_url):
     page.click("#veh button:text-is('All funds')")
 
 
-def test_trd_26_template_needs_a_second_person(sign_in, app_url):
-    """TRD-26: an analyst proposes a template; it isn't usable until a risk user with Approver approves it."""
+def test_trd_27_template_needs_a_second_person(sign_in, app_url):
+    """TRD-27: an analyst proposes a template; it isn't usable until a risk user with Approver approves it."""
     page = sign_in("Priya Raman", "analyst")
     page.goto(app_url + "/trading")
     trading_tab(page, "Routing & settings")

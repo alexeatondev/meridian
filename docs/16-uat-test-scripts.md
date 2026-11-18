@@ -1,6 +1,6 @@
 # 16 — User Acceptance Test (UAT) Scripts
 
-**Version 0.7 · 2026-11-13 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
+**Version 0.8 · 2026-11-18 · Phase 3 exit criterion: each persona completes their top three tasks (doc 03).**
 
 One script per role, built from the personas (doc 15). Each step has an expected result and the ID of the automated browser test that checks the same thing. People run the scripts to judge whether the tool is *useful*. The automated tests check, on every request, that it still *works*.
 
@@ -168,6 +168,9 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | TRD-21 | PM: **Trade a security** in MTRS-2040: largest holding → **Trade to weight** +5pp, then −1pp → **See the impact** | +5pp shows **Not enough cash**; −1pp gives a SELL with the asset mix now vs after, target, glide path, Off target and compliance | `test_trd_21` |
 | TRD-22 | PM: **Rebalance to a target** → **Back to the glide path** → MTRS-2070 → **See the impact** | Off target after ≤ before for the fund | `test_trd_22` |
 | TRD-23 | **Start from your goal** → "Get back to the glide path", then "…stay as positioned last night" | Sets up Rebalance → Back to the glide path, then Invest cashflows → Keep the current mix | `test_trd_23` |
+| TRD-26 | PM: redemption of $25m for MTRS-2060 → New trade → Invest cashflows → create the draft → **Tranches** → **Use a calculation** → *Sell 20% a day* → Apply to Fund MTRS-2060 → **Preview**, then **Apply and save** | Preview lists each order with 5 tranches and says nothing is saved; after applying: "Calculations used: Sell 20% a day v1", orders show "1 of 5"; a `trades.tranche_calc` record | `test_trd_26`, `test_calc_templates_governance_and_use_on_trade_list` |
+| TRD-27 | Analyst: Routing & settings → **Calculation templates** → propose "Sell a third a day" (Equal tranches, 3) with a reason; then as Risk with the Approver permission approve it; then try approving your own new version | Proposed: "Not yet approved" and no Approve button for the analyst; Risk approves → "v1 · Sells: 3 equal tranches"; approving your own version is refused (segregation of duties); a retired template can't be used | `test_trd_27`, `test_calc_templates_governance_and_use_on_trade_list` |
+| TRD-28 | Calculation results: liquidity cap of $25,000 a day on a $100,000 sell; a 10%-of-volume cap that would need more days than allowed; Thanksgiving week | 4 tranches none above the cap; the over-limit order stays whole with the reason; dates skip the holiday and weekends | `test_calc_templates_produce_schedules` |
 | TRD-24 | Glide path & bulk changes → All mutual funds → **2050–2070**, then click 2060 off → Preview; then **Clear** → Preview; then pick one fund | 5 funds, then 4 funds and the preview lists 4; Clear shows "Pick at least one vintage" and refuses; one fund hides the vintage buttons | `test_trd_24`, `test_glide_path_scope_by_picked_vintages` |
 | GP-1 | Console → **Glide path** → All CITs → **Clear**, then click 2035, 2055, 2065 → Preview | No From/To boxes; count "3 vintages selected · 3 funds"; preview lists MTRT-2035, -2055, -2065 only | `test_glide_path_vintage_picker` |
 
@@ -181,6 +184,17 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | REG-4 | Tag a CIT with UCITS, then rebalance it | Trade list shows UCITS-55-SINGLE FAIL and approval is blocked | `test_reg_02` |
 | REG-5 | Let an obligation pass its due date | Shown overdue; one exception case opened (console → Exceptions) | API test |
 | REG-6 | Regulation library | US and international regulations with controls, obligations, roles, retention | `test_reg_01` |
+| REG-7 | Compliance: tag MTRS-2065 with ACT 40; tick it; **Fiscal year end** → September 30 → reason → **Set for ticked funds** | "Fiscal year end updated for 1 funds"; the Fiscal year end column and fund detail show September 30; Form N-CEN becomes "FY to Sep 2026" due 2026-12-14 (or the current year if that report's due date has passed); the change log shows `fund.fiscal_year_end` | `test_reg_07`, `test_fiscal_year_end_moves_open_obligations` |
+| REG-8 | After REG-7: complete Form N-CEN; tag the fund with UCITS; try the same fiscal year end again; try a PM | Next N-CEN is "FY to Sep 2027"; UCITS annual report on the September year; repeating says "Nothing changed"; a PM is refused; monthly and calendar-based obligations (N-PORT, CFTC 4.5) never move | `test_fiscal_year_end_moves_open_obligations`, `test_fiscal_year_schedules` |
+
+## GP — Glide-path adjustments reach the agents (Elena Rossi, IC; agent run) · built 2026-11-18 (doc 02 §4b)
+
+| # | Step | Expected result | Auto test |
+|---|---|---|---|
+| GP-2 | IC approves a +1pp US large cap / −1pp core bond shift for All CITs 2050 and 2055; the agent-run workflow pulls `/api/export/policy-overrides` | The export carries `glide_adjustments` for 2050 and 2055 (CIT line only) | `test_export_carries_approved_adjustments_per_line` |
+| GP-3 | Run the agents with an approved 2pp adjustment on 2050 | 2050's glide path moves 2pp; its proposal stays within 3pp of the IPS glide path for every asset class and passes compliance; one `glide-path.adjustments` record; Proposals → 2050 shows **Glide path adjusted**; the board memo lists the adjustment | `test_pipeline_builds_on_adjusted_glide_path` |
+| GP-4 | Mutual fund and CIT adjustments differ for a vintage; PM + Risk approve that vintage's proposal | Run uses the average; Trading → MTRT fund page says the CIT line's own difference was added to the Approved proposal table, and the MTRS fund the opposite | `test_approved_table_adds_each_lines_own_difference` |
+| GP-5 | IPS bands with an adjusted glide path | A 3.5pp tilt passes against the adjusted path but FAILs against the IPS glide path; the engine checks the IPS path | `test_policy_adjusted_neutral_and_band_check` |
 
 ## UX — App bar, My work, Help, messages and confirmations (any persona) · built 2026-11-11 (doc 11)
 
@@ -226,3 +240,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 5 (automated) | 2026-11-11 | Browser + API tests | All + TRD + REG + UX | 135 pass (65 browser) | UX update: app bar, My work, Help, dialogs, messages, keyboard; tests updated for the grouped console tabs |
 | 6 (automated) | 2026-11-13 | Browser + API tests | All + TRD-19 to TRD-23 | 154 pass (78 unit/API, 76 browser) | Trading redesign: New trade builder, goal shortcuts, dry-run impact, cash check; earlier trading and UX scripts moved to the new flow. Guide screenshots regenerated (75) from the same local app |
 | 7 (automated) | 2026-11-13 | Browser + API tests | All + PM-6, ADM-18, TRD-24, TRD-25, GP-1 | 161 pass (82 unit/API, 79 browser) | Approver permission; vintage picker for glide-path and bulk changes; "Portfolios & proposals" renamed "Proposals"; screenshots regenerated |
+| 8 (automated) | 2026-11-18 | Browser + API tests | All + TRD-26 to 28, REG-7, REG-8, GP-2 to GP-5 | 172 pass (90 unit/API, 82 browser) | Calculation templates; glide-path adjustments feed the agents; fiscal year ends. One fix found while testing: changing the calculation kind cleared the name typed so far (fixed). 5 new screenshots |

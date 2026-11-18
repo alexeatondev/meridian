@@ -1,6 +1,6 @@
 # 02 — System Architecture
 
-**Version 0.5 · 2026-11-13 (strategy review by agents §4a; trading impact preview §11)**
+**Version 0.6 · 2026-11-18 (glide-path adjustments feed the agents §4b; calculation templates and fiscal year ends §11)**
 
 ## 1. What we take from the paper, and what we change
 
@@ -82,6 +82,13 @@ schemas/<output>.json # output contracts
 Every agent run emits: JSON outputs (validated against schema), markdown narrative, and a **Decision Record** (doc 05).
 
 **Tool permissions** are declared per agent (read-only data, compute sandbox, web search on/off, no write access outside its run directory). The orchestrator — not the agent — persists outputs.
+
+## 4b. Glide path the agents work against (2026-11-18)
+The IPS glide path is the strategic policy. When the Investment Committee approves an adjustment in the app (Trading → Glide path & bulk changes, within the IPS bands), `/api/export/policy-overrides` carries it as `glide_adjustments` (per vintage, per product line) and the `agent-run` workflow writes it into the policy file before the run. Then, per vintage:
+- **Managed glide path** = IPS glide path + the approved adjustment (`Policy.adjusted_neutral`). Candidates, tracking error, the risk budget and the reported tilt are measured from it.
+- **IPS bands** are still measured from the IPS glide path (`evaluate(..., band_neutral=)`), so the optimizer bounds are the overlap of ±3pp around both paths (equity and growth ±5pp likewise).
+- **Product lines.** The run still builds one proposal per vintage. If mutual funds and CITs carry different adjustments, it uses their average; Trading's Approved-proposal table adds each line's own difference back (`approved_aw_for_fund`).
+- **Records and display.** One `glide-path.adjustments` decision record per run; `neutral`, `neutral_ips` and `glide_adjustment` per vintage in `results.json`; a note on the console's Proposals tab and a table in the board memo.
 
 ## 4a. How agents run today (pilot, 2026-11-11)
 
@@ -215,7 +222,7 @@ GitHub (code, CI, agent-run) ──OIDC──▶ AWS (us-east-2)
                                         CloudFront ─▶ ALB ─▶ ECS Fargate (Meridian app) ─▶ RDS PostgreSQL
                                                                    │
                                                           Cognito · Secrets Manager · CloudWatch
-agent-run: pulls approved positions from the app ─▶ runs the pipeline; judging agents call Claude (§4a) ─▶ publishes run bundle to the app
+agent-run: pulls approved positions, policy overrides and approved glide-path adjustments from the app ─▶ runs the pipeline; judging agents call Claude (§4a) ─▶ publishes run bundle to the app
 ```
 
 ## 10. Security model (agent-specific)
@@ -233,9 +240,10 @@ Cashflows (Excel/CSV upload · hand entry · API from TA/custodian)
 Allocation engine (meridian.trading, deterministic)
   table: previous close | neutral (glide path on the fund's roll-down) | strategic (custom or follows glide path)
   → exits removed → tilts applied → no-target / excluded skipped → pro rata split → ETF cash buffer → lot rounding
+  approved proposal table = run's proposal + this product line's own glide-path difference (§4b)
         │
         ▼
-Trade list (draft, or dry-run preview that stores nothing) ── impact (now vs after: asset mix vs target and glide path, off target) ── IPS engine + regulation controls on post-trade weights ── tranches
+Trade list (draft, or dry-run preview that stores nothing) ── impact (now vs after: asset mix vs target and glide path, off target) ── IPS engine + regulation controls on post-trade weights ── tranches (by hand or from an approved calculation template)
         │ PM approval (checkbox + reason; FAIL blocks)
         ▼
 Charles River import file (mock CSV; one row per order or tranche; destination per security type)
@@ -248,5 +256,7 @@ Fills (file or "mark all filled") ── booked to positions and cash ── pos
 - **Glide path and bulk changes:** settings carry a scope (all funds, all mutual funds, all CITs, one fund, optionally a list of chosen vintages; older entries may carry a vintage range). Glide-path adjustments are asset-class shifts within the IPS bands, applied to the Neutral table only after Investment Committee approval.
 - **Regulations (doc 18):** `regimes/fund_regulations.yaml` (US and international); `src/meridian/regulations.py` (controls, schedules); `src/meridian/app/regulations.py` + `regulations.html` (tags, obligation tasks, escalation to exceptions).
 - **Model:** `config/trading.yaml` (product lines, funds, roll-down schedules, security master, routes, buffer); `src/meridian/trading/` (model, allocation, tilts, tickets, tranches, Charles River rows); `src/meridian/app/trading.py` + `trading.html` (API and screen).
+- **Calculation templates (2026-11-18):** `src/meridian/trading/calcs.py` (kinds: fixed % per period, equal tranches, percentage pattern, liquidity cap on average daily volume or dollars a day; business-day calendar with market holidays). Templates and versions live in the `calcs` trading setting; each version needs a second person's approval; `/api/trading/trade-lists/{id}/calc` (with `dry_run`) applies one to a draft list.
+- **Fiscal year ends (2026-11-18):** `fund_profiles` table per fund; `regulations.period_end/first_task/next_task/reschedule` anchor annual, semiannual and fiscal-quarter obligations on it (doc 18 §3a).
 - **Records:** every load, setting, route change, table change, trade list, approval, tranche plan, cancel and export is a governance ledger record (`dr_type` "trading").
-- **Not yet:** automatic custodian/TA feeds, Charles River API and returns, derivatives, in-kind, mandates, margin, capital calls (doc 17); the agent pipeline does not read glide-path adjustments.
+- **Not yet:** automatic custodian/TA feeds, Charles River API and returns, derivatives, in-kind, mandates, margin, capital calls (doc 17); one proposal per vintage for both product lines (differences handled in trading, §4b).

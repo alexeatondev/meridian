@@ -1,7 +1,7 @@
 # Meridian — Agentic Portfolio Management Platform
 
 **Working product name:** Meridian (rename anytime)
-**Status:** Pilot in shadow mode on real public data; hosted multi-user app live on AWS with role workspaces, User access, exceptions, a Trading screen with a task-based New trade builder and now-vs-after impact view (example positions) and fund-level Regulations · **Doc set version:** 0.7 · **Date:** 2026-11-13
+**Status:** Pilot in shadow mode on real public data; hosted multi-user app live on AWS with role workspaces, User access, exceptions, a Trading screen with a task-based New trade builder, now-vs-after impact view and calculation templates for tranches (example positions) and fund-level Regulations with per-fund fiscal year ends; Investment Committee glide-path adjustments feed the agent runs · **Doc set version:** 0.8 · **Date:** 2026-11-18
 **Code:** https://github.com/alexeatondev/meridian
 **App:** https://d3maw6l4k5cc0v.cloudfront.net (invited users only)
 **Source research:** Ang, Azimbayev & Kim, *The Self-Driving Portfolio: Agentic Architecture for Institutional Asset Management* (SSRN 6504386, April 2026) — `ssrn-6504386.pdf` in this project.
