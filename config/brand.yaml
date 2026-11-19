@@ -38,11 +38,15 @@ themes:
 
   principal:
     # Principal Financial Group, from the public Principal Design System colour tokens (ux.principal.com,
-    # read 2026-11-18): Principal blue #0076CF, Admiral blue #0061A0, Navy #004C97, Dark Prussian #002855,
-    # sky blues, cyan, neutrals Gray 1-7, utility success #00A29B / warning #F76800 / error #C00000,
-    # data orange #FFC82E and purple #9E8BFF. PDS marks success and warning "not for text", so text uses
-    # darker shades of them (derived here for contrast). Brand typeface FS Elliot is licensed by Fontsmith:
-    # it is used if installed or loaded through fonts.css; otherwise the fallbacks apply.
+    # read 2026-11-18): Dark Prussian (navy) #002855, Navy #004C97, Principal blue #0076CF, neutrals
+    # Gray 1 #333333, Gray 2 #616267, Gray 4 #C5C6C5, Gray 5 #E8E8E8, Gray 6 #F6F6F8, utility success
+    # #00A29B / warning #F76800 / error #C00000, data orange #FFC82E and purple #9E8BFF.
+    # Revised 2026-11-19 at the product owner's request: white-first, dark navy as the action colour in place
+    # of Principal blue, blue kept for the keyboard focus ring and one chart series, neutral greys for
+    # highlights, and light mode only (no navy dark mode). PDS marks success and warning "not for text", so
+    # text uses darker shades of them. Every text colour is at least WCAG AA (4.5:1) on every background it
+    # sits on; most body text is AAA (7:1). Brand typeface FS Elliot is licensed by Fontsmith: used if
+    # installed or loaded through fonts.css; otherwise the fallbacks apply.
     label: Principal Financial Group
     product: Meridian
     company: ""
@@ -50,16 +54,11 @@ themes:
     fonts: {body: '"FS Elliot Pro", "FS Elliot", "Helvetica Neue", Arial, sans-serif',
             mono: 'ui-monospace, SFMono-Regular, Menlo, monospace', css: ""}
     radius: {lg: 6px, sm: 4px}
-    colors: {bg: "#F6F6F8", surface: "#FFFFFF", surface-2: "#F0FBFE", line: "#E8E8E8", line-strong: "#C5C6C5",
-             text: "#333333", text-2: "#616267", muted: "#616267", accent: "#0076CF", accent-hover: "#005DB6",
-             accent-ink: "#FFFFFF", ok: "#00756F", ok-bg: "#E0F4F3", warn: "#A84700", warn-bg: "#FEF0E5",
-             crit: "#C00000", crit-bg: "#FBE5E5", info-bg: "#E3F5FD", focus: "#0091DA", heading: "#002855",
-             pos: "#0076CF", neg: "#F76800", off-bg: "#E8E8E8"}
-    dark: {bg: "#000F3C", surface: "#002855", surface-2: "#1A426F", line: "#1A426F", line-strong: "#335B88",
-           text: "#FBFBFB", text-2: "#D2F1FD", muted: "#BBE6FC", accent: "#94D8FA", accent-hover: "#BBE6FC",
-           accent-ink: "#002855", ok: "#5FD3CC", ok-bg: "#0B3A44", warn: "#FFB27A", warn-bg: "#3A2A1A",
-           crit: "#FF8A8A", crit-bg: "#3D1424", info-bg: "#1A426F", focus: "#94D8FA", heading: "#FFFFFF",
-           pos: "#62B5E5", neg: "#FFB27A", off-bg: "#1A426F"}
-    appbar: {bg: "#002855", text: "#FFFFFF", muted: "#D2F1FD", accent: "#94D8FA", mark: "linear-gradient(135deg,#0091DA,#0076CF 55%,#004C97)",
-             badge: "#FFC82E", badge-text: "#002855", badge-crit: "#FF8A8A"}
-    charts: ["#0076CF", "#00C4D9", "#FFC82E", "#9E8BFF", "#004C97", "#62B5E5", "#007FA3", "#616267"]
+    colors: {bg: "#F6F6F8", surface: "#FFFFFF", surface-2: "#F6F6F8", line: "#E8E8E8", line-strong: "#C5C6C5",
+             text: "#333333", text-2: "#4F5055", muted: "#5E5F64", accent: "#002855", accent-hover: "#004C97",
+             accent-ink: "#FFFFFF", ok: "#00706A", ok-bg: "#E6F4F3", warn: "#9E4200", warn-bg: "#FEF1E7",
+             crit: "#B00000", crit-bg: "#FBEAEA", info-bg: "#F0F2F5", focus: "#0076CF", heading: "#002855",
+             pos: "#004C97", neg: "#A84700", off-bg: "#EDEDEF"}
+    appbar: {bg: "#002855", text: "#FFFFFF", muted: "#E8E8E8", accent: "#FFFFFF", mark: "linear-gradient(135deg,#FFFFFF 0 30%,#0076CF 30%)",
+             badge: "#FFC82E", badge-text: "#002855", badge-crit: "#FF9C9C"}
+    charts: ["#002855", "#0076CF", "#FFC82E", "#00A29B", "#9E8BFF", "#F76800", "#616267", "#62B5E5"]
