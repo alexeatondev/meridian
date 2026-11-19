@@ -122,11 +122,14 @@ def test_console_pm(page, app_url):
     shot(p, "pm-12-approvals")
     tab(p, "Glide path")
     shot(p, "pm-13-glide-path")
-    p.select_option("#gpScope", "vehicle:cit")
-    p.select_option("[data-gpi='0'][data-gpk='asset_class']", "us_core_bond")
-    p.select_option("[data-gpi='0'][data-gpk='from']", "us_large_cap")
-    p.fill("[data-gpi='0'][data-gpk='pp']", "0.5")
-    p.dispatch_event("[data-gpi='0'][data-gpk='pp']", "change")
+    for v, cells in {"2030": {"cash": "0.5", "us_core_bond": "-0.5"},
+                     "2050": {"us_core_bond": "0.5", "us_large_cap": "-0.5"},
+                     "2055": {"us_core_bond": "0.5", "us_large_cap": "-0.5"},
+                     "2060": {"us_tips_short": "0.25", "intl_developed_eq": "-0.25"}}.items():
+        for a, x in cells.items():
+            p.fill(f"[data-gpr='vintage:{v}'][data-gpa='{a}']", x)
+    top(p, "#gpTableCard")
+    shot(p, "pm-15-glide-table")
     p.click("#gpPrev")
     p.wait_for_selector("#gpSubmit")
     p.fill("#gpReason", R)
@@ -428,16 +431,9 @@ def test_bulk_changes(page, app_url):
     p.select_option("#bkScope", "vehicle:cit")
     p.click("[data-bkvset='near']")
     p.fill("#bkReason", R)
-    p.select_option("[data-sha='0']", "us_large_cap")
-    p.select_option("[data-shf='0']", "us_core_bond")
-    p.fill("[data-shp='0']", "1.5")
-    p.click("#gpPrev")
-    p.wait_for_selector("#gpPreview table")
     shot(p, "trd-17-glide-path")
-    p.locator("#gpPreview").scroll_into_view_if_needed()
-    shot(p, "trd-18-glide-preview")
-    p.click("#gpReq")
-    p.wait_for_timeout(900)
+    api(p, "POST", "/api/trading/glide-path/requests", {"kind": "table", "reason": R, "rows": [
+        {"fund_id": f"MTRT-{v}", "deltas": {"us_large_cap": 1.5, "us_core_bond": -1.5}} for v in (2030, 2035, 2040, 2045)]})
     p = go(page, app_url, "Elena Rossi", "leadership", "investment_committee", email="elena.rossi@example.com")
     p.goto(app_url + "/trading")
     p.click(".tabs button:text-is('Glide path & bulk changes')")
@@ -449,6 +445,18 @@ def test_bulk_changes(page, app_url):
     p.click(".tabs button:text-is('Glide path & bulk changes')")
     p.locator("#bkTiGo").scroll_into_view_if_needed()
     shot(p, "trd-20-bulk-tilts")
+    p.click("#veh button:text-is('Mutual funds')")
+    p.click(".tabs button:text-is('Tilts')")
+    p.wait_for_selector(".tg input[data-tg]")
+    for fid, vals in {"MTRS-2040": ["0.5", "-0.25"], "MTRS-2050": ["0.5", "-0.25"], "MTRS-2060": ["0.3"]}.items():
+        for k, v in enumerate(vals):
+            p.fill(f"[data-tg^='{fid}|'] >> nth={k}", v)
+    shot(p, "trd-35-tilts-table")
+    p.click("#tgPrev")
+    p.wait_for_selector("#tgSave")
+    top(p, "#tgOut")
+    shot(p, "trd-36-tilts-preview")
+    p.click("#veh button:text-is('All funds')")
 
 
 def test_navigation_and_feedback(page, app_url):

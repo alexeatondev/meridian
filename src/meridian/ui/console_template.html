@@ -92,6 +92,10 @@ ol.story{margin:0;padding-left:20px}ol.story li{margin:6px 0}
 .ltsug div{padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line)}.ltsug div.act,.ltsug div:hover{background:var(--info-bg)}
 .selbar{display:flex;gap:10px;align-items:center;margin:10px 0 4px;padding:8px 10px;border:1px solid var(--accent);border-radius:var(--radius-sm,8px);background:var(--info-bg)}
 details.card>summary{cursor:pointer}
+.gpt td,.gpt th{padding:4px 5px;white-space:nowrap}.gpt td.gpc{padding:2px 3px}.gpt input{width:54px;padding:4px 4px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,6px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
+.gpt input:focus{outline:2px solid var(--focus,#2f6bc1);outline-offset:0}.gpt input::placeholder{color:var(--muted);opacity:.7}.gpt td.gpchg{background:var(--info-bg)}.gpt td.gpbad{background:var(--crit-bg);color:var(--crit)}.nowrap{white-space:nowrap}
+.gpgrid{overflow-x:auto;max-width:100%}.gpgrid .gpt th:first-child,.gpgrid .gpt td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+.gpt input{-moz-appearance:textfield;appearance:textfield}.gpt input::-webkit-outer-spin-button,.gpt input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 </style>
 </head>
 <body>
@@ -184,17 +188,6 @@ function renderShell(){
 
 // --------------------------------------------------------------- views
 const V = {};
-// glide-path scope: which vintages (all selected = no restriction)
-function gpSel(){ if(!state.gpVint) state.gpVint=VINT.slice(); return state.gpVint; }
-function gpScopeFunds(){ const sc=$('#gpScope')?$('#gpScope').value:((state.gpScopeSel||{}).scope||'*'), vs=gpSel();
-  return (FUNDS||[]).filter(f=>(sc==='*'||sc===f.id||sc==='vehicle:'+f.vehicle)&&(sc===f.id||vs.includes(f.vintage))); }
-function gpVintPicker(){ const vs=gpSel(), sc=(state.gpScopeSel||{}).scope||'*', one=!['*','vehicle:mutual_fund','vehicle:cit'].includes(sc);
-  if(one) return `<label class="small">2. Vintages</label><div class="small muted" style="padding-top:8px">One fund chosen, so its own vintage applies.</div>`;
-  const n=gpScopeFunds().length;
-  return `<label class="small" id="gpVlab">2. Vintages <span class="muted">(click to include or leave out)</span></label>
-   <div class="vpick" role="group" aria-labelledby="gpVlab">${VINT.map(v=>`<button type="button" class="vchip ${vs.includes(v)?'on':''}" aria-pressed="${vs.includes(v)}" data-gpv="${v}">${v}</button>`).join('')}
-   <button type="button" class="btn small" data-gpvset="all">All</button><button type="button" class="btn small" data-gpvset="near">2030–2045</button><button type="button" class="btn small" data-gpvset="far">2050–2070</button><button type="button" class="btn small" data-gpvset="none">Clear</button></div>
-   <div class="small ${vs.length?'muted':'neg'}" id="gpVcount">${vs.length?`${vs.length===VINT.length?'All':vs.length} vintage${vs.length===1?'':'s'} selected · ${n} fund${n===1?'':'s'} in scope`:'Pick at least one vintage'}</div>`; }
 function vintageTabs(){return `<div class="vt-tabs" role="tablist">${VINT.map(v=>`<button class="${v===state.vintage?'active':''}" data-vt="${v}">${v}</button>`).join('')}</div>`}
 
 function approvalForm(v,roleName){
@@ -927,7 +920,7 @@ function attention(opts){
     else wait.forEach(v=>out.push({kind:'Proposal',title:`${v} proposal awaits your approval as ${roleName(role.approverRole)}`,detail:summaryLine(v),go:{tab:'portfolios',v}})); }
   if(LIVE){ (D.change_requests||[]).filter(c=>c.status==='pending').forEach(c=>{ const mine=c.required_approvals.filter(rl=>holdsAuth(rl)&&!c.approvals.some(a=>a.role===rl));
       if(mine.length) out.push({kind:'Risk budget',title:`Risk budget change ${c.id}: ${c.target.vintage} from ${pct(c.current,2)} to ${pct(c.proposed,2)}`,detail:`Requested by ${esc(c.requested_by.name)}: ${esc(c.reason)}. Needs your decision as ${mine.map(roleName).join(' and ')}.`,go:{tab:'riskbudget'}}); });
-    if(LIVE.can_glide_decide&&PR) (PR.glide.requests||[]).filter(r=>r.status==='pending').forEach(r=>out.push({kind:'Glide path',title:`Glide-path ${r.kind==='retire'?'retirement':'change'} ${r.id} for ${esc(r.scope_label)}`,detail:`${gpShiftText(r.shifts)}. ${r.funds.length} funds. Requested by ${esc(r.requested_by.name)}: ${esc(r.reason)}.`,go:{tab:'glide'}}));
+    if(LIVE.can_glide_decide&&PR) (PR.glide.requests||[]).filter(r=>r.status==='pending').forEach(r=>out.push({kind:'Glide path',title:`Glide-path ${r.kind==='retire'?'retirement':'change'} ${r.id} for ${esc(r.scope_label)}`,detail:`${r.rows?r.rows.length+' funds changed in a table':gpShiftText(r.shifts)}. ${r.funds.length} funds. Requested by ${esc(r.requested_by.name)}: ${esc(r.reason)}.`,go:{tab:'glide'}}));
     const ex=(LIVE.exceptions||[]).filter(c=>['open','in_progress'].includes(c.status));
     if(ex.length&&role.tabs.includes('exceptions')) out.push({kind:'Exceptions',title:`${ex.length} open exception case${ex.length>1?'s':''}`,detail:ex.slice(0,3).map(c=>esc(c.title||c.rule_id||c.id)).join(' · '),go:{tab:'exceptions'}}); }
   const warn=VINT.filter(v=>{const r=R.vintages[v].risk;return r&&r.used_pct>=(r.warn_at||0.8)});
@@ -1101,7 +1094,7 @@ V.approvals = () => {
   <div class="scroll" style="max-height:none"><table><tr><th>Vintage</th><th>Funds affected</th><th>Summary</th><th>Approvals</th><th>Status</th></tr>${props}</table></div></div>
   <div class="grid g2" style="margin-top:14px">
    <div class="card"><h2>Risk budget changes</h2>${crs.length?`<table><tr><th>Request</th><th>Change</th><th>Why</th><th>Needs</th></tr>${crs.map(c=>`<tr class="click" data-go="riskbudget"><td class="mono small">${esc(c.id)}</td><td>${esc(c.target.vintage)}: ${pct(c.current,2)} → ${pct(c.proposed,2)}</td><td class="small">${esc(c.reason)} — ${esc(c.requested_by.name)}</td><td class="small">${c.required_approvals.filter(r=>!c.approvals.some(a=>a.role===r)).map(roleName).join(', ')}</td></tr>`).join('')}</table>`:'<div class="muted small">No pending requests.</div>'}</div>
-   <div class="card"><h2>Glide-path changes</h2>${gps.length?`<table><tr><th>Request</th><th>Change</th><th>Why</th><th>Needs</th></tr>${gps.map(r=>`<tr class="click" data-go="glide"><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpShiftText(r.shifts)}</td><td class="small">${esc(r.reason)} — ${esc(r.requested_by.name)}</td><td class="small">Investment Committee</td></tr>`).join('')}</table>`:`<div class="muted small">${PR?'No pending requests.':'Available in the hosted app.'}</div>`}</div></div>
+   <div class="card"><h2>Glide-path changes</h2>${gps.length?`<table><tr><th>Request</th><th>Change</th><th>Why</th><th>Needs</th></tr>${gps.map(r=>`<tr class="click" data-go="glide"><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpReqText(r)}</td><td class="small">${esc(r.reason)} — ${esc(r.requested_by.name)}</td><td class="small">Investment Committee</td></tr>`).join('')}</table>`:`<div class="muted small">${PR?'No pending requests.':'Available in the hosted app.'}</div>`}</div></div>
   ${cmds?`<div class="card" style="margin-top:14px"><h2>Commands to record your decisions</h2><pre>${esc(cmds)}</pre></div>`:''}`;
 };
 
@@ -1113,16 +1106,8 @@ V.glide = () => {
   const today=PR?VINT.map(v=>{const fm=vFunds(v,'mutual_fund')[0], fc=vFunds(v,'cit')[0], x=R.vintages[v];
     const c=f=>f?`${pct(grpW(f.glide,P.groups.equity))}${f.glide_adjusted?' <span class="chip warn">adj.</span>':''}`:'—';
     return `<tr><td>${v}</td><td class="num">${x.years_to_target.toFixed(1)}</td><td class="num">${pct(x.equity_neutral)}</td><td class="num">${c(fm)}</td><td class="num">${c(fc)}</td><td class="num small">${fm?pct(grpW(fm.glide,P.groups.fixed_income)):'—'} / ${fc?pct(grpW(fc.glide,P.groups.fixed_income)):'—'}</td><td class="num small">${fm?pct(grpW(fm.glide,P.groups.real_assets)):'—'} / ${fc?pct(grpW(fc.glide,P.groups.real_assets)):'—'}</td></tr>`}).join(''):'';
-  const scopeOpts=[['*','All funds'],['vehicle:mutual_fund','All mutual funds'],['vehicle:cit','All CITs']].concat(FUNDS.map(f=>[f.id,`${f.id} (${VEH_SHORT[f.vehicle]} ${f.vintage})`]));
-  const aOpts=sel=>P.assets.map(a=>`<option value="${a}" ${a===sel?'selected':''}>${esc(nm(a))}</option>`).join('');
-  const form=canReq?`<div class="card" style="margin-top:14px"><h2>Propose a glide-path adjustment</h2>
-    <p class="small muted">Move weight between asset classes on the glide path for a set of funds. It must stay inside the IPS bands (±3pp per asset class, ±5pp total equity from the IPS glide path); anything larger needs an IPS amendment. The Investment Committee approves it, and the requester can't approve their own request.</p>
-    <div class="grid g3"><div><label class="small" for="gpScope">1. Apply to</label><select id="gpScope">${scopeOpts.map(([k,l])=>`<option value="${esc(k)}">${esc(l)}</option>`).join('')}</select></div>
-     <div style="grid-column:span 2">${gpVintPicker()}</div></div>
-    <h3>Moves</h3>${state.gpShifts.map((s,i)=>`<div class="row" style="margin-bottom:6px"><span class="small">Move</span><input type="number" step="0.25" value="${s.pp}" data-gpi="${i}" data-gpk="pp" style="width:90px"><span class="small">pp into</span><select data-gpi="${i}" data-gpk="asset_class" style="width:auto">${aOpts(s.asset_class)}</select><span class="small">from</span><select data-gpi="${i}" data-gpk="from" style="width:auto">${aOpts(s.from)}</select>${state.gpShifts.length>1?`<button class="btn" data-gpdel="${i}">Remove</button>`:''}</div>`).join('')}
-    <div class="row"><button class="btn" id="gpAdd">Add a move</button><button class="btn primary" id="gpPrev">Preview</button></div>
-    <div id="gpOut">${state.gpPrev?gpPreviewHtml(state.gpPrev):''}</div></div>`
-    :`<div class="card" style="margin-top:14px"><h2>Propose a glide-path adjustment</h2><p class="small muted">${LIVE?'Portfolio managers and analysts can propose adjustments here; the Investment Committee approves them.':'Available in the hosted app.'}</p></div>`;
+  const form=canReq?`<div class="card" style="margin-top:14px" id="gpTableCard">${gpTableHtml()}</div>`
+    :`<div class="card" style="margin-top:14px"><h2>Propose glide-path changes</h2><p class="small muted">${LIVE?'Portfolio managers and analysts can propose changes here; the Investment Committee approves them.':'Available in the hosted app.'}</p></div>`;
   return `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)})</h2>
   <p class="small muted">The glide path sets each vintage's long-term mix as it approaches its target date. The agents' proposals tilt around it within the IPS bands. Approved adjustments below change the glide path used for the funds in their scope.</p>
   <div class="legend">${[['Equity','--s1'],['Real assets','--s2'],['Fixed income','--s3'],['Cash','--s4']].map(([l,c])=>`<span><i style="background:var(${c})"></i>${l}</span>`).join('')}<span class="muted">· dots mark each vintage today</span></div>
@@ -1131,20 +1116,62 @@ V.glide = () => {
    <table><tr><th>Vintage</th><th class="num">Yrs to target</th><th class="num">Equity, IPS (this run)</th><th class="num">Equity, mutual fund</th><th class="num">Equity, CIT</th><th class="num">Fixed income MF / CIT</th><th class="num">Real assets MF / CIT</th></tr>${today}</table></div>`:''}
   <div class="grid g2" style="margin-top:14px">
    <div class="card"><h2>Approved adjustments in force</h2>${act.length?`<table><tr><th>ID</th><th>Applies to</th><th>Moves</th><th>Approved by</th>${canReq?'<th></th>':''}</tr>${act.map(a=>`<tr><td class="mono small">${esc(a.id)}</td><td class="small">${esc(a.scope_label)} (${a.funds.length} funds)</td><td class="small">${gpShiftText(a.shifts)}</td><td class="small">${esc((a.approved_by||{}).name||'')}</td>${canReq?`<td><button class="btn" data-gpretire="${esc(a.id)}">Request removal</button></td>`:''}</tr>`).join('')}</table>`:'<div class="muted small">None. Every fund follows the IPS glide path.</div>'}</div>
-   <div class="card"><h2>Requests awaiting the Investment Committee</h2>${pend.length?pend.map(r=>`<div class="att"><span class="chip warn">${esc(r.kind==='retire'?'removal':'change')}</span><div><b class="mono">${esc(r.id)}</b> ${esc(r.scope_label)} (${r.funds.length} funds)<div class="small">${gpShiftText(r.shifts)}</div><div class="small muted">${esc(r.reason)} — ${esc(r.requested_by.name)}</div>
+   <div class="card"><h2>Requests awaiting the Investment Committee</h2>${pend.length?pend.map(r=>`<div class="att"><span class="chip warn">${esc(r.kind==='retire'?'removal':'change')}</span><div><b class="mono">${esc(r.id)}</b> ${esc(r.scope_label)} (${r.funds.length} funds)<div class="small">${gpReqText(r)}</div><div class="small muted">${esc(r.reason)} — ${esc(r.requested_by.name)}</div>
      ${canDec?`<textarea rows="2" id="gpr-${esc(r.id)}" placeholder="Reason for your decision" style="margin:6px 0"></textarea><div class="row"><button class="btn primary" data-gpdec="approve" data-gpid="${esc(r.id)}">Approve</button><button class="btn" data-gpdec="reject" data-gpid="${esc(r.id)}">Reject</button></div>`:''}</div></div>`).join(''):'<div class="muted small">None pending.</div>'}
-     ${past.length?`<h3>Recent decisions</h3><table>${past.map(r=>`<tr><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpShiftText(r.shifts)}</td><td>${chip(r.status)}</td></tr>`).join('')}</table>`:''}</div></div>
+     ${past.length?`<h3>Recent decisions</h3><table>${past.map(r=>`<tr><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpReqText(r)}</td><td>${chip(r.status)}</td></tr>`).join('')}</table>`:''}</div></div>
   ${form}
   <p class="small muted" style="margin-top:10px">Approved adjustments apply now to the funds' glide-path (Neutral) trading targets. The agents' proposals in a run are measured against the IPS glide path shown in the run.</p>
   <details class="card" style="margin-top:14px"><summary><b>Glide path anchors (% of fund)</b></summary><div class="scroll"><table><tr><th class="num">Yrs to target</th>${GROUPS.map(([g])=>`<th class="num">${g}</th>`).join('')}${P.assets.map(a=>`<th class="num small">${esc(nm(a))}</th>`).join('')}</tr>${P.anchors.map(r=>{const w={};P.assets.forEach((a,i)=>w[a]=r[i+1]/100);return `<tr><td class="num">${r[0]}</td>${GROUPS.map(([g,as])=>`<td class="num"><b>${pct(grpW(w,as))}</b></td>`).join('')}${r.slice(1).map(x=>`<td class="num small">${x}</td>`).join('')}</tr>`}).join('')}</table></div></details>`;
 };
+// Glide-path change table: rows (vintages, a product line's funds, or each fund) x asset classes.
+// Cells hold the change in pp, or the new weight in %; every fund in a row gets the same change (pp) or the
+// same new weight (%). Submitted as one request; the Investment Committee approves it in one decision.
+const GP_ABBR={us_large_cap:'US large',us_small_mid_cap:'US SMID',intl_developed_eq:'Intl dev',emerging_eq:'EM eq',global_reits:'REITs',commodities:'Commod.',us_core_bond:'Core bond',us_long_treasury:'Long Tsy',us_tips_short:'ST TIPS',us_high_yield:'High yield',intl_bond_hedged:'Intl bond',em_debt:'EM debt',cash:'Cash'};
+const gpAb=a=>GP_ABBR[a]||nm(a);
+function gpT(){ if(!state.gpT) state.gpT={rows:'vintage', mode:'pp', cells:{}, prev:null}; return state.gpT; }
+function gpRows(){ const T=gpT();
+  if(T.rows==='fund') return FUNDS.slice().sort((a,b)=>a.vintage-b.vintage||a.vehicle.localeCompare(b.vehicle)).map(f=>({key:f.id,label:f.id,sub:VEH_SHORT[f.vehicle],funds:[f]}));
+  return VINT.map(v=>{const fs=FUNDS.filter(f=>f.vintage===v&&(T.rows==='vintage'||f.vehicle===T.rows));
+    return {key:T.rows+':'+v,label:String(v),sub:T.rows==='vintage'?fs.map(f=>VEH_SHORT[f.vehicle]).join(' + '):VEH_SHORT[T.rows],funds:fs}}).filter(r=>r.funds.length); }
+const gpCur=(f,a)=>(f.glide||{})[a]||0;
+function gpRowCur(r,a){ return r.funds.reduce((t,f)=>t+gpCur(f,a),0)/r.funds.length; }
+function gpFundDeltas(){ const T=gpT(), out={};          // fund -> {asset: pp}
+  gpRows().forEach(r=>{const c=T.cells[r.key]||{};
+    r.funds.forEach(f=>{const d={};P.assets.forEach(a=>{const v=c[a]; if(v===''||v==null||isNaN(+v)) return;
+      const pp=T.mode==='pp'?+v:(+v)-gpCur(f,a)*100; if(Math.abs(pp)>1e-9) d[a]=Math.round(pp*10000)/10000});
+      if(Object.keys(d).length) out[f.id]=Object.assign(out[f.id]||{},d)})});
+  return out; }
+function gpRowNet(r){ const T=gpT(), c=T.cells[r.key]||{};
+  if(T.mode==='pp') return P.assets.reduce((t,a)=>t+(+c[a]||0),0);
+  return P.assets.reduce((t,a)=>t+((c[a]===''||c[a]==null)?gpRowCur(r,a)*100:+c[a]),0)-100; }
+function gpTableHtml(){ const T=gpT(), rows=gpRows(), eq=P.groups.equity;
+  const seg=(k,opts)=>`<span class="seg" role="group">${opts.map(([v,l])=>`<button type="button" class="btn ${T[k]===v?'primary':''}" data-gpt="${k}" data-v="${v}">${l}</button>`).join('')}</span>`;
+  const head=`<tr><th>${T.rows==='fund'?'Fund':'Vintage'}</th>${P.assets.map(a=>`<th class="num" title="${esc(nm(a))}">${esc(gpAb(a))}</th>`).join('')}<th class="num" title="Changes must net to zero">Net</th><th class="num">Equity after</th></tr>`;
+  const body=rows.map(r=>{const c=T.cells[r.key]||{}, net=gpRowNet(r), touched=P.assets.some(a=>c[a]!==''&&c[a]!=null);
+    const eqAfter=eq.reduce((t,a)=>{const v=c[a];const cur=gpRowCur(r,a)*100;return t+(v===''||v==null?cur:(T.mode==='pp'?cur+(+v):+v))},0);
+    return `<tr><td class="nowrap"><b>${esc(r.label)}</b> <span class="small muted">${esc(r.sub)}</span></td>${P.assets.map(a=>{const cur=gpRowCur(r,a)*100;
+      return `<td class="gpc"><input type="number" step="0.25" inputmode="decimal" data-gpr="${esc(r.key)}" data-gpa="${a}" value="${c[a]??''}" placeholder="${T.mode==='pp'?'':cur.toFixed(1)}" title="${esc(nm(a))}: glide path now ${cur.toFixed(2)}%" aria-label="${esc(r.label)} ${esc(nm(a))}"></td>`}).join('')}
+      <td class="num ${touched&&Math.abs(net)>0.005?'neg':''}" data-gpnet="${esc(r.key)}">${touched?(net>0?'+':'')+net.toFixed(2):''}</td><td class="num" data-gpeq="${esc(r.key)}">${touched?eqAfter.toFixed(1)+'%':''}</td></tr>`}).join('');
+  return `<h2>Propose glide-path changes</h2>
+   <p class="small muted">Type changes straight into the table, for as many vintages and asset classes as you like, then preview and submit them together as one request. Each row's changes must net to zero, and every fund must stay inside the IPS bands (±3pp per asset class, ±5pp equity around its base glide path). The Investment Committee approves the whole table in one decision; you can't approve your own request. Tip: you can paste a block of numbers from Excel into any cell.</p>
+   <div class="row" style="gap:16px;flex-wrap:wrap;margin-bottom:8px"><span class="small">Rows</span>${seg('rows',[['vintage','Vintage (MF + CIT)'],['mutual_fund','Mutual funds'],['cit','CITs'],['fund','Each fund']])}
+    <span class="small">Enter</span>${seg('mode',[['pp','Change (pp)'],['weight','New weight (%)']])}</div>
+   <div class="scroll gpgrid" style="max-height:none"><table class="gpt">${head}${body}</table></div>
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="gpPrev">Preview</button><button class="btn" id="gpClear">Clear table</button><span class="small muted">${T.mode==='pp'?'Change in percentage points, e.g. 1 or -0.5. Blank = no change.':'New weight in %. The grey number is today\'s weight; blank = no change.'}${T.rows==='vintage'?' A vintage row applies to its mutual fund and its CIT.':''}</span></div>
+   <div id="gpOut">${T.prev?gpPreviewHtml(T.prev):''}</div>`; }
 function gpPreviewHtml(p){
-  const rows=p.funds.map(f=>{const eqb=grpW(f.current,P.groups.equity), eqa=grpW(f.new,P.groups.equity);
-    const ch=P.assets.filter(a=>Math.abs((f.new[a]||0)-(f.current[a]||0))>1e-9).map(a=>`${esc(nm(a))} ${pct(f.current[a])} → ${pct(f.new[a])}`).join('<br>');
-    return `<tr><td class="mono small">${esc(f.fund_id)}</td><td class="num">${pct(eqb)} → ${pct(eqa)}</td><td class="small">${ch}</td><td>${f.ok?chip('PASS'):chip('FAIL')+'<div class="small">'+f.problems.map(esc).join('<br>')+'</div>'}</td></tr>`}).join('');
-  return `<h3>Preview: ${p.funds.length} funds</h3><div class="scroll" style="max-height:340px"><table><tr><th>Fund</th><th class="num">Equity</th><th>Changes</th><th>IPS bands</th></tr>${rows}</table></div>
-  ${p.ok?`<label class="small" style="margin-top:8px;display:block">Reason</label><textarea id="gpReason" rows="2" placeholder="Why this change (sent to the Investment Committee)"></textarea><div style="margin-top:8px"><button class="btn primary" id="gpSubmit">Submit for Investment Committee approval</button></div>`:'<div class="banner" style="margin-top:8px">Some funds would leave the IPS bands. Reduce the moves or narrow the funds.</div>'}`;
+  const eq=P.groups.equity;
+  const head=`<tr><th>Fund</th>${P.assets.map(a=>`<th class="num" title="${esc(nm(a))}">${esc(gpAb(a))}</th>`).join('')}<th class="num">Equity</th><th>IPS bands</th></tr>`;
+  const rows=p.funds.map(f=>{const bad=new Set(P.assets.filter(a=>f.problems.some(x=>x.startsWith(a+' '))));
+    const cell=a=>{const c=(f.current[a]||0)*100, n=(f.new[a]||0)*100, ch=Math.abs(n-c)>1e-6;
+      return `<td class="num ${bad.has(a)?'gpbad':ch?'gpchg':''}">${ch?`<span class="muted small">${c.toFixed(1)}→</span><b>${n.toFixed(1)}</b><div class="small ${n>c?'pos':'neg'}">${n>c?'+':''}${(n-c).toFixed(2)}</div>`:`<span class="muted">${n.toFixed(1)}</span>`}</td>`};
+    return `<tr><td class="nowrap"><b class="mono">${esc(f.fund_id)}</b></td>${P.assets.map(cell).join('')}<td class="num">${pct(grpW(f.current,eq))} → <b>${pct(grpW(f.new,eq))}</b></td><td>${f.ok?chip('PASS','good'):chip('FAIL','bad')+'<div class="small">'+f.problems.map(esc).join('<br>')+'</div>'}</td></tr>`}).join('');
+  return `<h3>Preview: ${p.funds.length} fund${p.funds.length===1?'':'s'} change</h3><p class="small muted">Glide-path weights in % (today → after). Changed cells are highlighted; a cell outside the IPS band is red. Nothing is saved yet.</p>
+   <div class="scroll gpgrid" style="max-height:none"><table class="gpt">${head}${rows}</table></div>
+   ${p.ok?`<label class="small" for="gpReason" style="margin-top:8px;display:block">Reason</label><textarea id="gpReason" rows="2" placeholder="Why these changes (sent to the Investment Committee)"></textarea><div style="margin-top:8px"><button class="btn primary" id="gpSubmit">Submit ${p.funds.length} fund${p.funds.length===1?'':'s'} for Investment Committee approval</button></div>`
+     :`<div class="small" style="margin-top:8px;padding:8px 10px;border-radius:var(--radius-sm,6px);background:var(--crit-bg);color:var(--crit)">Fix the funds marked FAIL before submitting: changes outside the IPS bands need an IPS amendment.</div>`}`;
 }
+function gpReqText(r){ if(r.rows) return r.rows.map(x=>`${esc(x.fund_id)}: ${Object.entries(x.deltas).map(([a,v])=>`${esc(gpAb(a))} ${v>0?'+':''}${(+v).toFixed(2)}`).join(', ')}`).join('<br>'); return gpShiftText(r.shifts); }
 
 // --------------------------------------------------------------- Agent votes (plain-language)
 V.agents = () => {
@@ -1240,19 +1267,31 @@ function bindNew(){
   document.querySelectorAll('[data-posv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.posv;state.posMode='vintage';render()});
   document.querySelectorAll('[data-posdetail]').forEach(e=>e.addEventListener('click',()=>{state.posMode='vintage'}));
   document.querySelectorAll('[data-agsel]').forEach(e=>e.onclick=()=>{state.agSel=e.dataset.agsel||null;render()});
-  document.querySelectorAll('[data-gpi]').forEach(e=>e.onchange=()=>{const s=state.gpShifts[+e.dataset.gpi];s[e.dataset.gpk]=e.dataset.gpk==='pp'?parseFloat(e.value):e.value;state.gpPrev=null});
-  document.querySelectorAll('[data-gpdel]').forEach(e=>e.onclick=()=>{state.gpShifts.splice(+e.dataset.gpdel,1);state.gpPrev=null;render()});
-  const ga=$('#gpAdd'); if(ga) ga.onclick=()=>{state.gpShifts.push({asset_class:'us_core_bond',from:'us_large_cap',pp:0.5});state.gpPrev=null;render()};
-  const gscope=()=>{const sc=$('#gpScope').value, vs=gpSel(), single=!['*','vehicle:mutual_fund','vehicle:cit'].includes(sc);
-    return {scope:sc,vintages:single||vs.length===VINT.length?[]:vs.slice(),shifts:state.gpShifts}};
-  if($('#gpScope')&&state.gpScopeSel){$('#gpScope').value=state.gpScopeSel.scope}
-  {const el=$('#gpScope');if(el)el.onchange=()=>{state.gpPrev=null;state.gpScopeSel=gscope();render()}}
-  document.querySelectorAll('[data-gpv]').forEach(b=>b.onclick=()=>{const v=+b.dataset.gpv, vs=gpSel(); state.gpVint=vs.includes(v)?vs.filter(x=>x!==v):vs.concat(v).sort(); state.gpPrev=null; state.gpScopeSel=gscope(); render()});
-  document.querySelectorAll('[data-gpvset]').forEach(b=>b.onclick=()=>{const k=b.dataset.gpvset; state.gpVint=k==='all'?VINT.slice():k==='none'?[]:VINT.filter(v=>k==='near'?v<=2045:v>=2050); state.gpPrev=null; state.gpScopeSel=gscope(); render()});
-  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const body=gscope();state.gpScopeSel=body;if(!gpScopeFunds().length){toast('Pick at least one vintage.','error');return}gp.disabled=true;
-    api('/api/trading/glide-path/preview',body).then(r=>{state.gpPrev=r;render()}).catch(e=>{gp.disabled=false;toast(e.message,'error')})};
-  const gsub=$('#gpSubmit'); if(gsub) gsub.onclick=()=>{const reason=$('#gpReason').value.trim();if(reason.length<10){toast('Please give a reason (10+ characters).');return}
-    gsub.disabled=true; api('/api/trading/glide-path/requests',{...state.gpScopeSel,reason}).then(r=>{toast(`Request ${r.id} sent to the Investment Committee (${r.funds} funds).`);setTimeout(()=>location.reload(),900)}).catch(e=>{gsub.disabled=false;toast(e.message,'error')})};
+  document.querySelectorAll('[data-gpt]').forEach(b=>b.onclick=()=>{const T=gpT(); if(T[b.dataset.gpt]===b.dataset.v) return;
+    T[b.dataset.gpt]=b.dataset.v; T.prev=null; if(b.dataset.gpt==='rows') T.cells={}; else T.cells={}; render()});
+  const gpRefresh=key=>{const T=gpT(), r=gpRows().find(x=>x.key===key); if(!r) return; const c=T.cells[key]||{}, net=gpRowNet(r), touched=P.assets.some(a=>c[a]!==''&&c[a]!=null);
+    const n=document.querySelector(`[data-gpnet="${CSS.escape(key)}"]`); if(n){n.textContent=touched?(net>0?'+':'')+net.toFixed(2):''; n.classList.toggle('neg',touched&&Math.abs(net)>0.005)}
+    const eqAfter=P.groups.equity.reduce((t,a)=>{const v=c[a],cur=gpRowCur(r,a)*100;return t+(v===''||v==null?cur:(T.mode==='pp'?cur+(+v):+v))},0);
+    const e=document.querySelector(`[data-gpeq="${CSS.escape(key)}"]`); if(e) e.textContent=touched?eqAfter.toFixed(1)+'%':''};
+  document.querySelectorAll('[data-gpr]').forEach(inp=>{
+    inp.oninput=()=>{const T=gpT(); (T.cells[inp.dataset.gpr]||(T.cells[inp.dataset.gpr]={}))[inp.dataset.gpa]=inp.value; T.prev=null; const o=$('#gpOut'); if(o) o.innerHTML=''; gpRefresh(inp.dataset.gpr)};
+    inp.onpaste=ev=>{const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
+      const T=gpT(), rows=gpRows(), r0=rows.findIndex(r=>r.key===inp.dataset.gpr), c0=P.assets.indexOf(inp.dataset.gpa);
+      txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{const r=rows[r0+i]; if(!r) return;
+        line.split('\t').forEach((v,k)=>{const a=P.assets[c0+k]; if(!a) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); (T.cells[r.key]||(T.cells[r.key]={}))[a]=v===''||isNaN(+v)?'':v})});
+      T.prev=null; render()};
+    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const ins=[...document.querySelectorAll(`[data-gpa="${inp.dataset.gpa}"]`)], k=ins.indexOf(inp);
+      const nx=ins[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select()} };
+  });
+  const gcl=$('#gpClear'); if(gcl) gcl.onclick=()=>{const T=gpT(); T.cells={}; T.prev=null; render()};
+  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const T=gpT(); const bad=gpRows().filter(r=>{const c=T.cells[r.key]||{};return P.assets.some(a=>c[a]!==''&&c[a]!=null)&&Math.abs(gpRowNet(r))>0.005});
+    if(bad.length){toast(`Each row's changes must net to zero: check ${bad.map(r=>r.label).join(', ')}.`,'error');return}
+    const d=gpFundDeltas(); if(!Object.keys(d).length){toast('Type at least one change into the table.','error');return}
+    gp.disabled=true; api('/api/trading/glide-path/table-preview',{rows:Object.entries(d).map(([fund_id,deltas])=>({fund_id,deltas}))})
+     .then(r=>{T.prev=r; T.sent=d; render(); const o=$('#gpOut'); if(o) o.scrollIntoView({block:'start',behavior:'smooth'})}).catch(e=>{gp.disabled=false;toast(e.message,'error')})};
+  const gsub=$('#gpSubmit'); if(gsub) gsub.onclick=()=>{const T=gpT(), reason=$('#gpReason').value.trim(); if(reason.length<10){toast('Please give a reason (10+ characters).');return}
+    gsub.disabled=true; api('/api/trading/glide-path/requests',{kind:'table',rows:Object.entries(T.sent||{}).map(([fund_id,deltas])=>({fund_id,deltas})),reason})
+     .then(r=>{toast(`Request ${r.id} sent to the Investment Committee (${r.funds} funds).`);state.gpT=null;setTimeout(()=>location.reload(),900)}).catch(e=>{gsub.disabled=false;toast(e.message,'error')})};
   document.querySelectorAll('[data-gpretire]').forEach(b=>b.onclick=()=>{const reason=prompt?null:null;
     const box=document.createElement('div');box.innerHTML=`<div class="card" style="position:fixed;inset:auto 20px 20px auto;z-index:9;width:360px"><b>Request removal of ${esc(b.dataset.gpretire)}</b><textarea id="gpRetReason" rows="3" placeholder="Reason (required)" style="margin:8px 0"></textarea><div class="row"><button class="btn primary" id="gpRetOk">Send to the Investment Committee</button><button class="btn" id="gpRetCancel">Cancel</button></div></div>`;
     document.body.appendChild(box);$('#gpRetCancel').onclick=()=>box.remove();

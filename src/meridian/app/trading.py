@@ -805,6 +805,134 @@ def set_settings(request: Request, body: dict = Body(...)):
     return {"ok": True, "dr_id": dr, "changed": sorted(changes)}
 
 
+# ------------------------------------------------------------------ tilts table (security tilts per fund, in %)
+def _grid_cells(cells) -> dict[tuple[str, str], float | None]:
+    """[{fund_id, instrument, pct}] -> {(fund, security): bps or None (clear)}. pct is % of the fund, e.g. 0.25."""
+    m = model()
+    if not isinstance(cells, list) or not cells:
+        raise HTTPException(400, "Enter at least one tilt in the table")
+    out = {}
+    for c in cells:
+        fid, inst = (c or {}).get("fund_id"), (c or {}).get("instrument")
+        if fid not in m.funds:
+            raise HTTPException(400, f"Unknown fund {fid}")
+        if inst not in m.instruments or m.funds[fid].product not in m.instruments[inst]["products"]:
+            raise HTTPException(400, f"{inst} isn't in {fid}'s universe")
+        v = c.get("pct")
+        if v in (None, ""):
+            out[(fid, inst)] = None
+            continue
+        try:
+            pct = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{fid} {inst}: not a number") from None
+        if abs(pct) > 5:
+            raise HTTPException(400, f"{fid} {inst}: a tilt must be between -5% and +5% of the fund")
+        out[(fid, inst)] = None if abs(pct) < 1e-9 else round(pct * 100, 4)
+    return out
+
+
+def _grid_tilts(cur: list[dict], cells: dict, user: dict, reason: str, until: str) -> list[dict]:
+    """Replace the one-fund security tilts named in the table; every other tilt is kept as it is."""
+    own = lambda e: (e.get("instrument") and not e.get("vintages") and not e.get("vintage_from")  # noqa: E731
+                     and not e.get("vintage_to") and (e.get("fund"), e.get("instrument")) in cells)
+    same = {(e["fund"], e["instrument"]) for e in cur if own(e)
+            and float(e["bps"]) == cells[(e["fund"], e["instrument"])] and (e.get("until") or "") == (until or "")}
+    keep = [e for e in cur if not own(e) or (e["fund"], e["instrument"]) in same]     # unchanged cells keep their record
+    add = [{"fund": f, "instrument": i, "bps": bp, "until": until or "", "reason": reason, "by": _who(user), "at": _ts(),
+            "source": "tilts table"} for (f, i), bp in sorted(cells.items()) if bp is not None and (f, i) not in same]
+    return keep + add
+
+
+@router.get("/api/trading/tilts-grid")
+def tilts_grid(request: Request):
+    """Every fund's securities with today's weight, glide-path (neutral) target, the fund's own tilt and the tilt
+    in force from any scope, for the tilts table."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    m = model()
+    with _store().Session() as s:
+        settings = get_settings(s)
+        cells, used = {}, set()
+        for fid, f in m.funds.items():
+            p = positions(fid)
+            nav = p["cash"] + sum(p["values"].values()) or 1.0
+            neutral = neutral_table(s, fid)
+            eff = tilts_for(settings, fid, neutral)
+            own = {e["instrument"]: float(e["bps"]) for e in _active(settings.get("tilts", []), fid)
+                   if e.get("instrument") and e.get("fund") == fid and not e.get("vintages")
+                   and not e.get("vintage_from") and not e.get("vintage_to")}
+            row = {}
+            for i in m.fund_instruments(fid):
+                if i.get("status") == "no_target":
+                    continue
+                used.add(i["id"])
+                row[i["id"]] = {"weight": p["values"].get(i["id"], 0.0) / nav, "target": neutral.get(i["id"], 0.0),
+                                "own_bps": own.get(i["id"]), "bps": round(eff.get(i["id"], 0.0), 2),
+                                "excluded": i["id"] in excluded_for(settings, fid), "exiting": i["id"] in exits_for(settings, fid)}
+            cells[fid] = row
+    order = {a: k for k, a in enumerate(m.policy.assets)}
+    rows = sorted((m.instruments[i] for i in used), key=lambda i: (order.get(i["asset_class"], 99), i["id"]))
+    return {"funds": [{"id": f.id, "vehicle": f.vehicle, "vintage": f.vintage} for f in sorted(m.funds.values(), key=lambda f: (f.vehicle, f.vintage))],
+            "rows": [{"instrument": i["id"], "name": i["name"], "asset_class": i["asset_class"], "type": i["type"]} for i in rows],
+            "cells": cells, "can_edit": any(r in user["roles"] for r in APPROVE_ROLES)}
+
+
+def _grid_preview(s, settings: dict, new_tilts: list[dict], funds: set[str]) -> list[dict]:
+    after = dict(settings, tilts=new_tilts)
+    out = []
+    for fid in sorted(funds):
+        base = neutral_table(s, fid)
+        t0, _ = _effective_table(settings, fid, base)
+        t1, notes = _effective_table(after, fid, base)
+        out.append({"fund_id": fid, "before": t0, "after": t1, "tilt_before": tilts_for(settings, fid, base),
+                    "tilt_after": tilts_for(after, fid, base), "notes": [n for n in notes if "ignored" in n or "capped" in n]})
+    return out
+
+
+@router.post("/api/trading/tilts-grid/preview")
+def tilts_grid_preview(request: Request, body: dict = Body(...)):
+    """What the glide-path (neutral) allocation of each fund would become with the table's tilts. Nothing is saved."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    cells = _grid_cells(body.get("cells"))
+    with _store().Session() as s:
+        settings = get_settings(s)
+        new = _grid_tilts(settings.get("tilts", []), cells, user, "preview", "")
+        return {"funds": _grid_preview(s, settings, new, {f for f, _ in cells})}
+
+
+@router.put("/api/trading/tilts-grid")
+def tilts_grid_save(request: Request, body: dict = Body(...)):
+    """Save the tilts table: one-fund security tilts in % of the fund (PM). A blank or zero cell removes that
+    fund's own tilt on the security; tilts set for wider scopes (all funds, a product line) are untouched."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    if not any(r in user["roles"] for r in APPROVE_ROLES):
+        raise HTTPException(403, "Only portfolio managers set tilts")
+    reason = _reason(body)
+    until = str(body.get("until") or "")[:10]
+    if until and until < date.today().isoformat():
+        raise HTTPException(400, "The end date is in the past")
+    cells = _grid_cells(body.get("cells"))
+    with _store().Session.begin() as s:
+        cur = get_settings(s)
+        new = json.loads(json.dumps(cur))
+        new["tilts"] = _grid_tilts(cur.get("tilts", []), cells, user, reason, until)
+        if new["tilts"] == cur.get("tilts", []):
+            raise HTTPException(400, "Nothing changed")
+        set_n = sum(1 for v in cells.values() if v is not None)
+        new["history"] = (list(cur.get("history", [])) + [{"at": _ts(), "by": _who(user), "reason": reason,
+                                                           "changed": ["tilts"]}])[-100:]
+        _put(s, "settings", new)
+        funds = sorted({f for f, _ in cells})
+        dr = _record(s, _who(user), "settings.change",
+                     f"Tilts table: {set_n} tilt{'s' if set_n != 1 else ''} set, {len(cells) - set_n} cleared across {len(funds)} funds",
+                     {"tilts": {"before": cur.get("tilts", []), "after": new["tilts"]},
+                      "cells": [{"fund_id": f, "instrument": i, "bps": b} for (f, i), b in sorted(cells.items())]}, reason, funds)
+    return {"ok": True, "dr_id": dr, "set": set_n, "cleared": len(cells) - set_n, "funds": len(funds)}
+
+
 @router.get("/api/trading/route-managers")
 def route_managers(request: Request):
     """Who holds the route permission now (grants and removals are in the User access log)."""
@@ -1904,6 +2032,86 @@ def _glide_preview(s, scope: str, vf, vt, deltas: dict, vintages=None) -> list[d
     return out
 
 
+def _row_deltas(raw) -> dict[str, float]:
+    """One table row: {asset: pp change}. Changes must net to zero (weights still total 100%)."""
+    m = model()
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "Each row needs its changes by asset class")
+    out = {}
+    for a, v in raw.items():
+        if a not in m.policy.assets:
+            raise HTTPException(400, f"Unknown asset class {a}")
+        if v in (None, ""):
+            continue
+        try:
+            pp = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{a}: not a number") from None
+        if abs(pp) > 10:
+            raise HTTPException(400, f"{a}: a change must be between -10 and +10 percentage points")
+        if abs(pp) > 1e-9:
+            out[a] = round(pp, 4)
+    if abs(sum(out.values())) > 0.01:
+        raise HTTPException(400, f"Changes must net to zero (this row nets {sum(out.values()):+.2f}pp)")
+    return out
+
+
+def _deltas_to_shifts(d: dict[str, float]) -> list[dict]:
+    """Express net-zero asset-class changes as moves (into, from, pp) so they read and apply like any adjustment."""
+    pos = sorted(([a, v] for a, v in d.items() if v > 0), key=lambda x: -x[1])
+    neg = sorted(([a, -v] for a, v in d.items() if v < 0), key=lambda x: -x[1])
+    out, i, j = [], 0, 0
+    while i < len(pos) and j < len(neg):
+        pp = min(pos[i][1], neg[j][1])
+        if pp > 1e-9:
+            out.append({"asset_class": pos[i][0], "from": neg[j][0], "pp": round(pp, 4)})
+        pos[i][1] -= pp
+        neg[j][1] -= pp
+        if pos[i][1] <= 1e-9:
+            i += 1
+        if neg[j][1] <= 1e-9:
+            j += 1
+    return out
+
+
+def _table_rows(s, rows) -> tuple[list[dict], list[dict]]:
+    """Validate table rows [{fund_id, deltas: {asset: pp}}]: (cleaned rows, previews). Rows with no change are dropped."""
+    m = model()
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(400, "Enter at least one change in the table")
+    clean, prev, seen = [], [], set()
+    for r in rows:
+        fid = (r or {}).get("fund_id")
+        if fid not in m.funds:
+            raise HTTPException(400, f"Unknown fund {fid}")
+        if fid in seen:
+            raise HTTPException(400, f"{fid} appears twice")
+        seen.add(fid)
+        try:
+            d = _row_deltas(r.get("deltas") or {})
+        except HTTPException as e:
+            raise HTTPException(400, f"{fid}: {e.detail}") from None
+        if not d:
+            continue
+        clean.append({"fund_id": fid, "deltas": d, "shifts": _deltas_to_shifts(d)})
+        p = _glide_preview(s, fid, None, None, {a: v / 100 for a, v in d.items()})[0]
+        prev.append(p | {"deltas": d})
+    if not clean:
+        raise HTTPException(400, "Enter at least one change in the table")
+    return clean, prev
+
+
+@router.post("/api/trading/glide-path/table-preview")
+def glide_table_preview(request: Request, body: dict = Body(...)):
+    """Preview a table of glide-path changes: one row per fund, asset-class changes in pp. Nothing is saved."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        get_settings(s)
+        _, prev = _table_rows(s, body.get("rows"))
+    return {"funds": prev, "ok": all(r["ok"] for r in prev)}
+
+
 @router.post("/api/trading/glide-path/preview")
 def glide_preview(request: Request, body: dict = Body(...)):
     user = auth.require_user(request)
@@ -1931,7 +2139,17 @@ def glide_request(request: Request, body: dict = Body(...)):
         get_settings(s)
         gs = json.loads(json.dumps(glide_state(s)))
         rid = "GP-" + uuid.uuid4().hex[:6].upper()
-        if kind == "retire":
+        if kind == "table":
+            rows, prev = _table_rows(s, body.get("rows"))
+            bad = [f"{r['fund_id']}: {'; '.join(r['problems'])}" for r in prev if not r["ok"]]
+            if bad:
+                raise HTTPException(400, "Outside the IPS glide-path bands; that needs an IPS amendment. "
+                                    + " | ".join(bad[:4]) + (" …" if len(bad) > 4 else ""))
+            fids = [r["fund_id"] for r in rows]
+            req = {"id": rid, "kind": "table", "rows": rows, "funds": fids, "shifts": [],
+                   "scope_label": f"Table of changes: {len(fids)} fund{'s' if len(fids) != 1 else ''}",
+                   "effective": str(body.get("effective") or date.today().isoformat())[:10]}
+        elif kind == "retire":
             adj = next((a for a in gs["adjustments"] if a["id"] == body.get("adjustment_id") and a["status"] == "active"), None)
             if not adj:
                 raise HTTPException(400, "Choose an active adjustment to retire")
@@ -1984,7 +2202,15 @@ def glide_decide(request: Request, rid: str, body: dict = Body(...)):
         req.update(status="approved" if decision == "approve" else "rejected", decided_by=_who(user),
                    decided_at=_ts(), decision_reason=reason)
         if decision == "approve":
-            if req["kind"] == "add":
+            if req["kind"] == "table":                 # one adjustment per fund, approved together
+                for r in req["rows"]:
+                    gs["adjustments"].append({"id": f"{rid}-{r['fund_id']}", "request": rid, "fund": r["fund_id"],
+                                              "vintages": [], "vintage_from": None, "vintage_to": None,
+                                              "shifts": r["shifts"], "funds": [r["fund_id"]], "effective": req.get("effective"),
+                                              "scope_label": r["fund_id"], "status": "active",
+                                              "requested_by": req["requested_by"], "approved_by": _who(user),
+                                              "approved_at": _ts(), "reason": req["reason"]})
+            elif req["kind"] == "add":
                 gs["adjustments"].append({k: req.get(k) for k in ("fund", "vintages", "vintage_from", "vintage_to", "shifts", "funds",
                                                               "effective", "scope_label")}
                                          | {"id": rid, "status": "active", "requested_by": req["requested_by"],
@@ -1995,7 +2221,8 @@ def glide_decide(request: Request, rid: str, body: dict = Body(...)):
                         a.update(status="retired", retired_by=_who(user), retired_at=_ts())
         _put(s, "glidepath", gs)
         dr = _record(s, _who(user), f"glidepath.{decision}", f"{rid} {decision}d: {req['scope_label']}",
-                     {"request": rid, "kind": req["kind"], "funds": req["funds"], "shifts": req["shifts"]},
+                     {"request": rid, "kind": req["kind"], "funds": req["funds"], "shifts": req["shifts"],
+                      "rows": req.get("rows")},
                      reason, req["funds"])
     return {"ok": True, "status": req["status"], "dr_id": dr}
 

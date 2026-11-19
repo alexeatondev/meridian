@@ -36,8 +36,16 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 .stages{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}.stage{border:1px solid var(--line);border-radius:var(--radius-lg,10px);padding:10px;min-height:120px}
 .stage-h{display:flex;justify-content:space-between;align-items:center}.stage-i{display:block;margin-top:8px;padding:8px;border-radius:var(--radius-sm,8px);background:var(--surface-2,#f3f2ef);text-decoration:none;color:inherit}
 .stage-i:hover{outline:2px solid var(--accent,#1f4e8c)}.bar{display:block;height:4px;background:var(--line);border-radius:2px;margin-top:6px}.bar i{display:block;height:4px;background:var(--ok,#2f8f5b);border-radius:2px}
+.tg-wrap{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:var(--radius-sm,6px)}.tg{border-collapse:separate;border-spacing:0}
+.tg th,.tg td{padding:3px 4px;white-space:nowrap;border-bottom:1px solid var(--line)}.tg th{position:sticky;top:0;background:var(--surface);z-index:2;font-size:12px;line-height:1.2}
+.tg .tg-sec{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis}.tg th.tg-sec{z-index:3}
+.tg tr.tg-ac td{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--heading,var(--text));position:sticky;left:0}
+.tg input{width:64px;min-height:0;height:28px;padding:3px 6px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,4px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
+.tg input:disabled{background:transparent;border-color:transparent}.tg input::placeholder{color:var(--muted)}.tg td.tg-na{color:var(--line-strong);text-align:center}
+.tg td.tg-ed{background:var(--info-bg)}.tg td.tg-x input{text-decoration:line-through}.tg tr.tg-dim td{color:var(--muted)}
 .filegrid td,.filegrid th{white-space:nowrap;padding:4px 8px}
 @media(max-width:1100px){.stages{grid-template-columns:1fr 1fr}}
+.tg input{-moz-appearance:textfield;appearance:textfield}.tg input::-webkit-outer-spin-button,.tg input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 </style></head><body>
 <style>
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}.seg button{border:0;background:var(--surface);color:var(--text);padding:6px 12px;cursor:pointer;font:inherit}
@@ -68,9 +76,9 @@ tr.grp td{font-weight:600;background:var(--surface-2)}
 <main>
 <div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
 <div class="tabs" role="tablist">
-  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="settings">Routing &amp; settings</button>
+  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="tilts">Tilts</button><button data-tab="settings">Routing &amp; settings</button>
 </div>
-<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="settings" hidden></section>
+<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="tilts" hidden></section><section id="settings" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -103,8 +111,8 @@ async function load(){ S.st = await api('GET','/api/trading/state'); if(!S.tab) 
 function render(){
   document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
-  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','settings']) $('#'+t).hidden = t!==S.tab;
-  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, settings:vSettings})[S.tab]();
+  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','tilts','settings']) $('#'+t).hidden = t!==S.tab;
+  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, tilts:vTilts, settings:vSettings})[S.tab]();
 }
 
 // ------------------------------------------------------------------ Funds & securities
@@ -305,6 +313,65 @@ async function showFile(){
   $('#fileView').scrollIntoView({block:'start'});
 }
 
+// ------------------------------------------------------------------ Tilts table (security tilts per fund, % of the fund)
+const fmtPct = (v,d=2) => (v>0?'+':'')+(+v).toFixed(d);
+async function vTilts(){
+  const tok = S.tgTok = (S.tgTok||0)+1;
+  let g; try { g = await api('GET','/api/trading/tilts-grid'); } catch(e) { return toast(e.message,'error'); }
+  if (tok !== S.tgTok || S.tab !== 'tilts') return;
+  S.tg ||= {edits:{}, prev:null}; S.tgData = g;
+  const T=S.tg, ro=!g.can_edit;
+  const funds = g.funds.filter(f=>S.veh==='all'||f.vehicle===S.veh);
+  const val = (f,i) => { const k=f+'|'+i; if (k in T.edits) return T.edits[k]; const c=g.cells[f][i]; return c&&c.own_bps!=null ? +(c.own_bps/100).toFixed(4) : ''; };
+  let lastAc='', body='';
+  for (const r of g.rows) {
+    const inAny = funds.some(f=>g.cells[f.id][r.instrument]); if(!inAny) continue;
+    if (r.asset_class!==lastAc){ lastAc=r.asset_class; body+=`<tr class="tg-ac"><td colspan="${funds.length+1}">${esc(acName(r.asset_class))}</td></tr>`; }
+    body += `<tr><td class="tg-sec"><b>${esc(r.instrument)}</b> <span class="small muted">${esc(r.name)}</span></td>${funds.map(f=>{const c=g.cells[f.id][r.instrument];
+      if(!c) return '<td class="tg-na" title="Not in this fund\'s universe">—</td>';
+      const v=val(f.id,r.instrument), wide=c.own_bps==null&&Math.abs(c.bps)>1e-9, edited=(f.id+'|'+r.instrument) in T.edits;
+      const tip=`${f.id} · ${r.instrument}: weight today ${(c.weight*100).toFixed(2)}%, glide-path target ${(c.target*100).toFixed(2)}%, tilt in force ${fmtPct(c.bps/100)}%${wide?' (set for a wider scope)':''}${c.excluded?' · excluded from trading':''}${c.exiting?' · being exited':''}`;
+      return `<td class="tg-c ${edited?'tg-ed':''} ${c.excluded||c.exiting?'tg-x':''}"><input type="number" step="0.05" inputmode="decimal" data-tg="${f.id}|${r.instrument}" value="${v}" placeholder="${wide?fmtPct(c.bps/100):''}" title="${esc(tip)}" aria-label="${esc(tip)}" ${ro?'disabled':''}></td>`}).join('')}</tr>`;
+  }
+  const n = Object.keys(T.edits).length;
+  $('#tilts').innerHTML = `<div class="card"><h2>Tilts</h2>
+   <p class="small muted">Tilt toward (+) or away from (−) a holding within a fund, in <b>% of the fund</b> (0.25 = 25 bp). Type into as many cells as you like, preview, then save them together. Each tilt is funded pro rata from the fund's other holdings, so weights still total 100%, and applies to every allocation table (cashflows, rebalances). A blank or 0 removes that fund's own tilt. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages on Glide path &amp; bulk changes); typing a value overrides it for that fund. Hover over a cell for today's weight and target. Tip: paste a block of numbers from Excel into any cell.${ro?' <b>Read-only: portfolio managers set tilts.</b>':''}</p>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${funds.map(f=>`<th class="n" title="${f.vehicle==='cit'?'CIT':'Mutual fund'} ${f.vintage}">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${body}</table></div>
+   ${ro?'':`<div class="row" style="margin-top:10px"><label class="small">Until (optional) <input type="date" id="tgUntil" value="${esc(T.until||'')}"></label><button class="btn primary" id="tgPrev">Preview</button><button class="btn" id="tgClear">Discard edits</button><span class="small muted" id="tgN">${n?`${n} cell${n===1?'':'s'} changed`:'No changes yet'}</span></div>`}
+   <div id="tgOut">${T.prev?tgPreviewHtml(T.prev):''}</div></div>`;
+  document.querySelectorAll('[data-tg]').forEach(inp=>{
+    inp.oninput=()=>{ T.edits[inp.dataset.tg]=inp.value; T.prev=null; $('#tgOut').innerHTML=''; inp.closest('td').classList.add('tg-ed'); const k=Object.keys(T.edits).length; $('#tgN').textContent=`${k} cell${k===1?'':'s'} changed`; };
+    inp.onpaste=ev=>{ const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
+      const all=[...document.querySelectorAll('[data-tg]')], rowsEl=[...document.querySelectorAll('.tg tr')].filter(tr=>tr.querySelector('.tg-sec')&&!tr.querySelector('th'));
+      const tr=inp.closest('tr'), r0=rowsEl.indexOf(tr), c0=[...tr.children].indexOf(inp.closest('td'));
+      txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{ const row=rowsEl[r0+i]; if(!row) return;
+        line.split('\t').forEach((v,k)=>{ const td=row.children[c0+k]; const x=td&&td.querySelector('[data-tg]'); if(!x) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); T.edits[x.dataset.tg]=isNaN(+v)?'':v; }); });
+      T.prev=null; vTilts(); };
+    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const f=inp.dataset.tg.split('|')[0], col=[...document.querySelectorAll(`[data-tg^="${f}|"]`)], k=col.indexOf(inp), nx=col[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select();} };
+  });
+  if (ro) return;
+  const cells = () => Object.entries(T.edits).map(([k,v])=>{const [fund_id,instrument]=k.split('|'); return {fund_id, instrument, pct: v===''?null:+v}});
+  $('#tgUntil').onchange=e=>{T.until=e.target.value};
+  $('#tgClear').onclick=()=>{ T.edits={}; T.prev=null; vTilts(); };
+  $('#tgPrev').onclick=async()=>{ if(!Object.keys(T.edits).length) return toast('Type at least one tilt into the table','warn');
+    try{ T.prev=await api('POST','/api/trading/tilts-grid/preview',{cells:cells()}); $('#tgOut').innerHTML=tgPreviewHtml(T.prev); $('#tgOut').scrollIntoView({block:'start',behavior:'smooth'}); bindTgSave(); }catch(e){toast(e.message,'error')} };
+  const bindTgSave = () => { const b=$('#tgSave'); if(!b) return; b.onclick=async()=>{ const reason=await MUI.ask(`Save ${Object.keys(T.edits).length} tilt change${Object.keys(T.edits).length===1?'':'s'}`,{message:'Saved together and recorded in the ledger. They apply to the next trade list for these funds.', okText:'Save tilts'}); if(!reason) return;
+    try{ const r=await api('PUT','/api/trading/tilts-grid',{cells:cells(), until:T.until||'', reason}); T.edits={}; T.prev=null; await load(); toast(`Tilts saved: ${r.set} set, ${r.cleared} cleared across ${r.funds} funds`); }catch(e){toast(e.message,'error')} }; };
+  bindTgSave();
+}
+function tgPreviewHtml(p){
+  const g=S.tgData, names=Object.fromEntries(g.rows.map(r=>[r.instrument,r]));
+  const fids=p.funds.map(f=>f.fund_id), insts=g.rows.map(r=>r.instrument).filter(i=>p.funds.some(f=>(f.before[i]||0)>0||(f.after[i]||0)>0));
+  const changed=i=>p.funds.some(f=>Math.abs((f.after[i]||0)-(f.before[i]||0))>1e-7||Math.abs((f.tilt_after[i]||0)-(f.tilt_before[i]||0))>1e-7);
+  const rows=insts.map(i=>`<tr class="${changed(i)?'':'tg-dim'}"><td class="tg-sec"><b>${esc(i)}</b> <span class="small muted">${esc(names[i]?.name||'')}</span></td>${p.funds.map(f=>{const a=(f.before[i]||0)*100, b=(f.after[i]||0)*100, ta=(f.tilt_after[i]||0)/100, tb=(f.tilt_before[i]||0)/100, ch=Math.abs(b-a)>1e-5||Math.abs(ta-tb)>1e-7;
+    return `<td class="n ${Math.abs(ta-tb)>1e-7?'tg-ed':''}">${ch?`<span class="muted small">${a.toFixed(2)}→</span><b>${b.toFixed(2)}</b>${Math.abs(ta-tb)>1e-7?`<div class="small">tilt ${fmtPct(tb)}→${fmtPct(ta)}</div>`:''}`:`<span class="muted">${b?b.toFixed(2):'—'}</span>`}</td>`}).join('')}</tr>`).join('');
+  const notes=p.funds.flatMap(f=>f.notes.map(n=>`${f.fund_id}: ${n}`));
+  return `<h3>Preview: glide-path allocation (% of the fund) with these tilts</h3><p class="small muted">Before → after for each fund you changed: the tilted security moves by its tilt and the others give or take the difference in proportion. Nothing is saved yet.</p>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${fids.map(f=>`<th class="n">${f.replace('-','<br>')}</th>`).join('')}</tr>${rows}</table></div>
+   ${notes.length?`<div class="small" style="margin-top:6px;color:var(--warn)">${notes.map(esc).join('<br>')}</div>`:''}
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="tgSave">Save ${Object.keys(S.tg.edits).length} tilt change${Object.keys(S.tg.edits).length===1?'':'s'}</button></div>`;
+}
+
 // ------------------------------------------------------------------ Routing & settings
 function vSettings(){
   const st = S.st.settings, can = BOOT.can_settings, canR = BOOT.can_routes, canPM = BOOT.can_approve;
@@ -416,11 +483,13 @@ function vBulk(){
    <button type="button" class="btn small" data-bkvset="all">All</button><button type="button" class="btn small" data-bkvset="near">2030–2045</button><button type="button" class="btn small" data-bkvset="far">2050–2070</button><button type="button" class="btn small" data-bkvset="none">Clear</button></div></div>
    <label class="f" for="bkReason">Reason (kept in the ledger for every change on this tab)</label><input type="text" id="bkReason" placeholder="At least 10 characters"></div>
 
-  <div class="card"><h2>Glide path</h2><p class="small muted">Move weight between asset classes on the glide path of every fund in scope. Shifts stay within the IPS glide-path bands (±3pp per asset class, ±5pp equity); anything wider needs an IPS amendment. A change takes effect only after an <b>Investment Committee</b> member other than you approves it. It changes the Neutral table (and a Strategic table that follows the glide path); the IPS check still compares against the IPS glide path.</p>
+  <div class="card"><h2>Glide path</h2><p class="small muted">Glide-path changes are made in a table: type the changes for any number of vintages or funds and asset classes at once, preview them fund by fund, and send them to the Investment Committee as one request.</p>
+   <div class="row"><a class="btn primary" href="/runs/latest" id="gpOpenTable" onclick="try{sessionStorage.setItem('mer_tab','glide')}catch(e){}">Open the glide-path table (Console → Glide path)</a></div>
+   <h3>Asset-class shifts for the Strategic table</h3><p class="small muted">Used only by <b>Glide path plus the shifts above</b> in the Strategic table card below.</p>
    <table id="shTable"><tr><th>Add to</th><th class="n">pp</th><th>Funded from</th><th></th></tr>${S.shifts.map((x,i)=>`<tr><td><select data-sha="${i}">${acOpt(x.asset_class)}</select></td><td class="n"><input type="number" data-shp="${i}" value="${x.pp}" step="0.25" style="width:90px"></td><td><select data-shf="${i}">${acOpt(x.from)}</select></td><td>${S.shifts.length>1?`<button class="btn small" data-shx="${i}">Remove</button>`:''}</td></tr>`).join('')}</table>
-   <div class="row" style="margin-top:8px"><button class="btn" id="shAdd">Add a shift</button><button class="btn" id="gpPrev">Preview</button>${BOOT.can_prepare?'<button class="btn primary" id="gpReq">Submit for Investment Committee approval</button>':''}</div>
+   <div class="row" style="margin-top:8px"><button class="btn" id="shAdd">Add a shift</button></div>
    <div id="gpPreview"></div>
-   <h3>Waiting for the Investment Committee</h3><table><tr><th>Request</th><th>Applies to</th><th>Change</th><th>Requested by</th><th>Reason</th><th></th></tr>${g.requests.filter(r=>r.status==='pending').map(r=>`<tr><td><b>${r.id}</b><br><span class="small muted">${r.kind==='retire'?'Retire '+esc(r.adjustment_id):'New'}</span></td><td>${esc(r.scope_label)} <span class="small muted">(${r.funds.length} funds)</span></td><td class="small">${r.shifts.map(x=>`${esc(acName(x.asset_class))} ${x.pp>0?'+':''}${x.pp}pp from ${esc(acName(x.from))}`).join('<br>')}</td><td>${esc(r.requested_by.name)}</td><td class="small">${esc(r.reason)}</td><td>${BOOT.can_glide?`<button class="btn small primary" data-gpd="${r.id}:approve">Approve</button> <button class="btn small" data-gpd="${r.id}:reject">Reject</button>`:'<span class="small muted">IC decides</span>'}</td></tr>`).join('')||'<tr><td colspan=6 class="muted">None</td></tr>'}</table>
+   <h3>Waiting for the Investment Committee</h3><table><tr><th>Request</th><th>Applies to</th><th>Change</th><th>Requested by</th><th>Reason</th><th></th></tr>${g.requests.filter(r=>r.status==='pending').map(r=>`<tr><td><b>${r.id}</b><br><span class="small muted">${r.kind==='retire'?'Retire '+esc(r.adjustment_id):'New'}</span></td><td>${esc(r.scope_label)} <span class="small muted">(${r.funds.length} funds)</span></td><td class="small">${r.rows?r.rows.map(x=>`<b>${esc(x.fund_id)}</b> ${Object.entries(x.deltas).map(([a,v])=>`${esc(acName(a))} ${v>0?'+':''}${v}pp`).join(', ')}`).join('<br>'):r.shifts.map(x=>`${esc(acName(x.asset_class))} ${x.pp>0?'+':''}${x.pp}pp from ${esc(acName(x.from))}`).join('<br>')}</td><td>${esc(r.requested_by.name)}</td><td class="small">${esc(r.reason)}</td><td>${BOOT.can_glide?`<button class="btn small primary" data-gpd="${r.id}:approve">Approve</button> <button class="btn small" data-gpd="${r.id}:reject">Reject</button>`:'<span class="small muted">IC decides</span>'}</td></tr>`).join('')||'<tr><td colspan=6 class="muted">None</td></tr>'}</table>
    <h3>In force</h3><table><tr><th>Adjustment</th><th>Applies to</th><th>Change</th><th>Approved by</th><th></th></tr>${g.adjustments.filter(a=>a.status==='active').map(a=>`<tr><td><b>${a.id}</b><br><span class="small muted">from ${esc(a.effective)}</span></td><td>${esc(a.scope_label)} <span class="small muted">(${a.funds.length} funds)</span></td><td class="small">${a.shifts.map(x=>`${esc(acName(x.asset_class))} ${x.pp>0?'+':''}${x.pp}pp from ${esc(acName(x.from))}`).join('<br>')}</td><td>${esc(a.approved_by.name)}<br><span class="small muted">requested by ${esc(a.requested_by.name)}</span></td><td>${BOOT.can_prepare?`<button class="btn small" data-gpr="${a.id}">Request retirement</button>`:''}</td></tr>`).join('')||'<tr><td colspan=5 class="muted">None: every fund follows the IPS glide path</td></tr>'}</table></div>`;
   if (BOOT.can_approve) h += `<div class="card"><h2>Strategic table</h2><p class="small muted">Set the Strategic table of every fund in scope at once: follow the glide path, or the glide path plus the shifts above (tactical, no committee approval; the IPS check runs on every trade list).</p>
    <div class="row"><button class="btn" id="stbFollow">Follow the glide path</button><button class="btn primary" id="stbShift">Glide path plus the shifts above</button></div></div>
@@ -444,8 +513,6 @@ function vBulk(){
   $('#shAdd').onclick=()=>{sync(); S.shifts.push({asset_class:A[0], from:A[1], pp:0.5}); vBulk()};
   document.querySelectorAll('[data-shx]').forEach(b=>b.onclick=()=>{sync(); S.shifts.splice(+b.dataset.shx,1); vBulk()});
   const reason = ()=>$('#bkReason').value;
-  $('#gpPrev').onclick=async()=>{ sync(); try{ const r=await api('POST','/api/trading/glide-path/preview',{...bkScope(), shifts:S.shifts}); renderPreview(r) }catch(e){toast(e.message,'error')} };
-  if ($('#gpReq')) $('#gpReq').onclick=async()=>{ sync(); try{ const r=await api('POST','/api/trading/glide-path/requests',{...bkScope(), shifts:S.shifts, reason:reason()}); await load(); toast(`${r.id}: glide-path change for ${r.funds} funds sent to the Investment Committee`) }catch(e){toast(e.message,'error')} };
   document.querySelectorAll('[data-gpd]').forEach(b=>b.onclick=async()=>{ const [id,d]=b.dataset.gpd.split(':'); try{ await api('POST',`/api/trading/glide-path/requests/${id}/decide`,{decision:d, reason:reason()}); await load(); toast(`${id} ${d}d and recorded`) }catch(e){toast(e.message,'error')} });
   document.querySelectorAll('[data-gpr]').forEach(b=>b.onclick=async()=>{ try{ const r=await api('POST','/api/trading/glide-path/requests',{kind:'retire', adjustment_id:b.dataset.gpr, reason:reason()}); await load(); toast(`${r.id}: retirement sent to the Investment Committee`) }catch(e){toast(e.message,'error')} });
   if (!BOOT.can_approve) return;
