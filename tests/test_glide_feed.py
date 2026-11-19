@@ -131,3 +131,43 @@ def test_approved_table_adds_each_lines_own_difference(client):
     hp = login(client, "Maya Chen", "portfolio_manager")
     d = client.get("/api/trading/funds/MTRT-2050").json()
     assert d["approved"]["line_adjustment_pp"] == pytest.approx({"us_large_cap": 0.5, "us_core_bond": -0.5})
+
+
+def test_glide_table_request_one_decision_many_funds(client):
+    """GP-6: a table of changes (different funds, different asset classes) is one request; IC approval puts one
+    adjustment per fund in force; rows that don't net to zero or break the IPS bands are refused."""
+    from meridian.app.trading import _deltas_to_shifts, glide_deltas, model
+    sh = _deltas_to_shifts({"cash": 1.0, "us_tips_short": 0.5, "us_core_bond": -1.25, "us_large_cap": -0.25})
+    net = {}
+    for x in sh:
+        net[x["asset_class"]] = net.get(x["asset_class"], 0) + x["pp"]
+        net[x["from"]] = net.get(x["from"], 0) - x["pp"]
+    assert net == pytest.approx({"cash": 1.0, "us_tips_short": 0.5, "us_core_bond": -1.25, "us_large_cap": -0.25})
+    hp = login(client, "Maya Chen", "portfolio_manager")
+    rows = [{"fund_id": "MTRS-2030", "deltas": {"cash": 1, "us_core_bond": -1}},
+            {"fund_id": "MTRT-2060", "deltas": {"us_large_cap": 0.75, "intl_developed_eq": -0.75}},
+            {"fund_id": "MTRS-2045", "deltas": {}}]                          # untouched rows are dropped
+    pv = client.post("/api/trading/glide-path/table-preview", headers=hp, json={"rows": rows}).json()
+    assert pv["ok"] and [f["fund_id"] for f in pv["funds"]] == ["MTRS-2030", "MTRT-2060"]
+    f0 = pv["funds"][0]
+    assert f0["new"]["cash"] - f0["current"]["cash"] == pytest.approx(0.01)
+    bad = client.post("/api/trading/glide-path/table-preview", headers=hp,
+                      json={"rows": [{"fund_id": "MTRS-2030", "deltas": {"cash": 1}}]})
+    assert bad.status_code == 400 and "net to zero" in bad.json()["detail"]
+    wide = client.post("/api/trading/glide-path/requests", headers=hp, json={"kind": "table", "reason": R,
+                       "rows": [{"fund_id": "MTRS-2030", "deltas": {"cash": 4, "us_core_bond": -4}}]})
+    assert wide.status_code == 400 and "IPS" in wide.json()["detail"]
+    r = client.post("/api/trading/glide-path/requests", headers=hp, json={"kind": "table", "reason": R, "rows": rows})
+    assert r.status_code == 200 and r.json()["funds"] == 2
+    rid = r.json()["id"]
+    hi = login(client, "Elena Rossi", "leadership", "investment_committee")
+    assert client.post(f"/api/trading/glide-path/requests/{rid}/decide", headers=hi,
+                       json={"decision": "approve", "reason": R}).json()["status"] == "approved"
+    import meridian.app.main as mm
+    with mm.store().Session() as s:
+        assert glide_deltas(s, "MTRS-2030") == pytest.approx({"cash": 0.01, "us_core_bond": -0.01})
+        assert glide_deltas(s, "MTRT-2060") == pytest.approx({"us_large_cap": 0.0075, "intl_developed_eq": -0.0075})
+        assert glide_deltas(s, "MTRT-2030") == {}
+    st = client.get("/api/trading/state").json()["glide"]
+    assert {a["id"] for a in st["adjustments"]} == {f"{rid}-MTRS-2030", f"{rid}-MTRT-2060"}
+    assert model()  # model loads

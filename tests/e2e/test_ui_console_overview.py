@@ -81,14 +81,13 @@ def test_ux_07_glide_path_adjustment_request_and_committee_decision(sign_in):
     p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Glide path")
     assert "Glide path today, by fund" in p.inner_text("#view")
-    p.select_option("#gpScope", "vehicle:cit")
-    p.select_option("[data-gpi='0'][data-gpk='asset_class']", "us_core_bond")
-    p.select_option("[data-gpi='0'][data-gpk='from']", "us_large_cap")
-    p.fill("[data-gpi='0'][data-gpk='pp']", "0.5")
-    p.dispatch_event("[data-gpi='0'][data-gpk='pp']", "change")
+    p.click("[data-gpt='rows'][data-v='cit']")
+    for v in ("2050", "2055"):
+        p.fill(f"[data-gpr='cit:{v}'][data-gpa='us_core_bond']", "0.5")
+        p.fill(f"[data-gpr='cit:{v}'][data-gpa='us_large_cap']", "-0.5")
     p.click("#gpPrev")
     p.wait_for_selector("#gpSubmit")
-    assert "Preview: 9 funds" in p.inner_text("#gpOut")
+    assert "Preview: 2 funds change" in p.inner_text("#gpOut")
     p.fill("#gpReason", "UAT: trim equity in the CITs for plan sponsors.")
     p.click("#gpSubmit")
     assert "sent to the Investment Committee" in toast_text(p)
@@ -107,22 +106,36 @@ def test_ux_07_glide_path_adjustment_request_and_committee_decision(sign_in):
     assert rid in view and "Approved adjustments in force" in view and "adj." in view
 
 
-def test_glide_path_vintage_picker(sign_in):
-    """Glide path: pick vintages by clicking them (no From/To boxes); the count and the preview follow the picks."""
+def test_gp_01_glide_path_table(sign_in):
+    """GP-1: glide-path changes typed into a table (several vintages and asset classes at once), checked per row,
+    previewed fund by fund in a table, sent as one request."""
     p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Glide path")
-    assert p.locator("#gpVf").count() == 0 and p.locator("#gpVt").count() == 0
-    p.select_option("#gpScope", "vehicle:cit")
-    expect(p.locator("#gpVcount")).to_contain_text("All vintages selected · 9 funds")
-    p.click("[data-gpvset='none']")
-    expect(p.locator("#gpVcount")).to_contain_text("Pick at least one vintage")
-    for v in ("2035", "2055", "2065"):
-        p.click(f"[data-gpv='{v}']")
-    expect(p.locator("#gpVcount")).to_contain_text("3 vintages selected · 3 funds")
-    expect(p.locator("[data-gpv='2055']")).to_have_attribute("aria-pressed", "true")
-    p.fill("[data-gpi='0'][data-gpk='pp']", "0.5")
-    p.dispatch_event("[data-gpi='0'][data-gpk='pp']", "change")
+    assert p.locator("#gpScope").count() == 0 and p.locator("[data-gpv]").count() == 0
+    expect(p.locator(".gpt tr")).to_have_count(10)                      # header + 9 vintages
+    p.fill("[data-gpr='vintage:2030'][data-gpa='cash']", "1")
+    expect(p.locator("[data-gpnet='vintage:2030']")).to_have_text("+1.00")
     p.click("#gpPrev")
-    expect(p.locator("#gpOut")).to_contain_text("3 funds")
-    expect(p.locator("#gpOut")).to_contain_text("MTRT-2055")
-    expect(p.locator("#gpOut")).not_to_contain_text("MTRT-2040")
+    assert "net to zero" in toast_text(p)
+    p.fill("[data-gpr='vintage:2030'][data-gpa='us_core_bond']", "-1")
+    expect(p.locator("[data-gpnet='vintage:2030']")).to_have_text("0.00")
+    p.fill("[data-gpr='vintage:2060'][data-gpa='us_large_cap']", "0.75")
+    p.fill("[data-gpr='vintage:2060'][data-gpa='intl_developed_eq']", "-0.75")
+    p.click("#gpPrev")
+    out = p.locator("#gpOut")
+    expect(out).to_contain_text("Preview: 4 funds change")             # MF and CIT for 2030 and 2060
+    for f in ("MTRS-2030", "MTRT-2030", "MTRS-2060", "MTRT-2060"):
+        expect(out).to_contain_text(f)
+    expect(out).not_to_contain_text("MTRS-2045")
+    expect(out.locator("td.gpchg")).to_have_count(8)                     # 2 changed cells x 4 funds
+    # weight mode: type the new weight; a change beyond the IPS band is shown in red and can't be submitted
+    p.click("[data-gpt='mode'][data-v='weight']")
+    p.click("[data-gpt='rows'][data-v='fund']")
+    cur = float(p.get_attribute("[data-gpr='MTRS-2045'][data-gpa='cash']", "placeholder"))
+    core = float(p.get_attribute("[data-gpr='MTRS-2045'][data-gpa='us_core_bond']", "placeholder"))
+    p.fill("[data-gpr='MTRS-2045'][data-gpa='cash']", f"{cur + 4:.2f}")
+    p.fill("[data-gpr='MTRS-2045'][data-gpa='us_core_bond']", f"{core - 4:.2f}")
+    p.click("#gpPrev")
+    expect(out.locator("td.gpbad").first).to_be_visible()
+    expect(out).to_contain_text("FAIL")
+    assert p.locator("#gpSubmit").count() == 0

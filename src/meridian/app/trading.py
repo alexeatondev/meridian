@@ -1904,6 +1904,86 @@ def _glide_preview(s, scope: str, vf, vt, deltas: dict, vintages=None) -> list[d
     return out
 
 
+def _row_deltas(raw) -> dict[str, float]:
+    """One table row: {asset: pp change}. Changes must net to zero (weights still total 100%)."""
+    m = model()
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "Each row needs its changes by asset class")
+    out = {}
+    for a, v in raw.items():
+        if a not in m.policy.assets:
+            raise HTTPException(400, f"Unknown asset class {a}")
+        if v in (None, ""):
+            continue
+        try:
+            pp = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{a}: not a number") from None
+        if abs(pp) > 10:
+            raise HTTPException(400, f"{a}: a change must be between -10 and +10 percentage points")
+        if abs(pp) > 1e-9:
+            out[a] = round(pp, 4)
+    if abs(sum(out.values())) > 0.01:
+        raise HTTPException(400, f"Changes must net to zero (this row nets {sum(out.values()):+.2f}pp)")
+    return out
+
+
+def _deltas_to_shifts(d: dict[str, float]) -> list[dict]:
+    """Express net-zero asset-class changes as moves (into, from, pp) so they read and apply like any adjustment."""
+    pos = sorted(([a, v] for a, v in d.items() if v > 0), key=lambda x: -x[1])
+    neg = sorted(([a, -v] for a, v in d.items() if v < 0), key=lambda x: -x[1])
+    out, i, j = [], 0, 0
+    while i < len(pos) and j < len(neg):
+        pp = min(pos[i][1], neg[j][1])
+        if pp > 1e-9:
+            out.append({"asset_class": pos[i][0], "from": neg[j][0], "pp": round(pp, 4)})
+        pos[i][1] -= pp
+        neg[j][1] -= pp
+        if pos[i][1] <= 1e-9:
+            i += 1
+        if neg[j][1] <= 1e-9:
+            j += 1
+    return out
+
+
+def _table_rows(s, rows) -> tuple[list[dict], list[dict]]:
+    """Validate table rows [{fund_id, deltas: {asset: pp}}]: (cleaned rows, previews). Rows with no change are dropped."""
+    m = model()
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(400, "Enter at least one change in the table")
+    clean, prev, seen = [], [], set()
+    for r in rows:
+        fid = (r or {}).get("fund_id")
+        if fid not in m.funds:
+            raise HTTPException(400, f"Unknown fund {fid}")
+        if fid in seen:
+            raise HTTPException(400, f"{fid} appears twice")
+        seen.add(fid)
+        try:
+            d = _row_deltas(r.get("deltas") or {})
+        except HTTPException as e:
+            raise HTTPException(400, f"{fid}: {e.detail}") from None
+        if not d:
+            continue
+        clean.append({"fund_id": fid, "deltas": d, "shifts": _deltas_to_shifts(d)})
+        p = _glide_preview(s, fid, None, None, {a: v / 100 for a, v in d.items()})[0]
+        prev.append(p | {"deltas": d})
+    if not clean:
+        raise HTTPException(400, "Enter at least one change in the table")
+    return clean, prev
+
+
+@router.post("/api/trading/glide-path/table-preview")
+def glide_table_preview(request: Request, body: dict = Body(...)):
+    """Preview a table of glide-path changes: one row per fund, asset-class changes in pp. Nothing is saved."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        get_settings(s)
+        _, prev = _table_rows(s, body.get("rows"))
+    return {"funds": prev, "ok": all(r["ok"] for r in prev)}
+
+
 @router.post("/api/trading/glide-path/preview")
 def glide_preview(request: Request, body: dict = Body(...)):
     user = auth.require_user(request)
@@ -1931,7 +2011,17 @@ def glide_request(request: Request, body: dict = Body(...)):
         get_settings(s)
         gs = json.loads(json.dumps(glide_state(s)))
         rid = "GP-" + uuid.uuid4().hex[:6].upper()
-        if kind == "retire":
+        if kind == "table":
+            rows, prev = _table_rows(s, body.get("rows"))
+            bad = [f"{r['fund_id']}: {'; '.join(r['problems'])}" for r in prev if not r["ok"]]
+            if bad:
+                raise HTTPException(400, "Outside the IPS glide-path bands; that needs an IPS amendment. "
+                                    + " | ".join(bad[:4]) + (" …" if len(bad) > 4 else ""))
+            fids = [r["fund_id"] for r in rows]
+            req = {"id": rid, "kind": "table", "rows": rows, "funds": fids, "shifts": [],
+                   "scope_label": f"Table of changes: {len(fids)} fund{'s' if len(fids) != 1 else ''}",
+                   "effective": str(body.get("effective") or date.today().isoformat())[:10]}
+        elif kind == "retire":
             adj = next((a for a in gs["adjustments"] if a["id"] == body.get("adjustment_id") and a["status"] == "active"), None)
             if not adj:
                 raise HTTPException(400, "Choose an active adjustment to retire")
@@ -1984,7 +2074,15 @@ def glide_decide(request: Request, rid: str, body: dict = Body(...)):
         req.update(status="approved" if decision == "approve" else "rejected", decided_by=_who(user),
                    decided_at=_ts(), decision_reason=reason)
         if decision == "approve":
-            if req["kind"] == "add":
+            if req["kind"] == "table":                 # one adjustment per fund, approved together
+                for r in req["rows"]:
+                    gs["adjustments"].append({"id": f"{rid}-{r['fund_id']}", "request": rid, "fund": r["fund_id"],
+                                              "vintages": [], "vintage_from": None, "vintage_to": None,
+                                              "shifts": r["shifts"], "funds": [r["fund_id"]], "effective": req.get("effective"),
+                                              "scope_label": r["fund_id"], "status": "active",
+                                              "requested_by": req["requested_by"], "approved_by": _who(user),
+                                              "approved_at": _ts(), "reason": req["reason"]})
+            elif req["kind"] == "add":
                 gs["adjustments"].append({k: req.get(k) for k in ("fund", "vintages", "vintage_from", "vintage_to", "shifts", "funds",
                                                               "effective", "scope_label")}
                                          | {"id": rid, "status": "active", "requested_by": req["requested_by"],
@@ -1995,7 +2093,8 @@ def glide_decide(request: Request, rid: str, body: dict = Body(...)):
                         a.update(status="retired", retired_by=_who(user), retired_at=_ts())
         _put(s, "glidepath", gs)
         dr = _record(s, _who(user), f"glidepath.{decision}", f"{rid} {decision}d: {req['scope_label']}",
-                     {"request": rid, "kind": req["kind"], "funds": req["funds"], "shifts": req["shifts"]},
+                     {"request": rid, "kind": req["kind"], "funds": req["funds"], "shifts": req["shifts"],
+                      "rows": req.get("rows")},
                      reason, req["funds"])
     return {"ok": True, "status": req["status"], "dr_id": dr}
 

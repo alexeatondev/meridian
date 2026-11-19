@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes in a table) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -23,7 +23,7 @@ Not sure where to start? Use this table.
 | See what is waiting for me | 1.3 |
 | Approve a vintage's proposal | 3.2 |
 | Change a vintage's weights | 3.3 |
-| Change the glide path for a set of funds | 3.6 |
+| Change the glide path for one or many funds (a table) | 3.6 |
 | Check or change the risk budget | 3.5 |
 | Invest today's cashflows (keep the current mix, back to the glide path, strategic) | 10.3 |
 | Get funds back to the glide path, a strategic mix or the approved proposal | 10.4 |
@@ -308,24 +308,29 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 
 **You're done when** the request shows under **Approvals → Risk budget changes**. A second person (PM or Risk) must approve it; you can't approve your own request.
 
-### 3.6 Change the glide path for a set of funds
-**Who:** PM requests; an Investment Committee member (not you) decides. **Where:** Console → **Glide path**.
+### 3.6 Change the glide path (one table, many funds at once)
+**Who:** PM or analyst requests; an Investment Committee member (not you) decides. **Where:** Console → **Glide path**.
 
 ![Glide path today, by fund](img/guide/pm-13-glide-path.png)
 *Image: `pm-13-glide-path.png`*
 
 1. Click **Glide path**. **Glide path today, by fund** lists every vintage with years to retirement, the IPS equity, each product line's equity, and fixed income and real assets.
 2. Check **Approved adjustments in force** and **Requests awaiting the Investment Committee** so you don't duplicate one.
-3. In **Propose a glide-path adjustment**, set **Apply to**: **All funds**, **All mutual funds**, **All CITs** or one fund.
-4. **2. Vintages**: every vintage starts selected (dark). Click a vintage to leave it out, click again to put it back. Shortcuts: **All**, **2030–2045**, **2050–2070**, **Clear**. The line under the buttons says how many vintages and funds are in scope (e.g. "3 vintages selected · 3 funds in scope"). If you chose one fund in step 3, its own vintage applies and the buttons are hidden.
-5. Under **Moves**, type the size in pp, choose the asset class it goes **into**, and the one it comes **from** (e.g. Move `0.5` pp into **US Core Bond (Aggregate)** from **US Large Cap Equity**). Click **Add a move** for more.
-6. Click **Preview**.
+3. Scroll to **Propose glide-path changes**. It is a table: one row per vintage (or fund) and one column per asset class.
+   - **Rows**: **Vintage (MF + CIT)** applies a row to both the mutual fund and the CIT of that vintage; **Mutual funds** or **CITs** gives one row per fund of that product line; **Each fund** gives all 18 funds.
+   - **Enter**: **Change (pp)**, e.g. `0.5` or `-0.5`, or **New weight (%)**, where the grey number in each cell is today's weight. Hover over a cell for the asset class's full name and today's weight.
 
-![Preview of the adjustment, ready to send](img/guide/pm-14-glide-request.png)
+![Typing changes into the table](img/guide/pm-15-glide-table.png)
+*Image: `pm-15-glide-table.png`*
+
+4. Type the changes for as many rows and asset classes as you need. Leave a cell blank for no change. **Net** shows each row's total change, which must be 0.00 (weight moves from one asset class to another); it turns red otherwise. **Equity after** shows the row's equity once the changes apply. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
+5. Click **Preview**.
+
+![Preview of the changes, fund by fund](img/guide/pm-14-glide-request.png)
 *Image: `pm-14-glide-request.png`*
 
-7. Read **Preview: n funds**: for each fund, the glide path today and after, and whether it stays inside the IPS bands (±3pp per asset class, ±5pp total equity). Changes outside the bands are refused; they need an IPS amendment.
-8. Type a reason and click **Submit for Investment Committee approval**.
+6. The preview is a table too: one row per fund that changes, each asset class showing today → after (changed cells shaded, a cell outside the IPS band red), equity before and after, and **PASS** or **FAIL** against the IPS bands (±3pp per asset class, ±5pp total equity around the fund's base glide path). Fix any FAIL first; larger changes need an IPS amendment.
+7. Type a reason and click **Submit n funds for Investment Committee approval**. Everything in the table goes as **one request**.
 
 **You're done when** the green message says it was sent to the Investment Committee and it appears under **Requests awaiting the Investment Committee**. Once approved (7.3) it moves to **Approved adjustments in force** and becomes the funds' glide-path (Neutral) trading target. The **next agent run** builds its proposals around the adjusted glide path too (they show **Glide path adjusted** on Proposals, 3.2, and in the board memo). Runs made before the approval are not changed. If mutual funds and CITs end up with different adjustments for a vintage, the run uses their average and Trading's **Approved proposal** table adds each line's own difference (the fund's page says so, 10.2).
 
@@ -495,11 +500,11 @@ Follow 10.3, 10.5 and 10.6. A PM approves what you prepare. *Rebalance to a targ
 *Image: `lead-03-glide-decide.png`*
 
 1. Click **Glide path**.
-2. In **Requests awaiting the Investment Committee**, read the request: its ID, the funds in scope (e.g. "All CITs (9 funds)"), the moves, and the requester's reason and name.
+2. In **Requests awaiting the Investment Committee**, read the request: its ID, the funds in scope, the changes (a table request lists each fund with its changes by asset class), and the requester's reason and name.
 3. Type your reason in the box under the request.
 4. Click **Approve** or **Reject**.
 
-**You're done when** the green message says it was approved (or rejected). An approved change appears under **Approved adjustments in force** at once.
+**You're done when** the green message says it was approved (or rejected). An approved change appears under **Approved adjustments in force** at once; a table request is approved or rejected as a whole and appears as one adjustment per fund (e.g. `GP-1A2B3C-MTRS-2030`), each of which can be removed on its own later.
 
 **If something goes wrong:** no buttons means you lack the permission or made the request yourself. Ask your admin for the permission, or another committee member to decide.
 
@@ -939,20 +944,13 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 
 1. **Apply to:** choose **All funds**, **All mutual funds**, **All CITs** or one fund in **Funds**. Then, under **Vintages**, click the vintages to include or leave out (all start selected; shortcuts **All**, **2030–2045**, **2050–2070**, **Clear**). Beside **Funds** it says how many funds and vintages that is, e.g. "Applies to 4 funds · 4 vintages". With nothing selected it says **Pick at least one vintage** and refuses every change on the tab.
 2. Type one reason; it is recorded with every change made on this tab.
-3. **Glide path** (needs Investment Committee approval; same as 3.6):
-   - Add one or more shifts: asset class, ± pp, funded from another asset class.
-   - Click **Preview**. For each fund: its base glide path (the IPS path, or the named path it follows, 13.4), the current one and the new one, and whether it stays inside the IPS bands around the base path.
-
-![Glide-path preview](img/guide/trd-18-glide-preview.png)
-*Image: `trd-18-glide-preview.png`*
-
-   - Click **Submit for Investment Committee approval**. Nothing changes until a committee member other than you approves it:
+3. **Glide path** (needs Investment Committee approval): changes are made in the table on Console → **Glide path** (3.6). Click **Open the glide-path table** to go there. Requests waiting and adjustments in force are listed here too, and a committee member can decide them on this tab:
 
 ![Investment Committee approval](img/guide/trd-19-glide-approve.png)
 *Image: `trd-19-glide-approve.png`*
 
    - Once approved, it shows under **In force** and on the funds list as *Glide path adjusted*; it changes the glide-path (Neutral) target and any strategic table that follows the glide path. **Request retirement** undoes it, again with committee approval.
-4. **Strategic table** (PM): **Follow the glide path**, or **Glide path plus the shifts above**, for every fund in scope at once (no committee approval; each fund gets a new version).
+4. **Strategic table** (PM): **Follow the glide path**, or **Glide path plus the shifts above** (the asset-class shifts listed under **Asset-class shifts for the Strategic table**), for every fund in scope at once (no committee approval; each fund gets a new version).
 
 ![Tilts, exclusions, exits, roll-down and buffer in bulk](img/guide/trd-20-bulk-tilts.png)
 *Image: `trd-20-bulk-tilts.png`*

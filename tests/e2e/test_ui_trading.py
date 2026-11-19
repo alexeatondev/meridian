@@ -178,13 +178,12 @@ def test_trd_17_bulk_glide_path_and_tilt(sign_in, app_url):
     page.select_option("#bkScope", "vehicle:cit")
     expect(page.locator("#bkCount")).to_contain_text("9")
     page.fill("#bkReason", R)
-    page.select_option("[data-sha='0']", "us_large_cap")
-    page.select_option("[data-shf='0']", "us_core_bond")
-    page.fill("[data-shp='0']", "1")
-    page.click("#gpPrev")
-    expect(page.locator("#gpPreview")).to_contain_text("Within IPS bands")
-    page.click("#gpReq")
-    _toast(page, "sent to the Investment Committee")
+    st, r = page.evaluate("""async () => { const r = await fetch('/api/trading/glide-path/requests', {method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRF-Token':BOOT.csrf}, body: JSON.stringify({kind:'table', reason:'UAT: table request',
+        rows:[{fund_id:'MTRT-2050', deltas:{us_large_cap:1, us_core_bond:-1}}, {fund_id:'MTRT-2055', deltas:{us_large_cap:1, us_core_bond:-1}}]})});
+        return [r.status, await r.json()] }""")
+    assert st == 200 and r["funds"] == 2
+    expect(page.locator("#gpOpenTable")).to_be_visible()
     page.select_option("#bkScope", "vehicle:mutual_fund")
     page.fill("#bkReason", R)
     page.select_option("#bkTiKind", "asset_class")
@@ -198,7 +197,7 @@ def test_trd_17_bulk_glide_path_and_tilt(sign_in, app_url):
     page.fill("#bkReason", R)
     page.locator("[data-gpd$=':approve']").first.click()
     _toast(page, "approved")
-    expect(page.locator("#bulk")).to_contain_text("All CITs")
+    expect(page.locator("#bulk")).to_contain_text("MTRT-2055")
     page.click(".tabs button:text-is('Funds & securities')")
     expect(page.locator("[data-fund='MTRT-2050']")).to_contain_text("Glide path adjusted")
 
@@ -283,12 +282,8 @@ def test_trd_24_bulk_vintage_picker(sign_in, app_url):
     expect(page.locator("#bkCount")).to_contain_text("Applies to 5 funds · 5 vintages")
     page.click("[data-bkv='2060']")
     expect(page.locator("#bkCount")).to_contain_text("Applies to 4 funds · 4 vintages")
-    page.click("#gpPrev")
-    expect(page.locator("#gpPreview")).to_contain_text("4 funds")
     page.click("[data-bkvset='none']")
     expect(page.locator("#bkCount")).to_contain_text("Pick at least one vintage")
-    page.click("#gpPrev")
-    expect(page.locator("#mtoasts")).to_contain_text("Pick at least one vintage")
     page.select_option("#bkScope", "MTRS-2040")
     expect(page.locator("#bkVwrap")).to_be_hidden()
     expect(page.locator("#bkCount")).to_contain_text("Applies to 1 fund")
