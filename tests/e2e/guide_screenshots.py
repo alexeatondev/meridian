@@ -445,6 +445,18 @@ def test_bulk_changes(page, app_url):
     p.click(".tabs button:text-is('Glide path & bulk changes')")
     p.locator("#bkTiGo").scroll_into_view_if_needed()
     shot(p, "trd-20-bulk-tilts")
+    p.click("#veh button:text-is('Mutual funds')")
+    p.click(".tabs button:text-is('Tilts')")
+    p.wait_for_selector(".tg input[data-tg]")
+    for fid, vals in {"MTRS-2040": ["0.5", "-0.25"], "MTRS-2050": ["0.5", "-0.25"], "MTRS-2060": ["0.3"]}.items():
+        for k, v in enumerate(vals):
+            p.fill(f"[data-tg^='{fid}|'] >> nth={k}", v)
+    shot(p, "trd-35-tilts-table")
+    p.click("#tgPrev")
+    p.wait_for_selector("#tgSave")
+    top(p, "#tgOut")
+    shot(p, "trd-36-tilts-preview")
+    p.click("#veh button:text-is('All funds')")
 
 
 def test_navigation_and_feedback(page, app_url):

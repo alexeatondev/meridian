@@ -805,6 +805,134 @@ def set_settings(request: Request, body: dict = Body(...)):
     return {"ok": True, "dr_id": dr, "changed": sorted(changes)}
 
 
+# ------------------------------------------------------------------ tilts table (security tilts per fund, in %)
+def _grid_cells(cells) -> dict[tuple[str, str], float | None]:
+    """[{fund_id, instrument, pct}] -> {(fund, security): bps or None (clear)}. pct is % of the fund, e.g. 0.25."""
+    m = model()
+    if not isinstance(cells, list) or not cells:
+        raise HTTPException(400, "Enter at least one tilt in the table")
+    out = {}
+    for c in cells:
+        fid, inst = (c or {}).get("fund_id"), (c or {}).get("instrument")
+        if fid not in m.funds:
+            raise HTTPException(400, f"Unknown fund {fid}")
+        if inst not in m.instruments or m.funds[fid].product not in m.instruments[inst]["products"]:
+            raise HTTPException(400, f"{inst} isn't in {fid}'s universe")
+        v = c.get("pct")
+        if v in (None, ""):
+            out[(fid, inst)] = None
+            continue
+        try:
+            pct = float(v)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{fid} {inst}: not a number") from None
+        if abs(pct) > 5:
+            raise HTTPException(400, f"{fid} {inst}: a tilt must be between -5% and +5% of the fund")
+        out[(fid, inst)] = None if abs(pct) < 1e-9 else round(pct * 100, 4)
+    return out
+
+
+def _grid_tilts(cur: list[dict], cells: dict, user: dict, reason: str, until: str) -> list[dict]:
+    """Replace the one-fund security tilts named in the table; every other tilt is kept as it is."""
+    own = lambda e: (e.get("instrument") and not e.get("vintages") and not e.get("vintage_from")  # noqa: E731
+                     and not e.get("vintage_to") and (e.get("fund"), e.get("instrument")) in cells)
+    same = {(e["fund"], e["instrument"]) for e in cur if own(e)
+            and float(e["bps"]) == cells[(e["fund"], e["instrument"])] and (e.get("until") or "") == (until or "")}
+    keep = [e for e in cur if not own(e) or (e["fund"], e["instrument"]) in same]     # unchanged cells keep their record
+    add = [{"fund": f, "instrument": i, "bps": bp, "until": until or "", "reason": reason, "by": _who(user), "at": _ts(),
+            "source": "tilts table"} for (f, i), bp in sorted(cells.items()) if bp is not None and (f, i) not in same]
+    return keep + add
+
+
+@router.get("/api/trading/tilts-grid")
+def tilts_grid(request: Request):
+    """Every fund's securities with today's weight, glide-path (neutral) target, the fund's own tilt and the tilt
+    in force from any scope, for the tilts table."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    m = model()
+    with _store().Session() as s:
+        settings = get_settings(s)
+        cells, used = {}, set()
+        for fid, f in m.funds.items():
+            p = positions(fid)
+            nav = p["cash"] + sum(p["values"].values()) or 1.0
+            neutral = neutral_table(s, fid)
+            eff = tilts_for(settings, fid, neutral)
+            own = {e["instrument"]: float(e["bps"]) for e in _active(settings.get("tilts", []), fid)
+                   if e.get("instrument") and e.get("fund") == fid and not e.get("vintages")
+                   and not e.get("vintage_from") and not e.get("vintage_to")}
+            row = {}
+            for i in m.fund_instruments(fid):
+                if i.get("status") == "no_target":
+                    continue
+                used.add(i["id"])
+                row[i["id"]] = {"weight": p["values"].get(i["id"], 0.0) / nav, "target": neutral.get(i["id"], 0.0),
+                                "own_bps": own.get(i["id"]), "bps": round(eff.get(i["id"], 0.0), 2),
+                                "excluded": i["id"] in excluded_for(settings, fid), "exiting": i["id"] in exits_for(settings, fid)}
+            cells[fid] = row
+    order = {a: k for k, a in enumerate(m.policy.assets)}
+    rows = sorted((m.instruments[i] for i in used), key=lambda i: (order.get(i["asset_class"], 99), i["id"]))
+    return {"funds": [{"id": f.id, "vehicle": f.vehicle, "vintage": f.vintage} for f in sorted(m.funds.values(), key=lambda f: (f.vehicle, f.vintage))],
+            "rows": [{"instrument": i["id"], "name": i["name"], "asset_class": i["asset_class"], "type": i["type"]} for i in rows],
+            "cells": cells, "can_edit": any(r in user["roles"] for r in APPROVE_ROLES)}
+
+
+def _grid_preview(s, settings: dict, new_tilts: list[dict], funds: set[str]) -> list[dict]:
+    after = dict(settings, tilts=new_tilts)
+    out = []
+    for fid in sorted(funds):
+        base = neutral_table(s, fid)
+        t0, _ = _effective_table(settings, fid, base)
+        t1, notes = _effective_table(after, fid, base)
+        out.append({"fund_id": fid, "before": t0, "after": t1, "tilt_before": tilts_for(settings, fid, base),
+                    "tilt_after": tilts_for(after, fid, base), "notes": [n for n in notes if "ignored" in n or "capped" in n]})
+    return out
+
+
+@router.post("/api/trading/tilts-grid/preview")
+def tilts_grid_preview(request: Request, body: dict = Body(...)):
+    """What the glide-path (neutral) allocation of each fund would become with the table's tilts. Nothing is saved."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    cells = _grid_cells(body.get("cells"))
+    with _store().Session() as s:
+        settings = get_settings(s)
+        new = _grid_tilts(settings.get("tilts", []), cells, user, "preview", "")
+        return {"funds": _grid_preview(s, settings, new, {f for f, _ in cells})}
+
+
+@router.put("/api/trading/tilts-grid")
+def tilts_grid_save(request: Request, body: dict = Body(...)):
+    """Save the tilts table: one-fund security tilts in % of the fund (PM). A blank or zero cell removes that
+    fund's own tilt on the security; tilts set for wider scopes (all funds, a product line) are untouched."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    if not any(r in user["roles"] for r in APPROVE_ROLES):
+        raise HTTPException(403, "Only portfolio managers set tilts")
+    reason = _reason(body)
+    until = str(body.get("until") or "")[:10]
+    if until and until < date.today().isoformat():
+        raise HTTPException(400, "The end date is in the past")
+    cells = _grid_cells(body.get("cells"))
+    with _store().Session.begin() as s:
+        cur = get_settings(s)
+        new = json.loads(json.dumps(cur))
+        new["tilts"] = _grid_tilts(cur.get("tilts", []), cells, user, reason, until)
+        if new["tilts"] == cur.get("tilts", []):
+            raise HTTPException(400, "Nothing changed")
+        set_n = sum(1 for v in cells.values() if v is not None)
+        new["history"] = (list(cur.get("history", [])) + [{"at": _ts(), "by": _who(user), "reason": reason,
+                                                           "changed": ["tilts"]}])[-100:]
+        _put(s, "settings", new)
+        funds = sorted({f for f, _ in cells})
+        dr = _record(s, _who(user), "settings.change",
+                     f"Tilts table: {set_n} tilt{'s' if set_n != 1 else ''} set, {len(cells) - set_n} cleared across {len(funds)} funds",
+                     {"tilts": {"before": cur.get("tilts", []), "after": new["tilts"]},
+                      "cells": [{"fund_id": f, "instrument": i, "bps": b} for (f, i), b in sorted(cells.items())]}, reason, funds)
+    return {"ok": True, "dr_id": dr, "set": set_n, "cleared": len(cells) - set_n, "funds": len(funds)}
+
+
 @router.get("/api/trading/route-managers")
 def route_managers(request: Request):
     """Who holds the route permission now (grants and removals are in the User access log)."""

@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes in a table) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes and tilts in tables) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -618,6 +618,7 @@ The tabs, in order:
 | **Funds & securities** | See each fund's holdings and targets, edit a strategic table, load positions |
 | **Cashflows** | Load subscriptions and redemptions |
 | **Glide path & bulk changes** | Change many funds at once (10.12) |
+| **Tilts** | Tilt toward or away from holdings in many funds at once, in a table (10.12a) |
 | **Routing & settings** | Routes, cash buffer, tilts, exits, exclusions (10.11) |
 
 The **All funds / Mutual funds / CITs** switch at the top right filters every tab. Mutual funds are `MTRS-2030`…`2070`, CITs `MTRT-2030`…`2070`.
@@ -958,6 +959,25 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 5. **Tilts** (PM): an asset class (spread over each fund's securities in that class) or a security, ± bp, optional end date; click **Apply tilt**. For the same item the most specific scope wins: one fund, then chosen vintages, then all CITs or all mutual funds, then all funds.
 6. **Exclusions and full exits**: a security, exclude or flag for exit, optional end date; click **Apply**.
 7. **Roll-down schedule and cash buffer**: set the roll-down frequency and/or a stricter ETF buffer for every fund in scope; click **Apply**.
+
+### 10.12a Tilt toward or away from holdings (tilts table)
+**Who:** PMs edit; everyone else with Trading reads. **Where:** Trading → **Tilts**.
+
+![The tilts table](img/guide/trd-35-tilts-table.png)
+*Image: `trd-35-tilts-table.png`*
+
+1. Click **Tilts**. Rows are securities, grouped by asset class; columns are funds (the **All funds / Mutual funds / CITs** switch at the top right picks which). A **—** means the security isn't in that fund's universe.
+2. Type tilts in **% of the fund**: `0.5` tilts 0.5% (50 bp) toward the holding, `-0.25` away from it. Fill as many cells as you need. Hover over a cell for today's weight, the glide-path target and the tilt in force. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages, 10.12); typing a value overrides it for that fund. A blank or 0 removes that fund's own tilt. You can paste a block of numbers from Excel; **↑ ↓ Enter** move along a column.
+3. Optional: **Until** ends the tilts on a date.
+4. Click **Preview**.
+
+![Preview of the tilted allocation](img/guide/trd-36-tilts-preview.png)
+*Image: `trd-36-tilts-preview.png`*
+
+5. The preview is a table of every fund you changed: each security's glide-path allocation before → after, with the tilt change on the tilted cells. Each tilt is funded pro rata from the fund's other holdings, so the fund still totals 100%; a tilt that would push a holding below zero is capped (noted under the table).
+6. Click **Save n tilt changes**, give a reason and confirm.
+
+**You're done when** the message says how many tilts were set and cleared across how many funds. The tilts apply to every allocation table of those funds (invest cashflows, rebalance); the fund's page shows *Tilt ±bp*. Every save is one `settings.change` record in the ledger with each cell's before and after.
 
 ### 10.13 Load positions (holdings at last close)
 **Who:** PM. **Where:** Trading → **Funds & securities**, bottom of the page.

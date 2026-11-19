@@ -93,6 +93,8 @@ A separate page in the app bar, for the implementation workflow in doc 17. Tabs:
 
 Step-by-step use with screenshots: doc 06 §10. Tests: `tests/e2e/test_ui_trading.py` (TRD-1 to TRD-23).
 
+**Tilts** (2026-11-19): a securities × funds table of tilts in % of the fund (grey placeholders show tilts set for wider scopes), paste from Excel, preview as a before → after allocation table, save all together (PM; others read-only); `/api/trading/tilts-grid` (GET, `/preview`, PUT). Doc 06 §10.12a.
+
 **In progress** and **Files** (2026-11-18): trades by stage with % filled, dates with open orders and an order blotter; every Charles River import and fills file, viewable in the app as a table or downloadable again. Doc 06 §10.10a and §10.10b.
 
 ## Policy screen (`/policy`, built 2026-11-18)

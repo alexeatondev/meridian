@@ -36,8 +36,16 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 .stages{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}.stage{border:1px solid var(--line);border-radius:var(--radius-lg,10px);padding:10px;min-height:120px}
 .stage-h{display:flex;justify-content:space-between;align-items:center}.stage-i{display:block;margin-top:8px;padding:8px;border-radius:var(--radius-sm,8px);background:var(--surface-2,#f3f2ef);text-decoration:none;color:inherit}
 .stage-i:hover{outline:2px solid var(--accent,#1f4e8c)}.bar{display:block;height:4px;background:var(--line);border-radius:2px;margin-top:6px}.bar i{display:block;height:4px;background:var(--ok,#2f8f5b);border-radius:2px}
+.tg-wrap{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:var(--radius-sm,6px)}.tg{border-collapse:separate;border-spacing:0}
+.tg th,.tg td{padding:3px 4px;white-space:nowrap;border-bottom:1px solid var(--line)}.tg th{position:sticky;top:0;background:var(--surface);z-index:2;font-size:12px;line-height:1.2}
+.tg .tg-sec{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis}.tg th.tg-sec{z-index:3}
+.tg tr.tg-ac td{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--heading,var(--text));position:sticky;left:0}
+.tg input{width:64px;min-height:0;height:28px;padding:3px 6px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,4px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
+.tg input:disabled{background:transparent;border-color:transparent}.tg input::placeholder{color:var(--muted)}.tg td.tg-na{color:var(--line-strong);text-align:center}
+.tg td.tg-ed{background:var(--info-bg)}.tg td.tg-x input{text-decoration:line-through}.tg tr.tg-dim td{color:var(--muted)}
 .filegrid td,.filegrid th{white-space:nowrap;padding:4px 8px}
 @media(max-width:1100px){.stages{grid-template-columns:1fr 1fr}}
+.tg input{-moz-appearance:textfield;appearance:textfield}.tg input::-webkit-outer-spin-button,.tg input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 </style></head><body>
 <style>
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden}.seg button{border:0;background:var(--surface);color:var(--text);padding:6px 12px;cursor:pointer;font:inherit}
@@ -68,9 +76,9 @@ tr.grp td{font-weight:600;background:var(--surface-2)}
 <main>
 <div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
 <div class="tabs" role="tablist">
-  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="settings">Routing &amp; settings</button>
+  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="tilts">Tilts</button><button data-tab="settings">Routing &amp; settings</button>
 </div>
-<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="settings" hidden></section>
+<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="tilts" hidden></section><section id="settings" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -103,8 +111,8 @@ async function load(){ S.st = await api('GET','/api/trading/state'); if(!S.tab) 
 function render(){
   document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
-  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','settings']) $('#'+t).hidden = t!==S.tab;
-  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, settings:vSettings})[S.tab]();
+  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','tilts','settings']) $('#'+t).hidden = t!==S.tab;
+  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, tilts:vTilts, settings:vSettings})[S.tab]();
 }
 
 // ------------------------------------------------------------------ Funds & securities
@@ -303,6 +311,65 @@ async function showFile(){
    <div style="overflow:auto;max-height:60vh"><table class="small filegrid"><tr>${f.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${f.data.map(r=>`<tr>${r.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div></div>`;
   $('#fvClose').onclick = ()=>{ S.file=null; $('#fileView').innerHTML=''; };
   $('#fileView').scrollIntoView({block:'start'});
+}
+
+// ------------------------------------------------------------------ Tilts table (security tilts per fund, % of the fund)
+const fmtPct = (v,d=2) => (v>0?'+':'')+(+v).toFixed(d);
+async function vTilts(){
+  const tok = S.tgTok = (S.tgTok||0)+1;
+  let g; try { g = await api('GET','/api/trading/tilts-grid'); } catch(e) { return toast(e.message,'error'); }
+  if (tok !== S.tgTok || S.tab !== 'tilts') return;
+  S.tg ||= {edits:{}, prev:null}; S.tgData = g;
+  const T=S.tg, ro=!g.can_edit;
+  const funds = g.funds.filter(f=>S.veh==='all'||f.vehicle===S.veh);
+  const val = (f,i) => { const k=f+'|'+i; if (k in T.edits) return T.edits[k]; const c=g.cells[f][i]; return c&&c.own_bps!=null ? +(c.own_bps/100).toFixed(4) : ''; };
+  let lastAc='', body='';
+  for (const r of g.rows) {
+    const inAny = funds.some(f=>g.cells[f.id][r.instrument]); if(!inAny) continue;
+    if (r.asset_class!==lastAc){ lastAc=r.asset_class; body+=`<tr class="tg-ac"><td colspan="${funds.length+1}">${esc(acName(r.asset_class))}</td></tr>`; }
+    body += `<tr><td class="tg-sec"><b>${esc(r.instrument)}</b> <span class="small muted">${esc(r.name)}</span></td>${funds.map(f=>{const c=g.cells[f.id][r.instrument];
+      if(!c) return '<td class="tg-na" title="Not in this fund\'s universe">—</td>';
+      const v=val(f.id,r.instrument), wide=c.own_bps==null&&Math.abs(c.bps)>1e-9, edited=(f.id+'|'+r.instrument) in T.edits;
+      const tip=`${f.id} · ${r.instrument}: weight today ${(c.weight*100).toFixed(2)}%, glide-path target ${(c.target*100).toFixed(2)}%, tilt in force ${fmtPct(c.bps/100)}%${wide?' (set for a wider scope)':''}${c.excluded?' · excluded from trading':''}${c.exiting?' · being exited':''}`;
+      return `<td class="tg-c ${edited?'tg-ed':''} ${c.excluded||c.exiting?'tg-x':''}"><input type="number" step="0.05" inputmode="decimal" data-tg="${f.id}|${r.instrument}" value="${v}" placeholder="${wide?fmtPct(c.bps/100):''}" title="${esc(tip)}" aria-label="${esc(tip)}" ${ro?'disabled':''}></td>`}).join('')}</tr>`;
+  }
+  const n = Object.keys(T.edits).length;
+  $('#tilts').innerHTML = `<div class="card"><h2>Tilts</h2>
+   <p class="small muted">Tilt toward (+) or away from (−) a holding within a fund, in <b>% of the fund</b> (0.25 = 25 bp). Type into as many cells as you like, preview, then save them together. Each tilt is funded pro rata from the fund's other holdings, so weights still total 100%, and applies to every allocation table (cashflows, rebalances). A blank or 0 removes that fund's own tilt. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages on Glide path &amp; bulk changes); typing a value overrides it for that fund. Hover over a cell for today's weight and target. Tip: paste a block of numbers from Excel into any cell.${ro?' <b>Read-only: portfolio managers set tilts.</b>':''}</p>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${funds.map(f=>`<th class="n" title="${f.vehicle==='cit'?'CIT':'Mutual fund'} ${f.vintage}">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${body}</table></div>
+   ${ro?'':`<div class="row" style="margin-top:10px"><label class="small">Until (optional) <input type="date" id="tgUntil" value="${esc(T.until||'')}"></label><button class="btn primary" id="tgPrev">Preview</button><button class="btn" id="tgClear">Discard edits</button><span class="small muted" id="tgN">${n?`${n} cell${n===1?'':'s'} changed`:'No changes yet'}</span></div>`}
+   <div id="tgOut">${T.prev?tgPreviewHtml(T.prev):''}</div></div>`;
+  document.querySelectorAll('[data-tg]').forEach(inp=>{
+    inp.oninput=()=>{ T.edits[inp.dataset.tg]=inp.value; T.prev=null; $('#tgOut').innerHTML=''; inp.closest('td').classList.add('tg-ed'); const k=Object.keys(T.edits).length; $('#tgN').textContent=`${k} cell${k===1?'':'s'} changed`; };
+    inp.onpaste=ev=>{ const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
+      const all=[...document.querySelectorAll('[data-tg]')], rowsEl=[...document.querySelectorAll('.tg tr')].filter(tr=>tr.querySelector('.tg-sec')&&!tr.querySelector('th'));
+      const tr=inp.closest('tr'), r0=rowsEl.indexOf(tr), c0=[...tr.children].indexOf(inp.closest('td'));
+      txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{ const row=rowsEl[r0+i]; if(!row) return;
+        line.split('\t').forEach((v,k)=>{ const td=row.children[c0+k]; const x=td&&td.querySelector('[data-tg]'); if(!x) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); T.edits[x.dataset.tg]=isNaN(+v)?'':v; }); });
+      T.prev=null; vTilts(); };
+    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const f=inp.dataset.tg.split('|')[0], col=[...document.querySelectorAll(`[data-tg^="${f}|"]`)], k=col.indexOf(inp), nx=col[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select();} };
+  });
+  if (ro) return;
+  const cells = () => Object.entries(T.edits).map(([k,v])=>{const [fund_id,instrument]=k.split('|'); return {fund_id, instrument, pct: v===''?null:+v}});
+  $('#tgUntil').onchange=e=>{T.until=e.target.value};
+  $('#tgClear').onclick=()=>{ T.edits={}; T.prev=null; vTilts(); };
+  $('#tgPrev').onclick=async()=>{ if(!Object.keys(T.edits).length) return toast('Type at least one tilt into the table','warn');
+    try{ T.prev=await api('POST','/api/trading/tilts-grid/preview',{cells:cells()}); $('#tgOut').innerHTML=tgPreviewHtml(T.prev); $('#tgOut').scrollIntoView({block:'start',behavior:'smooth'}); bindTgSave(); }catch(e){toast(e.message,'error')} };
+  const bindTgSave = () => { const b=$('#tgSave'); if(!b) return; b.onclick=async()=>{ const reason=await MUI.ask(`Save ${Object.keys(T.edits).length} tilt change${Object.keys(T.edits).length===1?'':'s'}`,{message:'Saved together and recorded in the ledger. They apply to the next trade list for these funds.', okText:'Save tilts'}); if(!reason) return;
+    try{ const r=await api('PUT','/api/trading/tilts-grid',{cells:cells(), until:T.until||'', reason}); T.edits={}; T.prev=null; await load(); toast(`Tilts saved: ${r.set} set, ${r.cleared} cleared across ${r.funds} funds`); }catch(e){toast(e.message,'error')} }; };
+  bindTgSave();
+}
+function tgPreviewHtml(p){
+  const g=S.tgData, names=Object.fromEntries(g.rows.map(r=>[r.instrument,r]));
+  const fids=p.funds.map(f=>f.fund_id), insts=g.rows.map(r=>r.instrument).filter(i=>p.funds.some(f=>(f.before[i]||0)>0||(f.after[i]||0)>0));
+  const changed=i=>p.funds.some(f=>Math.abs((f.after[i]||0)-(f.before[i]||0))>1e-7||Math.abs((f.tilt_after[i]||0)-(f.tilt_before[i]||0))>1e-7);
+  const rows=insts.map(i=>`<tr class="${changed(i)?'':'tg-dim'}"><td class="tg-sec"><b>${esc(i)}</b> <span class="small muted">${esc(names[i]?.name||'')}</span></td>${p.funds.map(f=>{const a=(f.before[i]||0)*100, b=(f.after[i]||0)*100, ta=(f.tilt_after[i]||0)/100, tb=(f.tilt_before[i]||0)/100, ch=Math.abs(b-a)>1e-5||Math.abs(ta-tb)>1e-7;
+    return `<td class="n ${Math.abs(ta-tb)>1e-7?'tg-ed':''}">${ch?`<span class="muted small">${a.toFixed(2)}→</span><b>${b.toFixed(2)}</b>${Math.abs(ta-tb)>1e-7?`<div class="small">tilt ${fmtPct(tb)}→${fmtPct(ta)}</div>`:''}`:`<span class="muted">${b?b.toFixed(2):'—'}</span>`}</td>`}).join('')}</tr>`).join('');
+  const notes=p.funds.flatMap(f=>f.notes.map(n=>`${f.fund_id}: ${n}`));
+  return `<h3>Preview: glide-path allocation (% of the fund) with these tilts</h3><p class="small muted">Before → after for each fund you changed: the tilted security moves by its tilt and the others give or take the difference in proportion. Nothing is saved yet.</p>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${fids.map(f=>`<th class="n">${f.replace('-','<br>')}</th>`).join('')}</tr>${rows}</table></div>
+   ${notes.length?`<div class="small" style="margin-top:6px;color:var(--warn)">${notes.map(esc).join('<br>')}</div>`:''}
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="tgSave">Save ${Object.keys(S.tg.edits).length} tilt change${Object.keys(S.tg.edits).length===1?'':'s'}</button></div>`;
 }
 
 // ------------------------------------------------------------------ Routing & settings
