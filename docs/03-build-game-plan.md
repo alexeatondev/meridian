@@ -72,6 +72,7 @@
 - **Brand themes:** every screen's colours, fonts, rounding, app bar and chart colours come from `config/brand.yaml`; Principal Financial Group theme active (from the public Principal Design System tokens), original kept as `meridian`; add a company, switch with `active:` or `MERIDIAN_BRAND`, check contrast with `meridian brand check` (doc 11).
 - **SEC data live:** contact set; data refresh run (5,737 companies); EDGAR now fills each company across revenue concepts and recent periods, and matches tickers written differently (BRK B / BRK-B).
 - All 89 screenshots regenerated in the new look.
+- **Revised 2026-11-19 (product-owner review):** less blue and easier reading: white and light grey surfaces, dark navy instead of Principal blue for actions and headings, neutral highlights, light mode only, contrast checked on every text/background pair (WCAG AA, body text AAA).
 
 ## Next steps (not blocked, in order)
 1. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).

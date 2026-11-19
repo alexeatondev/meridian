@@ -23,7 +23,8 @@ def test_switch_theme_with_env(monkeypatch):
     assert branding.active()["key"] == "meridian" and "#1f4e8c" in branding.theme_css()
     monkeypatch.setenv("MERIDIAN_BRAND", "principal")
     css = branding.theme_css()
-    assert "--accent:#0076CF" in css and "--appbar-bg:#002855" in css and "FS Elliot" in css
+    assert "--accent:#002855" in css and "--appbar-bg:#002855" in css and "FS Elliot" in css
+    assert "color-scheme:light" in css and "prefers-color-scheme:dark" not in css      # light only
     monkeypatch.setenv("MERIDIAN_BRAND", "no-such-company")
     assert branding.active()["key"] == "meridian"          # unknown theme falls back safely
 

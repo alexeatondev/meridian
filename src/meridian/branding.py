@@ -68,6 +68,8 @@ def theme_css(t: dict | None = None) -> str:
     css = f":root:root{{{_vars(t.get('colors') or {}, t)}}}"
     if t.get("dark"):
         css += f"@media (prefers-color-scheme:dark){{:root:root{{{_vars(t['dark'], t, dark=True)}}}}}"
+    else:                                          # light only: these tokens win over every page's dark mode
+        css += ":root:root{color-scheme:light}"
     css += ("body,button,input,select,textarea{font-family:var(--font)}"
             ".mono,code,pre,kbd{font-family:var(--font-mono)}"
             "h1,h2{color:var(--heading)}"
@@ -98,7 +100,10 @@ def contrast(a: str, b: str) -> float:
 
 PAIRS = [("text", "surface"), ("text", "bg"), ("text-2", "surface"), ("muted", "surface"), ("accent", "surface"),
          ("accent-ink", "accent"), ("ok", "ok-bg"), ("warn", "warn-bg"), ("crit", "crit-bg"), ("crit", "surface"),
-         ("text", "surface-2"), ("text", "info-bg")]
+         ("text", "surface-2"), ("text", "info-bg"), ("muted", "surface-2"), ("muted", "bg"), ("text-2", "info-bg"),
+         ("muted", "info-bg"), ("accent", "info-bg"), ("accent", "surface-2"), ("heading", "surface"), ("pos", "surface"),
+         ("neg", "surface"), ("ok", "surface"), ("warn", "surface"), ("text-2", "off-bg"), ("muted", "off-bg"),
+         ("ok", "surface-2"), ("warn", "surface-2"), ("crit", "surface-2")]
 
 
 def check(t: dict) -> list[str]:
