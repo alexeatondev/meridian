@@ -66,6 +66,9 @@ class TradingModel:
     as_of: date
     funds: dict[str, Fund] = field(default_factory=dict)
     instruments: dict[str, dict] = field(default_factory=dict)
+    # security line-up set in the app (Trading -> Security line-up): {fund_id: {instrument_id: share of its
+    # asset class}} for the asset classes a PM changed; everything else uses the shares in config/trading.yaml
+    overlay: dict[str, dict[str, float]] = field(default_factory=dict)
 
     # ----------------------------------------------------------------- reference data
     def fund_ids(self, vehicle: str = "all") -> list[str]:
@@ -73,12 +76,20 @@ class TradingModel:
 
     def fund_instruments(self, fund_id: str) -> list[dict]:
         f = self.funds[fund_id]
-        return [i for i in self.instruments.values() if f.product in i["products"]]
+        ov = self.overlay.get(fund_id, {})
+        return [i for i in self.instruments.values() if f.product in i["products"] or i["id"] in ov]
 
     def has_target(self, inst: dict, fund_id: str) -> bool:
         return inst.get("status", "held") != "no_target" and self.share(inst, fund_id) > 0
 
     def share(self, inst: dict, fund_id: str) -> float:
+        ov = self.overlay.get(fund_id)
+        if ov and inst["id"] in ov:
+            return float(ov[inst["id"]])
+        return float(inst.get("share", 0.0)) if self.funds[fund_id].product in inst["products"] else 0.0
+
+    def base_share(self, inst: dict, fund_id: str) -> float:
+        """The share in config/trading.yaml, before any line-up change."""
         return float(inst.get("share", 0.0)) if self.funds[fund_id].product in inst["products"] else 0.0
 
     @property
@@ -130,7 +141,11 @@ class TradingModel:
         f = self.funds[fund_id]
         seed = int(hashlib.sha256(fund_id.encode()).hexdigest()[:8], 16)
         rng = np.random.default_rng(seed)
-        neutral = self.neutral_table(fund_id)
+        ov, self.overlay = self.overlay, {}          # example holdings follow config/trading.yaml, not later line-up changes
+        try:
+            neutral = self.neutral_table(fund_id)
+        finally:
+            self.overlay = ov
         cash_pct = float(self.raw.get("cash_account_pct", 0.006))
         drifted = {k: v * (1 + 0.025 * rng.standard_normal()) for k, v in neutral.items()}
         legacy = {i["id"]: float(i.get("legacy_pct", 0)) for i in self.fund_instruments(fund_id)

@@ -31,6 +31,7 @@ Not sure where to start? Use this table.
 | Sell a position completely | 10.6 |
 | See what my trades would do before saving them | 10.7 |
 | Approve a trade list and export it to Charles River | 10.9 |
+| Add, take out, include or exclude a security in one fund or many funds and vintages | 10.12b |
 | Raise or close an exception | 8.2 |
 | Add a user | 11.1 |
 | Tag a fund with a regulation | 12.1 |
@@ -347,6 +348,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
    - **Rows** are levels 1 to 4: **L1** asset group (equity, fixed income, real assets, cash), **L2** region (US vs international), **L3** developed vs emerging, **L4** size and sector (e.g. US large vs small/mid; core bond, long Treasury, TIPS, high yield). **Show levels** hides the lower ones.
    - **Columns**: **Vintage (MF + CIT)** applies a column to both the mutual fund and the CIT of that vintage; **Mutual funds** or **CITs** one column per fund of that product line; **Each fund** all 18 funds.
    - **Enter**: **Change (pp of fund)**, absolute, e.g. `1` or `-0.5`; **Share of parent (%)**, relative to the level above, e.g. international equity = `45` (% of equity); **Change (% of weight)**, relative to itself, e.g. `10` turns 30% into 33%; or **New weight (%)**. The grey number in an empty cell is today's value in the chosen terms.
+   - **Level 5** (single securities) isn't in this table: the glide path sets asset-class weights, and each fund's security line-up decides which securities hold them. The link under the controls opens Trading → **Security line-up** (10.12b).
    - **Balance**: **Within its level** (default): the rest of the same level gives or takes the change, so totals above stay the same (raise US large cap and US small/mid gives it; raise equity and fixed income, real assets and cash give it); **Pro rata across the fund**: everything not edited gives or takes it in proportion; **Off**: your edits must net to zero, so enter both sides yourself.
 
 ![Typing changes into the table](img/guide/pm-15-glide-table.png)
@@ -647,6 +649,7 @@ The tabs, in order:
 | **Funds & securities** | See each fund's holdings and targets, edit a strategic table, load positions |
 | **Cashflows** | Load subscriptions and redemptions |
 | **Glide path & bulk changes** | Change many funds at once (10.12) |
+| **Security line-up** | Add a security to funds and vintages, change its share of its asset class, take it out, exclude or include it (10.12b) |
 | **Tilts** | Tilt toward or away from holdings in many funds at once, in a table (10.12a) |
 | **Routing & settings** | Routes, cash buffer, tilts, exits, exclusions (10.11) |
 
@@ -1028,6 +1031,28 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 6. Click **Save n tilt changes**, give a reason and confirm.
 
 **You're done when** the message says how many tilts were set and cleared across how many funds. The tilts apply to every allocation table of those funds (invest cashflows, rebalance); the fund's page shows *Tilt ±bp*. Every save is one `settings.change` record in the ledger with each cell's before and after.
+
+### 10.12b Choose which securities a fund holds (security line-up, level 5)
+**Who:** PMs change it; everyone else with Trading reads. **Where:** Trading → **Security line-up** (Console → Glide path also links here: the glide path sets levels 1-4, the asset-class weights; the line-up decides which securities hold each asset class).
+
+![Security line-up: security, funds, what to do](img/guide/trd-39-security-lineup.png)
+*Image: `trd-39-security-lineup.png`*
+
+1. **Security.** Type a ticker, name or asset class and click the security. If it isn't in the list, click **+ Add a new security**: ticker or ID, name, type (ETF, stock, bond, mutual fund, CIT), asset class, an estimated price, optional CUSIP and a reason, then **Add security**. A new security is in no fund until you add it in the next steps.
+2. **Funds.** Choose **All funds**, **All mutual funds**, **All CITs** or one fund, then click the vintages to include (shortcuts **All**, **2030–2045**, **2050–2070**, **Clear**). The count says how many funds that is.
+3. **What to do:**
+   - **Add it, or change its share of its asset class**: type its share in % (25 = a quarter of the fund's weight in that asset class; 100 = the only security for it). The other securities of the asset class give or take the difference in proportion to their usual shares.
+   - **Take it out of the line-up (sell it)**: its target becomes 0 and it is flagged for a full exit, so cashflows skip it and **Exit a position** (10.6) sells it.
+   - **Exclude it from trading (keep holding it)**: the position stays and gets no trades.
+   - **Include it again**: removes an exclusion, an exit flag or a "taken out" for that scope (a security taken out after you added it gets its share back).
+4. Click **Preview**: for each fund, how the asset class is split between its securities and each security's glide-path weight (% of the fund), before → after.
+
+![Preview, fund by fund](img/guide/trd-40-lineup-preview.png)
+*Image: `trd-40-lineup-preview.png`*
+
+5. Click **Save for n funds**, give a reason and confirm.
+
+**You're done when** the message says what was saved and for how many funds, and the cells in **Line-up by fund** are shaded. The change applies to the glide-path (Neutral), Strategic and Approved-proposal tables at once, so the next cashflow or rebalance for those funds uses it; a rebalance buys a newly added security. For the same security, the most specific scope wins (one fund, then chosen vintages, then a product line, then all funds). Every save is one `settings.change` record with the before and after. A security that is the only one for an asset class can't be taken out until another is added.
 
 ### 10.13 Load positions (holdings at last close)
 **Who:** PM. **Where:** Trading → **Funds & securities**, bottom of the page.

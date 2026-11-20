@@ -11,7 +11,7 @@ font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--surface)}
 header h1{font-size:17px;margin:0}header .sp{flex:1}a{color:var(--accent)}
 main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
-.tabs{display:flex;gap:6px;margin-bottom:16px}.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;font:inherit}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}.tabs button{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:7px 14px;border-radius:999px;cursor:pointer;font:inherit}
 .tabs button.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg,12px);padding:16px 18px;margin-bottom:16px}
 h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:14px 0 6px;color:var(--text-2)}
@@ -40,6 +40,7 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 .tg th,.tg td{padding:3px 4px;white-space:nowrap;border-bottom:1px solid var(--line)}.tg th{position:sticky;top:0;background:var(--surface);z-index:2;font-size:12px;line-height:1.2}
 .tg .tg-sec{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis}.tg th.tg-sec{z-index:3}
 .tg tr.tg-ac td{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--heading,var(--text));position:sticky;left:0}
+.tabs button{white-space:nowrap}.lu-list{display:flex;flex-direction:column;gap:2px;margin:6px 0;max-width:760px}.lu-opt{text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:6px 10px;border-radius:var(--radius-sm,6px);cursor:pointer;font:inherit}.lu-opt:hover{background:var(--surface-2)}.lu-opt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .tglv{display:inline-block;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:3px;padding:0 3px;margin-right:2px}.tg tr.tg-grp td{background:var(--surface-2)}.tg tr.tg-l0 td{border-top:2px solid var(--line-strong)}.tg .tga{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.2}.tg .tga b{color:var(--text)}.tg td.tg-ok{color:var(--ok)}.tg td.tg-bad{color:var(--neg,#b42318)}.tg tr.tg-foot td{border-top:2px solid var(--line-strong)}
 .tgctl{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}.tgctl>div{display:flex;gap:6px;align-items:center}
 .tg input{width:64px;min-height:0;height:28px;padding:3px 6px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,4px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
@@ -78,9 +79,9 @@ tr.grp td{font-weight:600;background:var(--surface-2)}
 <main>
 <div class="banner"><b>Shadow mode.</b> Meridian proposes, checks and records orders and produces the Charles River import file. Nothing is sent or executed. Positions, prices and NAVs are <b>example data</b> until custodian and transfer-agent files are connected.</div>
 <div class="tabs" role="tablist">
-  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="tilts">Tilts</button><button data-tab="settings">Routing &amp; settings</button>
+  <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="lineup">Security line-up</button><button data-tab="tilts">Tilts</button><button data-tab="settings">Routing &amp; settings</button>
 </div>
-<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="tilts" hidden></section><section id="settings" hidden></section>
+<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="lineup" hidden></section><section id="tilts" hidden></section><section id="settings" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -113,8 +114,8 @@ async function load(){ S.st = await api('GET','/api/trading/state'); if(!S.tab) 
 function render(){
   document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
-  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','tilts','settings']) $('#'+t).hidden = t!==S.tab;
-  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, tilts:vTilts, settings:vSettings})[S.tab]();
+  for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','lineup','tilts','settings']) $('#'+t).hidden = t!==S.tab;
+  ({trade:vTrade, funds:vFunds, cashflows:vCashflows, trades:vTrades, progress:vProgress, files:vFiles, bulk:vBulk, lineup:vLineup, tilts:vTilts, settings:vSettings})[S.tab]();
 }
 
 // ------------------------------------------------------------------ Funds & securities
@@ -323,6 +324,82 @@ async function showFile(){
    <div style="overflow:auto;max-height:60vh"><table class="small filegrid"><tr>${f.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${f.data.map(r=>`<tr>${r.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div></div>`;
   $('#fvClose').onclick = ()=>{ S.file=null; $('#fileView').innerHTML=''; };
   $('#fileView').scrollIntoView({block:'start'});
+}
+
+// ------------------------------------------------------------------ Security line-up (level 5: which securities each fund holds)
+async function vLineup(){
+  const tok = S.luTok = (S.luTok||0)+1;
+  let g; try { g = await api('GET','/api/trading/lineup'); } catch(e) { return toast(e.message,'error'); }
+  if (tok !== S.luTok || S.tab !== 'lineup') return;
+  S.lu ||= {inst:null, q:'', scope:S.veh==='all'?'*':'vehicle:'+S.veh, V:S.st.vintages.slice(), act:'share', pct:'', prev:null, add:false};
+  S.luData = g; luRender();
+}
+function luFunds(){ const L=S.lu, single=bkSingle(L.scope); return S.luData.funds.filter(f=>(L.scope==='*'||L.scope===f.id||L.scope==='vehicle:'+f.vehicle)&&(single||L.V.includes(f.vintage))); }
+function luBody(){ const L=S.lu, single=bkSingle(L.scope); return {instrument:L.inst, action:L.act, fund:L.scope, vintages: single||L.V.length===S.st.vintages.length?[]:L.V.slice(), share_pct:L.pct}; }
+function luRender(){
+  const g=S.luData, L=S.lu, ed=g.can_edit, sec=g.securities.find(x=>x.id===L.inst), V=S.st.vintages;
+  const q=L.q.trim().toLowerCase(), list=g.securities.filter(x=>!q||(x.id+' '+x.name+' '+acName(x.asset_class)).toLowerCase().includes(q)).slice(0,12);
+  const funds=g.funds.filter(f=>S.veh==='all'||f.vehicle===S.veh), single=bkSingle(L.scope), nF=luFunds().length;
+  const acts=[['share','Add it, or change its share of '+(sec?acName(sec.asset_class):'its asset class'),'Becomes part of each fund\'s target for that asset class. The other securities of the asset class give or take the difference in proportion.'],
+    ['remove','Take it out of the line-up (sell it)','Its target becomes 0 and it is flagged for a full exit: cashflows skip it, and Exit a position sells it (in one go or in tranches).'],
+    ['exclude','Exclude it from trading (keep holding it)','Its position stays as it is and it gets no trades until included again.'],
+    ['include','Include it again','Removes an exclusion, an exit flag or a "taken out" for this scope, so it trades normally again.']];
+  let rows=''; let lastAc='';
+  for (const x of g.securities.filter(x=>x.in_any)) {
+    if (!funds.some(f=>g.cells[f.id][x.id])) continue;
+    if (x.asset_class!==lastAc){ lastAc=x.asset_class; rows+=`<tr class="tg-ac"><td colspan="${funds.length+1}">${esc(acName(x.asset_class))}</td></tr>`; }
+    rows+=`<tr class="click ${L.inst===x.id?'sel':''}" data-lusec="${esc(x.id)}"><td class="tg-sec"><b>${esc(x.id)}</b> <span class="small muted">${esc(x.name)}</span>${x.added_in_app?' '+chip('added','perm'):''}</td>${funds.map(f=>{ const c=g.cells[f.id][x.id];
+      if(!c) return '<td class="tg-na">—</td>';
+      const tags=(c.excluded?chip('Excl.','warn'):'')+(c.exiting?chip('Exit','crit'):'')+(c.no_target?chip('No target','warn'):'');
+      const tip=`${f.id} · ${x.id}: ${(c.share*100).toFixed(1)}% of ${acName(x.asset_class)} (usually ${(c.base_share*100).toFixed(1)}%), ${(c.weight*100).toFixed(2)}% of the fund on the glide path${c.held?', held today':''}${c.entry?` · set for ${c.entry.fund} by ${c.entry.by?.name||''}`:''}`;
+      return `<td class="n ${c.entry?'tg-ed':''}" title="${esc(tip)}">${c.weight>0?(c.weight*100).toFixed(2):'<span class="muted">0</span>'}<div class="tga">${(c.share*100).toFixed(0)}% of class</div>${tags}</td>`}).join('')}</tr>`; }
+  const pctHtml = L.act==='share'?`<div class="row" id="luPctRow" style="margin:4px 0 0 26px"><label>Share of ${sec?esc(acName(sec.asset_class)):'the asset class'} <input type="number" id="luPct" value="${esc(L.pct)}" min="0" max="100" step="1" style="width:90px"> %</label><span class="small muted">e.g. 25 = a quarter of the fund's ${sec?esc(acName(sec.asset_class)):'asset class'} weight; 100 = the only security for it</span></div>`:'';
+  $('#lineup').innerHTML = `<div class="card"><h2>Security line-up</h2>
+   <p class="small muted">Level 5 of the asset hierarchy: which securities each fund holds for each asset class, and how each asset class is split between them. The glide path (levels 1-4) sets how much of the fund goes to each asset class; the line-up decides what is bought with it. Changes apply to the glide-path (Neutral), Strategic and Approved-proposal tables at once, so the next cashflow or rebalance uses them. Choose a security, the funds, and what to do, then preview and save.${ed?'':' <b>Read-only: portfolio managers change the line-up.</b>'}</p>
+   <h3>1. Security</h3>
+   <div class="row"><input type="search" id="luQ" placeholder="Ticker, name or asset class" value="${esc(L.q)}" style="max-width:340px" aria-label="Find a security">${ed?`<button class="btn" id="luAddBtn">${L.add?'Close':'+ Add a new security'}</button>`:''}</div>
+   ${L.add?`<div class="card" style="margin-top:8px;background:var(--surface-2)"><b>Add a security to the security master</b><p class="small muted">It isn't in any fund until you add it to the line-up below. The price is an estimate for sizing trades until vendor prices are connected.</p>
+     <div class="row"><input type="text" id="nsId" placeholder="Ticker / ID, e.g. VXUS" style="width:150px"><input type="text" id="nsName" placeholder="Name" style="width:300px">
+     <select id="nsType">${g.types.map(t=>`<option value="${t}">${({etf:'ETF',stock:'Stock',bond:'Bond',mutual_fund:'Mutual fund',cit:'CIT'})[t]}</option>`).join('')}</select>
+     <select id="nsAc">${S.st.assets.map(a=>`<option value="${a}">${esc(acName(a))}</option>`).join('')}</select>
+     <input type="number" id="nsPx" placeholder="Price" step="0.01" min="0" style="width:110px"><input type="text" id="nsCusip" placeholder="CUSIP (optional)" style="width:150px"></div>
+     <div class="row" style="margin-top:6px"><input type="text" id="nsReason" placeholder="Reason (10+ characters)" style="max-width:420px"><button class="btn primary" id="nsGo">Add security</button></div></div>`:''}
+   <div class="lu-list">${list.map(x=>`<button type="button" class="lu-opt ${L.inst===x.id?'on':''}" data-luinst="${esc(x.id)}"><b>${esc(x.id)}</b> ${esc(x.name)} <span class="small muted">· ${esc(acName(x.asset_class))} · ${esc(x.type.replace('_',' '))}</span></button>`).join('')||'<span class="small muted">No match. Add it as a new security.</span>'}</div>
+   ${sec?`<p class="small">Selected: <b>${esc(sec.id)}</b> ${esc(sec.name)} (${esc(acName(sec.asset_class))})</p>`:''}
+   <h3>2. Funds</h3>
+   <div class="row"><select id="luScope"><option value="*">All funds</option><option value="vehicle:mutual_fund">All mutual funds</option><option value="vehicle:cit">All CITs</option>${S.st.funds.map(f=>`<option value="${f.id}">${f.id}</option>`).join('')}</select><span class="small">${nF} fund${nF===1?'':'s'}</span></div>
+   ${single?'':`<div class="vpick" role="group" aria-label="Vintages">${V.map(v=>`<button type="button" class="vchip ${L.V.includes(v)?'on':''}" data-luv="${v}" aria-pressed="${L.V.includes(v)}">${v}</button>`).join('')}<button type="button" class="btn small" data-luvset="all">All</button><button type="button" class="btn small" data-luvset="near">2030–2045</button><button type="button" class="btn small" data-luvset="far">2050–2070</button><button type="button" class="btn small" data-luvset="none">Clear</button></div>`}
+   <h3>3. What to do</h3>
+   ${acts.map(([v,l,t])=>`<label class="opt"><input type="radio" name="luAct" value="${v}" ${L.act===v?'checked':''}><span><b>${esc(l)}</b><br><span class="small muted">${esc(t)}</span></span></label>${v==='share'?pctHtml:''}`).join('')}
+   <div class="row" style="margin-top:12px"><button class="btn primary" id="luPrev">Preview</button></div>
+   <div id="luOut">${L.prev?luPrevHtml(L.prev):''}</div></div>
+   <div class="card"><h2>Line-up by fund</h2><p class="small muted">Each fund's securities with their glide-path weight (% of the fund) and their share of the asset class. Shaded cells were set on this tab. Click a security to choose it above. The <b>All funds / Mutual funds / CITs</b> switch at the top right picks the columns.</p>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${funds.map(f=>`<th class="n">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${rows}</table></div></div>`;
+  $('#luScope').value=L.scope;
+  const q2=$('#luQ'); q2.oninput=()=>{ L.q=q2.value; const pos=q2.selectionStart; luRender(); const n=$('#luQ'); n.focus(); try{n.setSelectionRange(pos,pos)}catch(e){} };
+  document.querySelectorAll('[data-luinst],[data-lusec]').forEach(b=>b.onclick=()=>{ L.inst=b.dataset.luinst||b.dataset.lusec; L.prev=null; luRender(); });
+  $('#luScope').onchange=()=>{ L.scope=$('#luScope').value; L.prev=null; luRender(); };
+  document.querySelectorAll('[data-luv]').forEach(b=>b.onclick=()=>{ const v=+b.dataset.luv; L.V=L.V.includes(v)?L.V.filter(x=>x!==v):L.V.concat(v).sort(); L.prev=null; luRender(); });
+  document.querySelectorAll('[data-luvset]').forEach(b=>b.onclick=()=>{ const k=b.dataset.luvset; L.V=k==='all'?V.slice():k==='none'?[]:V.filter(v=>k==='near'?v<=2045:v>=2050); L.prev=null; luRender(); });
+  document.querySelectorAll('[name=luAct]').forEach(r=>r.onchange=()=>{ L.act=r.value; L.prev=null; luRender(); });
+  const pc=$('#luPct'); if(pc) pc.oninput=()=>{ L.pct=pc.value; L.prev=null; $('#luOut').innerHTML=''; };
+  const ab=$('#luAddBtn'); if(ab) ab.onclick=()=>{ L.add=!L.add; luRender(); };
+  const ns=$('#nsGo'); if(ns) ns.onclick=async()=>{ try{ const r=await api('POST','/api/trading/securities',{id:$('#nsId').value, name:$('#nsName').value, type:$('#nsType').value, asset_class:$('#nsAc').value, price:$('#nsPx').value, cusip:$('#nsCusip').value, reason:$('#nsReason').value});
+      L.add=false; L.inst=r.security.id; L.q=r.security.id; L.act='share'; toast(`${r.security.id} added to the security master. Now choose the funds and its share.`); await load(); }catch(e){toast(e.message,'error')} };
+  $('#luPrev').onclick=async()=>{ if(!L.inst) return toast('Choose a security first','warn'); if(!single&&!L.V.length) return toast('Pick at least one vintage','warn');
+    try{ L.prev=await api('POST','/api/trading/lineup/preview',luBody()); $('#luOut').innerHTML=luPrevHtml(L.prev); bindLuSave(); $('#luOut').scrollIntoView({block:'start',behavior:'smooth'}); }catch(e){toast(e.message,'error')} };
+  const bindLuSave=()=>{ const b=$('#luSave'); if(!b) return; b.onclick=async()=>{ const reason=await MUI.ask('Save line-up change',{message:L.prev.summary+'. Recorded in the ledger; the next cashflow or rebalance for these funds uses it.', okText:'Save'}); if(!reason) return;
+    try{ const r=await api('PUT','/api/trading/lineup',{...luBody(), reason}); L.prev=null; toast(`Saved: ${r.summary} (${r.funds} fund${r.funds===1?'':'s'})`); await load(); }catch(e){toast(e.message,'error')} }; };
+  bindLuSave();
+}
+function luPrevHtml(p){
+  const g=S.luData, nm=id=>(g.securities.find(x=>x.id===id)||{}).name||id;
+  return `<h3>Preview: ${esc(p.summary)}</h3><p class="small muted">For each fund: how ${esc(acName(p.funds[0]?.asset_class||''))} is split between its securities (share of the asset class) and each security's glide-path weight (% of the fund), before → after. Nothing is saved yet.</p>
+   <div class="tg-wrap" style="max-height:420px"><table class="tg"><tr><th class="tg-sec">Fund</th><th>Security</th><th class="n">Share of class</th><th class="n">% of fund</th><th>Trading</th></tr>
+   ${p.funds.map(f=>f.rows.map((r,i)=>`<tr><td class="tg-sec">${i?'':`<b>${esc(f.fund_id)}</b>`}</td><td><b>${esc(r.instrument)}</b> <span class="small muted">${esc(nm(r.instrument))}</span></td>
+     <td class="n ${Math.abs(r.after-r.before)>1e-6?'tg-ed':''}">${(r.before*100).toFixed(1)}→<b>${(r.after*100).toFixed(1)}</b></td><td class="n">${(r.w_before*100).toFixed(2)}→<b>${(r.w_after*100).toFixed(2)}</b></td>
+     <td>${r.instrument===S.lu.inst?(f.excluded?chip('Excluded','warn'):'')+(f.exiting?chip('Exit','crit'):'')||'<span class="small muted">normal</span>':''}</td></tr>`).join('')).join('')}</table></div>
+   ${S.luData.can_edit?`<div class="row" style="margin-top:10px"><button class="btn primary" id="luSave">Save for ${p.funds.length} fund${p.funds.length===1?'':'s'}</button></div>`:''}`;
 }
 
 // ------------------------------------------------------------------ Tilts table (rows: asset levels 1-5, columns: funds)

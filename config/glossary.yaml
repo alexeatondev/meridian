@@ -395,6 +395,12 @@ check_row:
   match: [Check]
   text: Confirms each column still totals 100% after your entries, or says what's wrong (e.g. not enough left at that level to fund the change).
 
+security_lineup:
+  title: Security line-up (level 5)
+  match: [Security line-up, Line-up by fund, Share of class]
+  text: Which securities a fund holds for each asset class, and how the asset class is split between them. Set per fund or across funds and vintages on Trading → Security line-up; the glide path (levels 1-4) only sets each asset class's weight.
+  formula: "Security weight = asset-class weight × security's share of the class. Others in the class × (1 − shares you set) ÷ (their usual shares)"
+
 # ---------------------------------------------------------------- buttons
 new_glide_path:
   title: New glide path

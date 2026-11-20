@@ -65,6 +65,7 @@ Product-line data comes from `config/trading.yaml` and, in the hosted app, from 
 | Trading → Tilts | Rows are levels 1-5 (securities at level 5); **Set tilt** as before, or move any level with the same modes and balancing, turned into security tilts per fund. |
 | Trading → Funds & securities | **Management** column and a **Management style** card (Active, Passive, Hybrid; PMs set it with a reason; logged). |
 | Funds & vintages | Each fund shows its management style (or *style not set*). |
+| Trading → Security line-up | Level 5: pick a security (or add one to the security master), the funds (scope and vintages) and add it / set its share of its asset class, take it out, exclude or include it; preview fund by fund; a securities × funds matrix of glide-path weights and shares. The glide-path table links here, since the glide path itself stops at level 4. |
 
 ## Console — what each role sees
 | Role (sign-in group) | Workspace tabs | Home page shows | Can act |

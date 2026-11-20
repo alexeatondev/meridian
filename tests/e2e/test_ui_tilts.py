@@ -59,3 +59,30 @@ def test_trd_33_tilts_by_level(sign_in, app_url):
     expect(out).to_contain_text("MTRS")
     expect(out).to_contain_text("MER-EM-MF")
     expect(page.locator("#tgSave")).to_contain_text("Save 2 tilt changes")   # EM up, developed down
+
+
+def test_trd_34_security_lineup(sign_in, app_url):
+    """TRD-34: add a security to several funds and vintages from Trading → Security line-up, preview, save."""
+    page = sign_in("Maya Chen", "portfolio_manager", "approver")
+    page.goto(app_url + "/trading")
+    trading_tab(page, "Security line-up")
+    page.fill("#luQ", "IEFA")
+    page.click("[data-luinst='IEFA']")
+    page.select_option("#luScope", "vehicle:mutual_fund")
+    page.click("[data-luvset='far']")
+    expect(page.locator("#lineup")).to_contain_text("5 funds")
+    page.fill("#luPct", "25")
+    page.click("#luPrev")
+    out = page.locator("#luOut")
+    expect(out).to_contain_text("IEFA set to 25% of International Developed Equity")
+    expect(out).to_contain_text("100.0→75.0")
+    page.click("#luSave")
+    page.fill("dialog textarea", "UAT: IEFA liquidity sleeve in 2050-2070")
+    page.click("dialog [value=ok]")
+    expect(page.locator("#mtoasts")).to_contain_text("Saved: IEFA set to 25%", timeout=8000)
+    expect(page.locator("tr[data-lusec='IEFA'] td.tg-ed").first).to_be_visible()
+    # the console's glide-path table points here for level 5
+    page.goto(app_url + "/runs/latest")
+    page.click("#nav button:text-is('Glide path')")
+    page.click("#gpLineup")
+    expect(page.locator(".tabs button.active")).to_have_text("Security line-up")

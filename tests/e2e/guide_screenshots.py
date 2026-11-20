@@ -480,6 +480,18 @@ def test_bulk_changes(page, app_url):
     top(p, ".tg-wrap")
     shot(p, "trd-37-tilts-by-level")
     p.click("[data-tgt='mode'][data-v='tilt']")
+    p.click(".tabs button:text-is('Security line-up')")
+    p.wait_for_selector("#luQ")
+    p.fill("#luQ", "IEFA")
+    p.click("[data-luinst='IEFA']")
+    p.select_option("#luScope", "vehicle:mutual_fund")
+    p.click("[data-luvset='far']")
+    p.fill("#luPct", "25")
+    shot(p, "trd-39-security-lineup")
+    p.click("#luPrev")
+    p.wait_for_selector("#luSave")
+    top(p, "#luOut")
+    shot(p, "trd-40-lineup-preview")
     p.click("#veh button:text-is('All funds')")
 
 
