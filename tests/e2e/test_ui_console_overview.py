@@ -81,10 +81,11 @@ def test_ux_07_glide_path_adjustment_request_and_committee_decision(sign_in):
     p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Glide path")
     assert "Glide path today, by fund" in p.inner_text("#view")
-    p.click("[data-gpt='rows'][data-v='cit']")
+    p.click("[data-gpt='cols'][data-v='cit']")
+    p.click("[data-gpt='bal'][data-v='none']")
     for v in ("2050", "2055"):
-        p.fill(f"[data-gpr='cit:{v}'][data-gpa='us_core_bond']", "0.5")
-        p.fill(f"[data-gpr='cit:{v}'][data-gpa='us_large_cap']", "-0.5")
+        p.fill(f"[data-gpr='cit:{v}'][data-gpn='us_core_bond']", "0.5")
+        p.fill(f"[data-gpr='cit:{v}'][data-gpn='us_large_cap']", "-0.5")
     p.click("#gpPrev")
     p.wait_for_selector("#gpSubmit")
     assert "Preview: 2 funds change" in p.inner_text("#gpOut")
@@ -107,34 +108,46 @@ def test_ux_07_glide_path_adjustment_request_and_committee_decision(sign_in):
 
 
 def test_gp_01_glide_path_table(sign_in):
-    """GP-1: glide-path changes typed into a table (several vintages and asset classes at once), checked per row,
-    previewed fund by fund in a table, sent as one request."""
+    """GP-1: glide-path changes typed into a table of asset levels x vintages. One cell is enough: the rest balance
+    within its level (or pro rata, or not at all). Entries can be pp, share of parent, % of weight or new weight.
+    Previewed fund by fund in a table, sent as one request."""
     p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Glide path")
     assert p.locator("#gpScope").count() == 0 and p.locator("[data-gpv]").count() == 0
-    expect(p.locator(".gpt tr")).to_have_count(10)                      # header + 9 vintages
-    p.fill("[data-gpr='vintage:2030'][data-gpa='cash']", "1")
-    expect(p.locator("[data-gpnet='vintage:2030']")).to_have_text("+1.00")
-    p.click("#gpPrev")
-    assert "net to zero" in toast_text(p)
-    p.fill("[data-gpr='vintage:2030'][data-gpa='us_core_bond']", "-1")
-    expect(p.locator("[data-gpnet='vintage:2030']")).to_have_text("0.00")
-    p.fill("[data-gpr='vintage:2060'][data-gpa='us_large_cap']", "0.75")
-    p.fill("[data-gpr='vintage:2060'][data-gpa='intl_developed_eq']", "-0.75")
+    expect(p.locator(".gpt tr")).to_have_count(22)                      # header + 20 asset rows (levels 1-4) + check
+    p.click("[data-gpt='show'][data-v='1']")
+    expect(p.locator(".gpt tr")).to_have_count(6)                       # equity, fixed income, real assets, cash
+    p.click("[data-gpt='show'][data-v='4']")
+    # one cell: +1pp cash in 2030, funded by the other asset groups -> still 100%
+    p.fill("[data-gpr='vintage:2030'][data-gpn='cash']", "1")
+    expect(p.locator("[data-gpchk='vintage:2030']")).to_contain_text("100%")
+    # switching to a relative entry clears the table; international = 45% of equity in 2060
+    p.click("[data-gpt='mode'][data-v='share']")
+    p.fill("[data-gpr='vintage:2060'][data-gpn='equity_intl']", "45")
+    expect(p.locator("[data-gpchk='vintage:2060']")).to_contain_text("100%")
     p.click("#gpPrev")
     out = p.locator("#gpOut")
-    expect(out).to_contain_text("Preview: 4 funds change")             # MF and CIT for 2030 and 2060
-    for f in ("MTRS-2030", "MTRT-2030", "MTRS-2060", "MTRT-2060"):
+    expect(out).to_contain_text("Preview: 2 funds change")
+    for f in ("MTRS-2060", "MTRT-2060"):
         expect(out).to_contain_text(f)
-    expect(out).not_to_contain_text("MTRS-2045")
-    expect(out.locator("td.gpchg")).to_have_count(8)                     # 2 changed cells x 4 funds
-    # weight mode: type the new weight; a change beyond the IPS band is shown in red and can't be submitted
+    # balance off: a single entry doesn't net to zero and can't be previewed
+    p.click("[data-gpt='mode'][data-v='pp']")
+    p.click("[data-gpt='bal'][data-v='none']")
+    p.fill("[data-gpr='vintage:2030'][data-gpn='cash']", "1")
+    expect(p.locator("[data-gpchk='vintage:2030']")).to_contain_text("net +1.00")
+    p.click("#gpPrev")
+    assert "Fix these first" in toast_text(p)
+    p.fill("[data-gpr='vintage:2030'][data-gpn='us_core_bond']", "-1")
+    expect(p.locator("[data-gpchk='vintage:2030']")).to_contain_text("100%")
+    p.click("#gpPrev")
+    expect(out).to_contain_text("Preview: 2 funds change")
+    expect(out.locator("td.gpchg")).to_have_count(4)                     # 2 changed cells x 2 funds
+    # new weight, per fund: beyond the IPS band is shown in red and can't be submitted
+    p.click("[data-gpt='cols'][data-v='fund']")
     p.click("[data-gpt='mode'][data-v='weight']")
-    p.click("[data-gpt='rows'][data-v='fund']")
-    cur = float(p.get_attribute("[data-gpr='MTRS-2045'][data-gpa='cash']", "placeholder"))
-    core = float(p.get_attribute("[data-gpr='MTRS-2045'][data-gpa='us_core_bond']", "placeholder"))
-    p.fill("[data-gpr='MTRS-2045'][data-gpa='cash']", f"{cur + 4:.2f}")
-    p.fill("[data-gpr='MTRS-2045'][data-gpa='us_core_bond']", f"{core - 4:.2f}")
+    p.click("[data-gpt='bal'][data-v='parent']")
+    cur = float(p.get_attribute("[data-gpr='MTRS-2045'][data-gpn='cash']", "placeholder"))
+    p.fill("[data-gpr='MTRS-2045'][data-gpn='cash']", f"{cur + 4:.2f}")
     p.click("#gpPrev")
     expect(out.locator("td.gpbad").first).to_be_visible()
     expect(out).to_contain_text("FAIL")

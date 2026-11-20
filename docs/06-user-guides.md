@@ -222,7 +222,23 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 
 1. Read the four tiles: **Assets in the series** (split mutual funds / CITs), **Proposals approved** (e.g. "0 of 9"), **Highest risk-budget use**, **Compliance**.
 2. Read **Needs your attention**. Each line says what needs you; click **Open** to go straight there.
-3. Scroll to **The series at a glance**: one row per vintage with mutual fund and CIT assets, glide-path equity, proposed equity, tilt, what each fund holds today, risk budget used, approval status and compliance. Click a vintage to open its proposal.
+3. Read **Positioning: passive and hybrid funds** and **Positioning: active funds** (portfolio managers' Home only; which table a fund is in comes from its management style, 10.2a; a fund not set yet is shown as passive and marked *not set*).
+
+![Positioning of passive and hybrid funds](img/guide/pm-16-home-positioning.png)
+*Image: `pm-16-home-positioning.png`*
+
+   - One row per fund: **Δ vs target** for equity, fixed income, real assets and cash, in pp of the fund (held today − the fund's glide path including approved adjustments; blue = over, orange = under); **Tracking error** of held vs target; **Risk budget used** (tracking error ÷ the vintage's budget); and **Risk budget used by** asset group (each asset's contribution to tracking error, so the groups add up to the total). The last row is all the funds in the table, weighted by assets.
+   - **By asset class: portfolio vs target and vs market**: the same funds asset-weighted, by level (**Show levels** 1 to 1-4): target, portfolio and portfolio − target in % of the fund, the risk budget each level uses, then each level's **share of the level above** for the portfolio and the global market (e.g. US equity as a share of equity: MSCI ACWI IMI 62.7%), **Portfolio − market** in pp with the ratio (1.04× = 4% more than the market's share), and **Target − market**. Hover over a market cell for its source. The stock/bond mix itself is set by the glide path, so level 1 has no market weight; fixed-income regional market weights are not sourced yet.
+
+![By asset class, levels 1-3](img/guide/pm-17-home-by-asset-class.png)
+*Image: `pm-17-home-by-asset-class.png`*
+
+4. Read **Cumulative returns**: past week, month to date, quarter to date, year to date and 1 year, for each fund and each security held, to the latest daily close (loaded every weekday evening). A security that doesn't trade under its own ticker (Meridian's own funds and CITs, T-bills) is priced with its asset class's proxy ETF and marked *proxy*. **Fund returns are hypothetical**: today's holdings weights × each holding's return, with no trading, fees or cash flows; they are not the funds' reported performance.
+
+![Cumulative returns](img/guide/pm-19-home-returns.png)
+*Image: `pm-19-home-returns.png`*
+
+5. Scroll to **The series at a glance**: one row per vintage with mutual fund and CIT assets, glide-path equity, proposed equity, tilt, what each fund holds today, risk budget used, approval status and compliance. Click a vintage to open its proposal.
 
 ### 3.2 Review and approve a vintage's proposal
 **Who:** Portfolio Manager (and Risk, as the second approver), each with the **Approver** permission. **Where:** Console → **Proposals**.
@@ -314,16 +330,18 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 ![Glide path today, by fund](img/guide/pm-13-glide-path.png)
 *Image: `pm-13-glide-path.png`*
 
-1. Click **Glide path**. **Glide path today, by fund** lists every vintage with years to retirement, the IPS equity, each product line's equity, and fixed income and real assets.
+1. Click **Glide path**. Use the **Glide path** picklist at the top right to view the standard IPS glide path or any named glide path created on Policy → Glide paths; a named path is drawn with the IPS path's equity as a dashed line for comparison, with its largest gap to the IPS path and the funds on it. **Glide path today, by fund** lists every vintage with years to retirement, the IPS equity, each product line's equity, and fixed income and real assets.
 2. Check **Approved adjustments in force** and **Requests awaiting the Investment Committee** so you don't duplicate one.
-3. Scroll to **Propose glide-path changes**. It is a table: one row per vintage (or fund) and one column per asset class.
-   - **Rows**: **Vintage (MF + CIT)** applies a row to both the mutual fund and the CIT of that vintage; **Mutual funds** or **CITs** gives one row per fund of that product line; **Each fund** gives all 18 funds.
-   - **Enter**: **Change (pp)**, e.g. `0.5` or `-0.5`, or **New weight (%)**, where the grey number in each cell is today's weight. Hover over a cell for the asset class's full name and today's weight.
+3. Scroll to **Propose glide-path changes**. It is a table: one row per level of the asset hierarchy and one column per vintage (or fund).
+   - **Rows** are levels 1 to 4: **L1** asset group (equity, fixed income, real assets, cash), **L2** region (US vs international), **L3** developed vs emerging, **L4** size and sector (e.g. US large vs small/mid; core bond, long Treasury, TIPS, high yield). **Show levels** hides the lower ones.
+   - **Columns**: **Vintage (MF + CIT)** applies a column to both the mutual fund and the CIT of that vintage; **Mutual funds** or **CITs** one column per fund of that product line; **Each fund** all 18 funds.
+   - **Enter**: **Change (pp of fund)**, absolute, e.g. `1` or `-0.5`; **Share of parent (%)**, relative to the level above, e.g. international equity = `45` (% of equity); **Change (% of weight)**, relative to itself, e.g. `10` turns 30% into 33%; or **New weight (%)**. The grey number in an empty cell is today's value in the chosen terms.
+   - **Balance**: **Within its level** (default): the rest of the same level gives or takes the change, so totals above stay the same (raise US large cap and US small/mid gives it; raise equity and fixed income, real assets and cash give it); **Pro rata across the fund**: everything not edited gives or takes it in proportion; **Off**: your edits must net to zero, so enter both sides yourself.
 
 ![Typing changes into the table](img/guide/pm-15-glide-table.png)
 *Image: `pm-15-glide-table.png`*
 
-4. Type the changes for as many rows and asset classes as you need. Leave a cell blank for no change. **Net** shows each row's total change, which must be 0.00 (weight moves from one asset class to another); it turns red otherwise. **Equity after** shows the row's equity once the changes apply. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
+4. Type a change into one cell; you don't have to fill the other rows. The small number under each cell shows the weight today → after (in % of the fund) for every row the change touches, and the **Check** row confirms each column still totals 100% (or shows what's wrong). Changes at different levels combine from the top down: for example equity +2pp (stocks vs bonds) and, in the same column, international = 40% of equity (US vs international) gives the new equity total split 60/40. Changing **Enter** clears the table. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
 5. Click **Preview**.
 
 ![Preview of the changes, fund by fund](img/guide/pm-14-glide-request.png)
@@ -655,6 +673,8 @@ Every trade follows the same four steps on **New trade**:
 ### 10.2 Look at a fund (and edit its strategic table)
 **Where:** Trading → **Funds & securities**.
 
+The funds list shows each fund's **Management** style (10.2a).
+
 ![Funds list with the All / Mutual funds / CITs switch](img/guide/trd-01-funds.png)
 *Image: `trd-01-funds.png`*
 
@@ -674,6 +694,17 @@ Every trade follows the same four steps on **New trade**:
    - **Trade a security** opens New trade → Trade a security with this fund chosen (10.5).
    - **Exit a position** opens New trade → Exit a position with this fund chosen (10.6).
 6. **Strategic table** (PMs): leave **Follow the glide path** on, or click **Set custom weights**, type weights totalling 100%, give a reason and click **Save strategic table**. Each save is a new version in the ledger.
+
+### 10.2a Set a fund's management style (Active, Passive, Hybrid)
+**Who:** PMs set; everyone else with Trading reads. **Where:** Trading → **Funds & securities** → **Management style**.
+
+![Management style per fund](img/guide/trd-38-management-style.png)
+*Image: `trd-38-management-style.png`*
+
+1. In **Management style**, pick **Active** (security selection and tilts away from the glide path), **Passive** (index holdings that follow the glide path) or **Hybrid** (a passive core with active sleeves) for each fund, or use **Set all shown to** for the funds shown by the switch at the top right.
+2. Type a reason (10+ characters) and click **Save management styles**.
+
+**You're done when** the message says how many funds were saved. Who set each style, when and why is shown in the table; each save is one `settings.change` record in the ledger. The PM Home screen groups its positioning tables by style (3.1); a fund that isn't set is shown as passive and flagged *not set*.
 
 ### 10.3 Invest cashflows (night close, glide path, strategic or approved)
 **Who:** PM or analyst. **Where:** Trading → **Cashflows**, then **New trade**.
@@ -966,8 +997,16 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 ![The tilts table](img/guide/trd-35-tilts-table.png)
 *Image: `trd-35-tilts-table.png`*
 
-1. Click **Tilts**. Rows are securities, grouped by asset class; columns are funds (the **All funds / Mutual funds / CITs** switch at the top right picks which). A **—** means the security isn't in that fund's universe.
-2. Type tilts in **% of the fund**: `0.5` tilts 0.5% (50 bp) toward the holding, `-0.25` away from it. Fill as many cells as you need. Hover over a cell for today's weight, the glide-path target and the tilt in force. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages, 10.12); typing a value overrides it for that fund. A blank or 0 removes that fund's own tilt. You can paste a block of numbers from Excel; **↑ ↓ Enter** move along a column.
+1. Click **Tilts**. Rows are the asset hierarchy down to single securities: **L1** asset group, **L2** region, **L3** developed vs emerging, **L4** size and sector, **L5** each security (**Show levels** hides the lower ones). Columns are funds (the **All funds / Mutual funds / CITs** switch at the top right picks which). A **—** means the security isn't in that fund's universe. The small number under each cell is the weight in % of the fund with today's tilts; *t* shows a tilt in force.
+2. Pick how you enter changes under **Enter**:
+   - **Set tilt (% of fund)** (default): type a security's own tilt: `0.5` tilts 0.5% (50 bp) toward the holding, `-0.25` away from it. Hover over a cell for today's weight, the glide-path target and the tilt in force. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages, 10.12); typing a value overrides it for that fund. A blank or 0 removes that fund's own tilt.
+   - **Change (pp of fund)**, **Share of parent (%)**, **Change (% of weight)** or **New weight (%)**: move any level, from a whole asset group down to one security, absolutely or relatively, and choose how the rest **Balance** (within its level, pro rata across the fund, or off), as on the glide-path table (3.6). For example US equity `+1` in MTRS-2040 moves 1pp from international equity into US equity, split across the US securities in proportion. Meridian turns the result into security tilts for each fund (the **Check** row confirms 100%).
+
+   You can paste a block of numbers from Excel; **↑ ↓ Enter** move along a column.
+
+![Tilts by level](img/guide/trd-37-tilts-by-level.png)
+*Image: `trd-37-tilts-by-level.png`*
+
 3. Optional: **Until** ends the tilts on a date.
 4. Click **Preview**.
 

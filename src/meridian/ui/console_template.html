@@ -23,7 +23,7 @@
   --good:#5cc27a; --good-bg:#16301f; --warn:#e3b341; --warn-bg:#352a0e; --crit:#f2766b; --crit-bg:#3a1714; --info:#7aa7e6; --info-bg:#172338; --off-bg:#262624;
 }}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.45}
-.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
 aside{background:var(--surface);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow-y:auto}
 .brand{font-weight:700;font-size:17px;letter-spacing:.2px} .brand small{display:block;font-weight:500;color:var(--muted);font-size:12px}
 label.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);display:block;margin-bottom:6px}
@@ -92,9 +92,11 @@ ol.story{margin:0;padding-left:20px}ol.story li{margin:6px 0}
 .ltsug div{padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line)}.ltsug div.act,.ltsug div:hover{background:var(--info-bg)}
 .selbar{display:flex;gap:10px;align-items:center;margin:10px 0 4px;padding:8px 10px;border:1px solid var(--accent);border-radius:var(--radius-sm,8px);background:var(--info-bg)}
 details.card>summary{cursor:pointer}
-.gpt td,.gpt th{padding:4px 5px;white-space:nowrap}.gpt td.gpc{padding:2px 3px}.gpt input{width:54px;padding:4px 4px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,6px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
+.gpt td,.gpt th{padding:4px 5px;white-space:nowrap}.gpt td.gpn,.gpt th.gpn{text-align:left;min-width:190px;position:sticky;left:0;background:var(--surface);z-index:1}.gplv{display:inline-block;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:3px;padding:0 3px;margin-right:2px}
+.gpt tr.gp-l0 td{border-top:2px solid var(--line-strong)}.gpt .gpa{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.2}.gpt .gpa b{color:var(--text)}.gpt td.gped{background:var(--info-bg)}.gpt tr.gpfoot td{font-size:11px;border-top:2px solid var(--line-strong)}.gpt td.gpok{color:var(--ok)}
+.gpctl{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}.gpctl>div{display:flex;gap:6px;align-items:center}.gpt td.gpc{padding:2px 3px}.gpt input{width:56px;height:26px;min-height:0;box-sizing:border-box;padding:2px 5px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,6px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
 .gpt input:focus{outline:2px solid var(--focus,#2f6bc1);outline-offset:0}.gpt input::placeholder{color:var(--muted);opacity:.7}.gpt td.gpchg{background:var(--info-bg)}.gpt td.gpbad{background:var(--crit-bg);color:var(--crit)}.nowrap{white-space:nowrap}
-.gpgrid{overflow-x:auto;max-width:100%}.gpgrid .gpt th:first-child,.gpgrid .gpt td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+.gpgrid{overflow-x:auto;max-width:100%}#gpTableCard{min-width:0;max-width:100%;overflow:hidden}#view{min-width:0}.gpgrid .gpt th:first-child,.gpgrid .gpt td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
 .gpt input{-moz-appearance:textfield;appearance:textfield}.gpt input::-webkit-outer-spin-button,.gpt input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 </style>
 </head>
@@ -368,7 +370,7 @@ function f2(x){return x==null||isNaN(x)?'—':(+x).toFixed(2)}
 function glideChart(){
   const el=$('#glideChart'); if(!el) return; const W=el.clientWidth||900,H=330,m={l:44,r:16,t:10,b:44};
   const grp=[['Equity',P.groups.equity,'--s1'],['Real assets',P.groups.real_assets,'--s2'],['Fixed income',P.groups.fixed_income,'--s3'],['Cash',['cash'],'--s4']];
-  const an=[...P.anchors].sort((a,b)=>a[0]-b[0]); const ys=[]; for(let y=45;y>=-7;y-=0.5) ys.push(y);
+  const sel=gpSelPath(), an=[...(sel?sel.anchors:P.anchors)].sort((a,b)=>a[0]-b[0]); const ys=[]; for(let y=45;y>=-7;y-=0.5) ys.push(y);
   const interp=(y)=>{const yy=Math.max(an[0][0],Math.min(an[an.length-1][0],y));let i=0;while(i<an.length-2&&an[i+1][0]<yy)i++;const a=an[i],b=an[i+1];const t=(yy-a[0])/((b[0]-a[0])||1);return P.assets.map((_,j)=>(a[j+1]+(b[j+1]-a[j+1])*t)/100)};
   const comp=y=>{const w=interp(y);return grp.map(g=>g[1].reduce((s,a)=>s+w[P.assets.indexOf(a)],0))};
   const X=y=>m.l+(45-y)/(52)*(W-m.l-m.r), Y=v=>m.t+(1-v)*(H-m.t-m.b);
@@ -380,7 +382,9 @@ function glideChart(){
   grp.forEach((g,gi)=>{const top=base.map((b,i)=>b+C[i][gi]);
     const d='M'+ys.map((y,i)=>`${X(y)},${Y(top[i])}`).join('L')+'L'+[...ys].reverse().map((y,i)=>`${X(y)},${Y(base[ys.length-1-i])}`).join('L')+'Z';
     svg+=`<path d="${d}" fill="var(${g[2]})" stroke="var(--surface)" stroke-width="2"/>`; base=top;});
-  VINT.forEach(v=>{const y=R.vintages[v].years_to_target, eq=R.vintages[v].equity_neutral;svg+=`<circle cx="${X(y)}" cy="${Y(eq)}" r="5" fill="var(--surface)" stroke="var(--text)" stroke-width="2"/><text x="${X(y)}" y="${Y(eq)-9}" text-anchor="middle" style="fill:var(--text);font-weight:600">${v}</text>`});
+  if(sel){ const ia=[...P.anchors].sort((a,b)=>a[0]-b[0]), ii=y=>{const yy=Math.max(ia[0][0],Math.min(ia[ia.length-1][0],y));let i=0;while(i<ia.length-2&&ia[i+1][0]<yy)i++;const a=ia[i],b=ia[i+1];const t=(yy-a[0])/((b[0]-a[0])||1);return P.groups.equity.reduce((s2,as)=>{const j=P.assets.indexOf(as)+1;return s2+(a[j]+(b[j]-a[j])*t)/100},0)};
+    svg+=`<path d="M${ys.map(y=>`${X(y)},${Y(ii(y))}`).join('L')}" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-dasharray="7 5"/><text x="${X(44)}" y="${Y(ii(44))-8}" style="fill:var(--text);font-weight:600">IPS glide path equity</text>`; }
+  if(!sel) VINT.forEach(v=>{const y=R.vintages[v].years_to_target, eq=R.vintages[v].equity_neutral;svg+=`<circle cx="${X(y)}" cy="${Y(eq)}" r="5" fill="var(--surface)" stroke="var(--text)" stroke-width="2"/><text x="${X(y)}" y="${Y(eq)-9}" text-anchor="middle" style="fill:var(--text);font-weight:600">${v}</text>`});
   svg+=`<line id="gx" y1="${m.t}" y2="${H-m.b}" stroke="var(--text-2)" stroke-dasharray="3 3" style="display:none"/><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent" id="ghit"/></svg><div class="tip" id="gtip"></div>`;
   el.innerHTML=svg; const hit=el.querySelector('#ghit'),tip=el.querySelector('#gtip'),gx=el.querySelector('#gx');
   hit.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();const px=e.clientX-r.left;const y=Math.round((45-(px-m.l)/(W-m.l-m.r)*52)*2)/2;const c=comp(y);
@@ -931,6 +935,71 @@ function attention(opts){
 }
 function attentionList(items,empty){ return items.length?`<div>${items.map(i=>`<div class="att"><span class="chip info">${esc(i.kind)}</span><div><b>${i.title}</b><div class="small muted">${i.detail}</div></div>${i.go&&ROLES[state.role].tabs.includes(i.go.tab)?`<button class="btn" data-go="${i.go.tab}" data-gov="${i.go.v||''}">Open</button>`:''}</div>`).join('')}</div>`:`<div class="muted">${empty}</div>`; }
 
+// --------------------------------------------------------------- PM home: positioning by management style
+const STY_NAME={active:'Active',passive:'Passive',hybrid:'Hybrid'};
+function styLoad(){ if(!LIVE||state.styLoading) return; state.styLoading=true;
+  fetch('/api/trading/fund-styles',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{ if(d){ state.styles=d.funds; if(state.tab==='home') render(); } }).catch(()=>{}); }
+const fStyle=f=>((state.styles||{})[f.id]||{}).style||null;
+function hpNodes(){ return window.MHier&&window.MHIER_CFG?MHier.nodes(MHIER_CFG.tree):[]; }
+function hpRisk(d, budget){ // Euler split of tracking error: c_i = d_i (C d)_i / TE, sums to TE
+  if(!M||!M.cov) return null; const A=M.assets, v=A.map(a=>d[a]||0), Cd=M.cov.map(row=>row.reduce((t,c,j)=>t+c*v[j],0)), te=Math.sqrt(Math.max(0,v.reduce((t,x,i)=>t+x*Cd[i],0)));
+  const c={}; A.forEach((a,i)=>c[a]=te>1e-12?v[i]*Cd[i]/te:0); return {te, used:budget?te/budget:null, c, budget}; }
+function hpFund(f){ const d={}; P.assets.forEach(a=>d[a]=(f.current[a]||0)-(f.glide[a]||0)); const x=R.vintages[f.vintage]; return {d, risk:hpRisk(d, x?x.risk_budget:null)}; }
+function hpAgg(fs){ const t=fs.reduce((s,f)=>s+f.nav,0)||1, cur={}, tgt={}; let bud=0;
+  fs.forEach(f=>{ P.assets.forEach(a=>{ cur[a]=(cur[a]||0)+(f.current[a]||0)*f.nav/t; tgt[a]=(tgt[a]||0)+(f.glide[a]||0)*f.nav/t; }); bud+=((R.vintages[f.vintage]||{}).risk_budget||0)*f.nav/t; });
+  const d={}; P.assets.forEach(a=>d[a]=cur[a]-tgt[a]); return {cur, tgt, d, risk:hpRisk(d,bud)}; }
+const hpPP=x=>x==null?'—':Math.abs(x)<0.00005?'<span class="muted">0.00</span>':`${x>0?'+':''}${(x*100).toFixed(2)}`;
+const hpUse=(c,b)=>{ if(!b||c==null) return '—'; const x=Math.round(c/b*100); return `${x===0?0:x}%`; };
+function hpCard(title, blurb, fs, key){
+  if(!fs.length) return `<div class="card"><h2>${title}</h2><p class="muted small">No funds are set to this style yet. Set each fund's management style on <a href="/trading">Trading → Funds &amp; securities</a>.</p></div>`;
+  const N=hpNodes(), L1=N.filter(n=>n.level===1), show=state.hpShow||2, mk=((window.MHIER_CFG||{}).market||{}).nodes||{};
+  const unset=fs.filter(f=>!fStyle(f)).length;
+  const rows=fs.slice().sort((a,b)=>a.vintage-b.vintage||a.vehicle.localeCompare(b.vehicle)).map(f=>{const h=hpFund(f), r=h.risk;
+    return `<tr><td><span class="mono">${esc(f.id)}</span> ${fStyle(f)?'':'<span class="chip warn" title="Management style not set yet: treated as passive">not set</span>'}</td><td class="num">${money(f.nav)}</td>
+      ${L1.map(n=>`<td class="num" style="${heat(MHier.W(h.d,n),0.03)}">${hpPP(MHier.W(h.d,n))}</td>`).join('')}
+      <td class="num">${r?pct(r.te,2):'—'}</td><td style="min-width:110px">${r?rbBar(r.used):'—'}</td>
+      ${L1.map(n=>`<td class="num small">${r?hpUse(MHier.W(r.c,n),r.budget):'—'}</td>`).join('')}</tr>`}).join('');
+  const g=hpAgg(fs), gr=g.risk;
+  const brk=N.filter(n=>n.level<=show).map(n=>{const t=MHier.W(g.tgt,n), c=MHier.W(g.cur,n), pc=n.parent?MHier.W(g.cur,n.parent):1, pt=n.parent?MHier.W(g.tgt,n.parent):1, m=(mk[n.id]||{}).share;
+    const ps=pc>0?c/pc:null, ts=pt>0?t/pt:null, rel=m!=null&&ps!=null?ps-m:null;
+    return `<tr class="${n.depth===0?'lvl0':''}"><td style="padding-left:${6+n.depth*16}px">${n.depth===0?'<b>'+esc(n.name)+'</b>':esc(n.name)}</td>
+      <td class="num">${pct(t)}</td><td class="num">${pct(c)}</td><td class="num" style="${heat(c-t,0.03)}">${hpPP(c-t)}</td>
+      <td class="num">${gr?hpUse(MHier.W(gr.c,n),gr.budget):'—'}</td>
+      <td class="num">${n.parent?(ps!=null?pct(ps):'—'):'<span class="muted">—</span>'}</td><td class="num">${m!=null?pct(m):`<span class="muted" title="${esc((mk[n.id]||{}).source||(n.parent?'No market reference for this level':'Set by the glide path, not market cap'))}">—</span>`}</td>
+      <td class="num" style="${rel!=null?heat(rel,0.05):''}" title="${m!=null?esc(mk[n.id].source):''}">${rel!=null?`${hpPP(rel)} <span class="muted small">${(ps/m).toFixed(2)}×</span>`:'—'}</td>
+      <td class="num">${m!=null&&ts!=null?hpPP(ts-m):'—'}</td></tr>`}).join('');
+  return `<div class="card"><h2>${title}</h2><p class="small muted">${blurb} Δ = held today − target (the fund's glide path including approved adjustments), in pp of the fund. Risk budget = tracking error of held vs target ÷ the vintage's budget, split by where it comes from (each asset's contribution to tracking error).${unset?` <b>${unset} fund${unset>1?'s':''} without a management style</b> ${unset>1?'are':'is'} shown here as passive until set.`:''}</p>
+  <div class="scroll" style="max-height:none"><table><tr><th rowspan="2">Fund</th><th rowspan="2" class="num">Assets</th><th colspan="${L1.length}" class="num" style="text-align:center">Δ vs target (pp)</th><th rowspan="2" class="num">Tracking error</th><th rowspan="2">Risk budget used</th><th colspan="${L1.length}" style="text-align:center">Risk budget used by</th></tr>
+   <tr>${L1.map(n=>`<th class="num">${esc(n.name)}</th>`).join('')}${L1.map(n=>`<th class="num">${esc(n.name)}</th>`).join('')}</tr>${rows}
+   <tr class="lvl0"><td>All ${fs.length} funds (asset-weighted)</td><td class="num">${money(fs.reduce((s,f)=>s+f.nav,0))}</td>${L1.map(n=>`<td class="num">${hpPP(MHier.W(g.d,n))}</td>`).join('')}<td class="num">${gr?pct(gr.te,2):'—'}</td><td>${gr?rbBar(gr.used):'—'}</td>${L1.map(n=>`<td class="num small">${gr?hpUse(MHier.W(gr.c,n),gr.budget):'—'}</td>`).join('')}</tr></table></div>
+  <h3 style="margin-top:14px">By asset class: portfolio vs target and vs market</h3>
+  <div class="row" style="gap:6px;margin-bottom:6px"><span class="small muted">Show levels</span><div class="vt-tabs" style="margin:0">${[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4']].map(([k,l])=>`<button class="${k===show?'active':''}" data-hpshow="${k}">${l}</button>`).join('')}</div></div>
+  <div class="scroll" style="max-height:none"><table><tr><th rowspan="2">Asset class</th><th colspan="3" style="text-align:center">% of the fund (asset-weighted)</th><th rowspan="2" class="num">Risk budget used</th><th colspan="4" style="text-align:center">Share of the level above: portfolio vs market</th></tr>
+   <tr><th class="num">Target</th><th class="num">Portfolio</th><th class="num">Portfolio − target</th><th class="num">Portfolio</th><th class="num">Market</th><th class="num">Portfolio − market</th><th class="num">Target − market</th></tr>${brk}</table></div>
+  <p class="small muted">Market = global market-cap mix inside each asset group (MSCI ACWI IMI for regions and developed vs emerging; S&amp;P DJI for US large vs small/mid), as of ${esc(((window.MHIER_CFG||{}).market||{}).as_of||'—')}; hover a cell for the source. The stock/bond mix itself is set by the glide path, so level 1 has no market weight. "1.10×" = the portfolio holds 1.1 times the market's share. Fixed-income regional weights aren't sourced yet.</p></div>`;
+}
+function hpHome(){ styLoad();
+  const fs=plFunds('all'), act=fs.filter(f=>fStyle(f)==='active'), pas=fs.filter(f=>fStyle(f)!=='active');
+  return `<div style="margin-top:14px">${hpCard('Positioning: passive and hybrid funds','Index-based funds that follow the glide path (hybrid: a passive core with active sleeves).',pas,'pas')}</div>
+  <div style="margin-top:14px">${hpCard('Positioning: active funds','Funds that select securities and tilt away from the glide path.',act,'act')}</div>
+  <div style="margin-top:14px">${hpPerfCard()}</div>`; }
+function hpPerfCard(){ perfLoad(); return `<div class="card" id="perfCard"><h2>Cumulative returns</h2><div id="perfBody">${perfHtml()}</div></div>`; }
+function perfLoad(){ if(!LIVE||state.perfLoading) return; state.perfLoading=true;
+  fetch('/api/performance',{credentials:'same-origin'}).then(r=>r.ok?r.json():null).then(d=>{ state.perf=d||{error:true}; const b=document.getElementById('perfBody'); if(b) b.innerHTML=perfHtml(); }).catch(()=>{ state.perf={error:true}; }); }
+function perfHtml(){ const d=state.perf;
+  if(!LIVE) return '<p class="small muted">Available in the hosted app, which keeps daily prices.</p>';
+  if(!d) return '<p class="small muted">Loading prices…</p>';
+  if(d.error) return '<p class="small muted">Prices could not be loaded.</p>';
+  if(!d.as_of) return `<p class="small muted">${esc(d.note||'No prices yet.')}</p>`;
+  const P=d.periods, lab={'1W':'Past week','MTD':'Month to date','QTD':'Quarter to date','YTD':'Year to date','1Y':'1 year'};
+  const cell=x=>x==null?'<td class="num muted">—</td>':`<td class="num ${x>0?'up':x<0?'down':''}">${x>0?'+':''}${(x*100).toFixed(2)}%</td>`;
+  const head=first=>`<tr><th>${first}</th>${P.map(k=>`<th class="num" title="From the close on or before ${esc(d.starts[k])}">${lab[k]}</th>`).join('')}</tr>`;
+  const fr=d.funds.map(f=>`<tr><td><span class="mono">${esc(f.fund_id)}</span> <span class="small muted">${esc(VEH_SHORT[f.vehicle]||f.vehicle)}${fStyle({id:f.fund_id})?' · '+STY_NAME[fStyle({id:f.fund_id})]:''}</span></td>${P.map(k=>cell(f.returns[k])).join('')}</tr>`).join('');
+  const sr=d.securities.map(r=>`<tr><td><b>${esc(r.instrument)}</b> <span class="small muted">${esc(r.name)}</span>${r.proxy?` <span class="chip" title="Doesn't trade under its own ticker: priced with ${esc(r.ticker)}, the asset class's proxy ETF">proxy ${esc(r.ticker)}</span>`:''} <span class="small muted">· ${r.held_in} fund${r.held_in===1?'':'s'}</span></td>${P.map(k=>cell(r.returns[k])).join('')}</tr>`).join('');
+  return `<p class="small muted">Price returns to the close of <b>${esc(d.as_of)}</b> (${esc(d.source||'')}, loaded ${esc((d.fetched_at||'').slice(0,16).replace('T',' '))} UTC). <b>Fund returns are hypothetical</b>: today's holdings weights × each holding's return, with no trading, fees or cash flows, so they are not the funds' reported performance. Not investment advice; not for marketing use.${d.missing&&d.missing.length?` No prices for ${d.missing.map(esc).join(', ')}.`:''}</p>
+   <div class="grid g2"><div class="scroll" style="max-height:520px"><table>${head('Fund (hypothetical)')}${fr}</table></div>
+   <div class="scroll" style="max-height:520px"><table>${head('Security held')}${sr}</table></div></div>`; }
+
 // --------------------------------------------------------------- Home
 V.home = () => {
   const r=state.role, vs=VINT.map(v=>R.vintages[v]);
@@ -959,6 +1028,7 @@ V.home = () => {
   return `<p class="muted" style="margin-top:0">${intro}</p>
   <div class="grid g4">${k}</div>
   <div class="card" style="margin-top:14px"><h2>Needs your attention</h2>${attentionList(att,'Nothing is waiting for you in this run.')}</div>
+  ${r==='pm'&&PR?hpHome():''}
   <div style="margin-top:14px">${seriesCard()}</div>
   <div class="grid g2" style="margin-top:14px">${rbSummaryCard(true)}${changes}</div>
   ${(r==='lead'||r==='compliance')?`<div class="card" style="margin-top:14px"><h2>Production blockers</h2><ul>${G.production_blockers.map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div>`:''}`;
@@ -980,7 +1050,7 @@ function seriesCard(){
 }
 
 // --------------------------------------------------------------- Funds & vintages (by product line)
-V.products = () => {
+V.products = () => { styLoad();
   if(!PR) return `<div class="card"><h2>Funds & vintages</h2><p class="muted">Product-line data is not available. Showing vintages only.</p>${seriesCard()}</div>`;
   const lines=PR.products.filter(p=>state.pl==='all'||p.vehicle===state.pl);
   const all=plFunds(), tot=all.reduce((s,f)=>s+f.nav,0), cur=aumW(all,'current'), gl=aumW(all,'glide'), pr=seriesW(all,f=>propW(f.vintage));
@@ -990,7 +1060,7 @@ V.products = () => {
   const body=lines.map(p=>{const fs=FUNDS.filter(f=>f.product===p.id).sort((a,b)=>a.vintage-b.vintage), t=fs.reduce((s,f)=>s+f.nav,0), c=aumW(fs,'current');
     const head=`<tr class="lvl0"><td>${esc(p.name)} <span class="chip">${esc(p.vehicle_name)}</span> <span class="muted small">${fs.length} funds · rolls down ${esc(p.roll_down)}</span></td><td class="num">${money(t)}</td>${GROUPS.slice(0,3).map(([g,as])=>`<td class="num">${pct(grpW(c,as))}</td>`).join('')}<td colspan="5"></td></tr>`;
     return head+fs.map(f=>{const x=R.vintages[f.vintage]; if(!x) return ''; const w=propW(f.vintage), eq=grpW(w,P.groups.equity), ce=grpW(f.current,P.groups.equity), o=open[f.id];
-      return `<tr class="click" data-pf="${esc(f.id)}"><td style="padding-left:22px"><button class="caret">${o?'▾':'▸'}</button><span class="mono">${esc(f.id)}</span> ${f.vintage} <span class="muted small">${x.years_to_target.toFixed(0)} yrs</span>${f.glide_adjusted?' <span class="chip warn">glide path adjusted</span>':''}</td>
+      return `<tr class="click" data-pf="${esc(f.id)}"><td style="padding-left:22px"><button class="caret">${o?'▾':'▸'}</button><span class="mono">${esc(f.id)}</span> ${f.vintage} <span class="muted small">${x.years_to_target.toFixed(0)} yrs</span>${LIVE?(fStyle(f)?` <span class="chip ${fStyle(f)==='active'?'info':''}">${STY_NAME[fStyle(f)]}</span>`:' <span class="chip warn" title="Management style not set yet">style not set</span>'):''}${f.glide_adjusted?' <span class="chip warn">glide path adjusted</span>':''}</td>
       <td class="num">${money(f.nav)}</td>${GROUPS.slice(0,3).map(([g,as])=>`<td class="num">${pct(grpW(f.current,as))}</td>`).join('')}
       <td class="num">${pct(grpW(f.glide,P.groups.equity))}</td><td class="num">${pct(eq)}</td><td class="num">${dpp(ce-eq)}</td>
       <td style="min-width:110px">${rbBar(x.risk?x.risk.used_pct:null)}</td><td>${chip(x.compliance_summary.overall)}</td></tr>
@@ -1100,7 +1170,13 @@ V.approvals = () => {
 
 // --------------------------------------------------------------- Glide path
 function gpShiftText(sh){ return (sh||[]).map(s=>`${s.pp>0?'+':''}${(+s.pp).toFixed(2)}pp ${esc(nm(s.asset_class))} from ${esc(nm(s.from))}`).join('; '); }
+function gpSelPath(){ const id=state.gpPath; if(!id||id==='ips'||!state.gpPaths) return null; return state.gpPaths.paths.find(p=>p.id===id)||null; }
+function gpLoadPaths(){ if(!LIVE||state.gpPathsLoading||state.gpPaths) return; state.gpPathsLoading=true;
+  fetch('/api/policy/glide-paths').then(r=>r.ok?r.json():null).then(d=>{ if(d){ state.gpPaths=d; if(state.tab==='glide') render(); } }).catch(()=>{}); }
 V.glide = () => {
+  gpLoadPaths();
+  const gpList=state.gpPaths?state.gpPaths.paths:[], sel=gpSelPath();
+  const pick=LIVE?`<label class="small" for="gpPathSel" style="display:flex;gap:8px;align-items:center">Glide path <select id="gpPathSel">${(gpList.length?gpList:[{id:'ips',name:'IPS glide path',status:'active',funds:[]}]).map(p=>`<option value="${esc(p.id)}" ${(state.gpPath||'ips')===p.id?'selected':''}>${esc(p.name)}${p.id==='ips'?' (standard)':''}${p.version!=null&&p.id!=='ips'?' · v'+esc(p.version):''}${p.status&&p.status!=='active'?' · '+esc(p.status):''} · ${p.funds?p.funds.length:0} funds</option>`).join('')}</select></label>`:'';
   const gs=PR?PR.glide:{adjustments:[],requests:[]}, act=(gs.adjustments||[]).filter(a=>a.status==='active'), pend=(gs.requests||[]).filter(r=>r.status==='pending'), past=(gs.requests||[]).filter(r=>r.status!=='pending').slice(-6).reverse();
   const canReq=LIVE&&LIVE.can_glide_request, canDec=LIVE&&LIVE.can_glide_decide;
   const today=PR?VINT.map(v=>{const fm=vFunds(v,'mutual_fund')[0], fc=vFunds(v,'cit')[0], x=R.vintages[v];
@@ -1108,7 +1184,9 @@ V.glide = () => {
     return `<tr><td>${v}</td><td class="num">${x.years_to_target.toFixed(1)}</td><td class="num">${pct(x.equity_neutral)}</td><td class="num">${c(fm)}</td><td class="num">${c(fc)}</td><td class="num small">${fm?pct(grpW(fm.glide,P.groups.fixed_income)):'—'} / ${fc?pct(grpW(fc.glide,P.groups.fixed_income)):'—'}</td><td class="num small">${fm?pct(grpW(fm.glide,P.groups.real_assets)):'—'} / ${fc?pct(grpW(fc.glide,P.groups.real_assets)):'—'}</td></tr>`}).join(''):'';
   const form=canReq?`<div class="card" style="margin-top:14px" id="gpTableCard">${gpTableHtml()}</div>`
     :`<div class="card" style="margin-top:14px"><h2>Propose glide-path changes</h2><p class="small muted">${LIVE?'Portfolio managers and analysts can propose changes here; the Investment Committee approves them.':'Available in the hosted app.'}</p></div>`;
-  return `<div class="card"><h2>Strategic glide path (policy ${esc(P.id)})</h2>
+  const anchorsSrc=sel?sel.anchors:P.anchors;
+  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h2 style="margin:0">${sel?esc(sel.name):'Strategic glide path (policy '+esc(P.id)+')'}</h2>${pick}</div>
+  ${sel?`<p class="small"><b>${esc(sel.description||'')}</b> ${sel.vs_ips?`Largest gap to the IPS path: ${esc(nm(sel.vs_ips.asset))} ${sel.vs_ips.pp>0?'+':''}${sel.vs_ips.pp}pp at ${sel.vs_ips.years} years; equity ${sel.vs_ips.equity_pp>0?'+':''}${sel.vs_ips.equity_pp}pp at ${sel.vs_ips.equity_years} years.`:''} Funds on this path: ${sel.funds.length?sel.funds.map(esc).join(', '):'none yet'}. The dashed line is the IPS glide path's equity, for comparison. Create or change named paths on <a href="/policy">Policy → Glide paths</a>.</p>`:''}
   <p class="small muted">The glide path sets each vintage's long-term mix as it approaches its target date. The agents' proposals tilt around it within the IPS bands. Approved adjustments below change the glide path used for the funds in their scope.</p>
   <div class="legend">${[['Equity','--s1'],['Real assets','--s2'],['Fixed income','--s3'],['Cash','--s4']].map(([l,c])=>`<span><i style="background:var(${c})"></i>${l}</span>`).join('')}<span class="muted">· dots mark each vintage today</span></div>
   <div class="chart" id="glideChart"></div></div>
@@ -1121,43 +1199,60 @@ V.glide = () => {
      ${past.length?`<h3>Recent decisions</h3><table>${past.map(r=>`<tr><td class="mono small">${esc(r.id)}</td><td class="small">${esc(r.scope_label)}: ${gpReqText(r)}</td><td>${chip(r.status)}</td></tr>`).join('')}</table>`:''}</div></div>
   ${form}
   <p class="small muted" style="margin-top:10px">Approved adjustments apply now to the funds' glide-path (Neutral) trading targets. The agents' proposals in a run are measured against the IPS glide path shown in the run.</p>
-  <details class="card" style="margin-top:14px"><summary><b>Glide path anchors (% of fund)</b></summary><div class="scroll"><table><tr><th class="num">Yrs to target</th>${GROUPS.map(([g])=>`<th class="num">${g}</th>`).join('')}${P.assets.map(a=>`<th class="num small">${esc(nm(a))}</th>`).join('')}</tr>${P.anchors.map(r=>{const w={};P.assets.forEach((a,i)=>w[a]=r[i+1]/100);return `<tr><td class="num">${r[0]}</td>${GROUPS.map(([g,as])=>`<td class="num"><b>${pct(grpW(w,as))}</b></td>`).join('')}${r.slice(1).map(x=>`<td class="num small">${x}</td>`).join('')}</tr>`}).join('')}</table></div></details>`;
+  <details class="card" style="margin-top:14px"><summary><b>Glide path anchors (% of fund)</b></summary><div class="scroll"><table><tr><th class="num">Yrs to target</th>${GROUPS.map(([g])=>`<th class="num">${g}</th>`).join('')}${P.assets.map(a=>`<th class="num small">${esc(nm(a))}</th>`).join('')}</tr>${anchorsSrc.map(r=>{const w={};P.assets.forEach((a,i)=>w[a]=r[i+1]/100);return `<tr><td class="num">${r[0]}</td>${GROUPS.map(([g,as])=>`<td class="num"><b>${pct(grpW(w,as))}</b></td>`).join('')}${r.slice(1).map(x=>`<td class="num small">${x}</td>`).join('')}</tr>`}).join('')}</table></div></details>`;
 };
 // Glide-path change table: rows (vintages, a product line's funds, or each fund) x asset classes.
 // Cells hold the change in pp, or the new weight in %; every fund in a row gets the same change (pp) or the
 // same new weight (%). Submitted as one request; the Investment Committee approves it in one decision.
 const GP_ABBR={us_large_cap:'US large',us_small_mid_cap:'US SMID',intl_developed_eq:'Intl dev',emerging_eq:'EM eq',global_reits:'REITs',commodities:'Commod.',us_core_bond:'Core bond',us_long_treasury:'Long Tsy',us_tips_short:'ST TIPS',us_high_yield:'High yield',intl_bond_hedged:'Intl bond',em_debt:'EM debt',cash:'Cash'};
 const gpAb=a=>GP_ABBR[a]||nm(a);
-function gpT(){ if(!state.gpT) state.gpT={rows:'vintage', mode:'pp', cells:{}, prev:null}; return state.gpT; }
-function gpRows(){ const T=gpT();
-  if(T.rows==='fund') return FUNDS.slice().sort((a,b)=>a.vintage-b.vintage||a.vehicle.localeCompare(b.vehicle)).map(f=>({key:f.id,label:f.id,sub:VEH_SHORT[f.vehicle],funds:[f]}));
-  return VINT.map(v=>{const fs=FUNDS.filter(f=>f.vintage===v&&(T.rows==='vintage'||f.vehicle===T.rows));
-    return {key:T.rows+':'+v,label:String(v),sub:T.rows==='vintage'?fs.map(f=>VEH_SHORT[f.vehicle]).join(' + '):VEH_SHORT[T.rows],funds:fs}}).filter(r=>r.funds.length); }
-const gpCur=(f,a)=>(f.glide||{})[a]||0;
-function gpRowCur(r,a){ return r.funds.reduce((t,f)=>t+gpCur(f,a),0)/r.funds.length; }
-function gpFundDeltas(){ const T=gpT(), out={};          // fund -> {asset: pp}
-  gpRows().forEach(r=>{const c=T.cells[r.key]||{};
-    r.funds.forEach(f=>{const d={};P.assets.forEach(a=>{const v=c[a]; if(v===''||v==null||isNaN(+v)) return;
-      const pp=T.mode==='pp'?+v:(+v)-gpCur(f,a)*100; if(Math.abs(pp)>1e-9) d[a]=Math.round(pp*10000)/10000});
-      if(Object.keys(d).length) out[f.id]=Object.assign(out[f.id]||{},d)})});
+// Rows: the asset hierarchy (config/hierarchy.yaml, levels 1-4); columns: vintages (MF + CIT), a product line's
+// funds, or each fund. Type one cell and the rest balance (within the parent level, pro rata across the fund, or
+// not at all); entries can be pp of the fund, share of the parent, % of the current weight, or the new weight.
+const GP_MODES=[['pp','Change (pp of fund)','Absolute: percentage points of the fund, e.g. 1 or -0.5'],['share','Share of parent (%)','Relative: the new share of the level above, e.g. International = 45% of equity'],['rel','Change (% of weight)','Relative: % of the current weight, e.g. +10 turns 30% into 33%'],['weight','New weight (%)','The new weight in % of the fund']];
+const GP_BAL=[['parent','Within its level','The rest of the same level gives or takes the change (e.g. US vs international inside equity); totals above stay the same'],['fund','Pro rata across the fund','Everything not edited gives or takes the change in proportion'],['none','Off: my edits net to zero','Nothing is balanced; enter both sides yourself (e.g. US large +1 and core bond -1)']];
+function gpT(){ if(!state.gpT) state.gpT={cols:'vintage', mode:'pp', bal:'parent', show:4, cells:{}, prev:null}; return state.gpT; }
+function gpNodes(){ return window.MHier&&window.MHIER_CFG ? MHier.nodes(MHIER_CFG.tree) : []; }
+function gpCols(){ const T=gpT();
+  if(T.cols==='fund') return FUNDS.slice().sort((a,b)=>a.vintage-b.vintage||a.vehicle.localeCompare(b.vehicle)).map(f=>({key:f.id,label:f.id.replace('-','\n'),sub:VEH_SHORT[f.vehicle],funds:[f]}));
+  return VINT.map(v=>{const fs=FUNDS.filter(f=>f.vintage===v&&(T.cols==='vintage'||f.vehicle===T.cols));
+    return {key:T.cols+':'+v,label:String(v),sub:T.cols==='vintage'?fs.map(f=>VEH_SHORT[f.vehicle]).join('+'):VEH_SHORT[T.cols],funds:fs}}).filter(c=>c.funds.length); }
+const gpBase=f=>{const b={};P.assets.forEach(a=>b[a]=(f.glide||{})[a]||0);return b};
+function gpResults(){ const T=gpT(), N=gpNodes(), out={};
+  for(const c of gpCols()){ const ed=T.cells[c.key]||{}; if(!Object.values(ed).some(v=>v!==''&&v!=null)) continue;
+    out[c.key]=c.funds.map(f=>({f, base:gpBase(f), ...MHier.apply(N,gpBase(f),ed,T.mode,T.bal)})); }
   return out; }
-function gpRowNet(r){ const T=gpT(), c=T.cells[r.key]||{};
-  if(T.mode==='pp') return P.assets.reduce((t,a)=>t+(+c[a]||0),0);
-  return P.assets.reduce((t,a)=>t+((c[a]===''||c[a]==null)?gpRowCur(r,a)*100:+c[a]),0)-100; }
-function gpTableHtml(){ const T=gpT(), rows=gpRows(), eq=P.groups.equity;
-  const seg=(k,opts)=>`<span class="seg" role="group">${opts.map(([v,l])=>`<button type="button" class="btn ${T[k]===v?'primary':''}" data-gpt="${k}" data-v="${v}">${l}</button>`).join('')}</span>`;
-  const head=`<tr><th>${T.rows==='fund'?'Fund':'Vintage'}</th>${P.assets.map(a=>`<th class="num" title="${esc(nm(a))}">${esc(gpAb(a))}</th>`).join('')}<th class="num" title="Changes must net to zero">Net</th><th class="num">Equity after</th></tr>`;
-  const body=rows.map(r=>{const c=T.cells[r.key]||{}, net=gpRowNet(r), touched=P.assets.some(a=>c[a]!==''&&c[a]!=null);
-    const eqAfter=eq.reduce((t,a)=>{const v=c[a];const cur=gpRowCur(r,a)*100;return t+(v===''||v==null?cur:(T.mode==='pp'?cur+(+v):+v))},0);
-    return `<tr><td class="nowrap"><b>${esc(r.label)}</b> <span class="small muted">${esc(r.sub)}</span></td>${P.assets.map(a=>{const cur=gpRowCur(r,a)*100;
-      return `<td class="gpc"><input type="number" step="0.25" inputmode="decimal" data-gpr="${esc(r.key)}" data-gpa="${a}" value="${c[a]??''}" placeholder="${T.mode==='pp'?'':cur.toFixed(1)}" title="${esc(nm(a))}: glide path now ${cur.toFixed(2)}%" aria-label="${esc(r.label)} ${esc(nm(a))}"></td>`}).join('')}
-      <td class="num ${touched&&Math.abs(net)>0.005?'neg':''}" data-gpnet="${esc(r.key)}">${touched?(net>0?'+':'')+net.toFixed(2):''}</td><td class="num" data-gpeq="${esc(r.key)}">${touched?eqAfter.toFixed(1)+'%':''}</td></tr>`}).join('');
+function gpFundDeltas(res){ const out={};
+  for(const rs of Object.values(res)) for(const r of rs){ if(r.errors.length) continue; const d={};
+    P.assets.forEach(a=>{const x=Math.round(((r.w[a]||0)-(r.base[a]||0))*1e6)/1e4; if(Math.abs(x)>=1e-4) d[a]=x});
+    const net=Object.values(d).reduce((t,x)=>t+x,0); if(Object.keys(d).length&&Math.abs(net)<0.005&&Math.abs(net)>0){ const k=Object.keys(d).sort((a,b)=>Math.abs(d[b])-Math.abs(d[a]))[0]; d[k]=Math.round((d[k]-net)*1e4)/1e4; }
+    if(Object.keys(d).length) out[r.f.id]=d; }
+  return out; }
+function gpCellInfo(n,c,res){ // today's value, after value (avg over the column's funds), in % of fund; share of parent
+  const fs=c.funds, cur=fs.reduce((t,f)=>t+MHier.W(gpBase(f),n),0)/fs.length;
+  const par=n.parent?fs.reduce((t,f)=>t+MHier.W(gpBase(f),n.parent),0)/fs.length:1;
+  const rs=res[c.key], after=rs?rs.reduce((t,r)=>t+MHier.W(r.w,n),0)/rs.length:null;
+  return {cur, share:par>0?cur/par:0, after}; }
+function gpGridHtml(){ const T=gpT(), N=gpNodes(), cols=gpCols(), res=gpResults(), L=(window.MHIER_CFG||{}).levels||[];
+  if(!N.length) return '<p class="small muted">The asset hierarchy is available in the hosted app.</p>';
+  const ph=(info)=>T.mode==='share'?(info.share*100).toFixed(1):T.mode==='weight'?(info.cur*100).toFixed(1):'';
+  const rows=N.filter(n=>n.level<=T.show).map(n=>`<tr class="gp-l${n.depth}"><td class="gpn" style="padding-left:${6+n.depth*16}px" title="Level ${n.level}: ${esc(L[n.level-1]||'')}"><span class="gplv">L${n.level}</span> ${n.depth===0?'<b>'+esc(n.name)+'</b>':esc(n.name)}</td>${cols.map(c=>{const info=gpCellInfo(n,c,res), v=(T.cells[c.key]||{})[n.id]??'', ch=info.after!=null&&Math.abs(info.after-info.cur)>1e-6;
+      return `<td class="gpc ${v!==''?'gped':ch?'gpchg':''}"><input type="text" inputmode="decimal" data-gpr="${esc(c.key)}" data-gpn="${esc(n.id)}" value="${esc(v)}" placeholder="${ph(info)}" title="${esc(n.name)}, ${esc(c.label.replace('\n',' '))}: ${(info.cur*100).toFixed(2)}% of the fund today (${(info.share*100).toFixed(1)}% of ${esc(n.parent?n.parent.name:'the fund')})" aria-label="${esc(n.name)} ${esc(c.label)}"><div class="gpa">${ch?`${(info.cur*100).toFixed(1)}→<b>${(info.after*100).toFixed(1)}</b>`:(info.cur*100).toFixed(1)}</div></td>`}).join('')}</tr>`).join('');
+  const foot=`<tr class="gpfoot"><td class="gpn"><b>Check</b></td>${cols.map(c=>{const rs=res[c.key]; if(!rs) return '<td></td>';
+      const errs=[...new Set(rs.flatMap(r=>r.errors))], net=rs.reduce((t,r)=>t+r.net,0)/rs.length;
+      return `<td data-gpchk="${esc(c.key)}" class="num ${errs.length||Math.abs(net)>5e-5?'gpbad':'gpok'}" title="${esc(errs.join(' | '))}">${errs.length?'⚠ '+esc(errs[0].slice(0,40)):Math.abs(net)>5e-5?`net ${net>0?'+':''}${(net*100).toFixed(2)}`:'✓ 100%'}</td>`}).join('')}</tr>`;
+  return `<table class="gpt"><tr><th class="gpn">Level · asset</th>${cols.map(c=>`<th class="num" title="${esc(c.sub)}">${esc(c.label).replace('\n','<br>')}<div class="small muted">${esc(c.sub)}</div></th>`).join('')}</tr>${rows}${foot}</table>`; }
+function gpTableHtml(){ const T=gpT();
+  const seg=(k,opts)=>`<span class="seg" role="group">${opts.map(([v,l,tip])=>`<button type="button" class="btn ${String(T[k])===String(v)?'primary':''}" data-gpt="${k}" data-v="${v}" ${tip?`title="${esc(tip)}"`:''}>${l}</button>`).join('')}</span>`;
   return `<h2>Propose glide-path changes</h2>
-   <p class="small muted">Type changes straight into the table, for as many vintages and asset classes as you like, then preview and submit them together as one request. Each row's changes must net to zero, and every fund must stay inside the IPS bands (±3pp per asset class, ±5pp equity around its base glide path). The Investment Committee approves the whole table in one decision; you can't approve your own request. Tip: you can paste a block of numbers from Excel into any cell.</p>
-   <div class="row" style="gap:16px;flex-wrap:wrap;margin-bottom:8px"><span class="small">Rows</span>${seg('rows',[['vintage','Vintage (MF + CIT)'],['mutual_fund','Mutual funds'],['cit','CITs'],['fund','Each fund']])}
-    <span class="small">Enter</span>${seg('mode',[['pp','Change (pp)'],['weight','New weight (%)']])}</div>
-   <div class="scroll gpgrid" style="max-height:none"><table class="gpt">${head}${body}</table></div>
-   <div class="row" style="margin-top:10px"><button class="btn primary" id="gpPrev">Preview</button><button class="btn" id="gpClear">Clear table</button><span class="small muted">${T.mode==='pp'?'Change in percentage points, e.g. 1 or -0.5. Blank = no change.':'New weight in %. The grey number is today\'s weight; blank = no change.'}${T.rows==='vintage'?' A vintage row applies to its mutual fund and its CIT.':''}</span></div>
+   <p class="small muted">Type a change into any cell, at any level: asset group (stocks vs bonds), region (US vs international), developed vs emerging, or size and sector. You only need one cell: the rest balance automatically as set under <b>Balance</b>, so every fund still totals 100%. The small number under each cell is the weight today → after, in % of the fund. Levels apply from the top down, so you can set stocks vs bonds and, in the same table, US vs international within stocks. Then preview and submit the whole table as one request; the Investment Committee approves it in one decision. Funds must stay inside the IPS bands (±3pp per asset class, ±5pp equity around their base glide path). Tip: paste from Excel into any cell.</p>
+   <div class="gpctl"><div><span class="small">Columns</span>${seg('cols',[['vintage','Vintage (MF + CIT)'],['mutual_fund','Mutual funds'],['cit','CITs'],['fund','Each fund']])}</div>
+    <div><span class="small">Enter</span>${seg('mode',GP_MODES)}</div>
+    <div><span class="small">Balance</span>${seg('bal',GP_BAL)}</div>
+    <div><span class="small">Show levels</span>${seg('show',[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4']])}</div></div>
+   <div class="small muted" style="margin:4px 0 8px">${esc(GP_MODES.find(m=>m[0]===T.mode)[2])}. Balance: ${esc(GP_BAL.find(m=>m[0]===T.bal)[2])}.</div>
+   <div class="scroll gpgrid" id="gpGrid" style="max-height:none">${gpGridHtml()}</div>
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="gpPrev">Preview</button><button class="btn" id="gpClear">Clear table</button></div>
    <div id="gpOut">${T.prev?gpPreviewHtml(T.prev):''}</div>`; }
 function gpPreviewHtml(p){
   const eq=P.groups.equity;
@@ -1264,34 +1359,40 @@ function bindNew(){
   document.querySelectorAll('[data-pf]').forEach(e=>e.onclick=(ev)=>{if(ev.target.closest('button:not(.caret)'))return;state.prodOpen[e.dataset.pf]=!state.prodOpen[e.dataset.pf];render()});
   document.querySelectorAll('[data-posmode]').forEach(e=>e.onclick=()=>{state.posMode=e.dataset.posmode;render()});
   document.querySelectorAll('[data-posmeasure]').forEach(e=>e.onclick=()=>{state.posMeasure=e.dataset.posmeasure;render()});
+  document.querySelectorAll('[data-hpshow]').forEach(e=>e.onclick=()=>{state.hpShow=+e.dataset.hpshow;render()});
   document.querySelectorAll('[data-posv]').forEach(e=>e.onclick=()=>{state.vintage=+e.dataset.posv;state.posMode='vintage';render()});
   document.querySelectorAll('[data-posdetail]').forEach(e=>e.addEventListener('click',()=>{state.posMode='vintage'}));
   document.querySelectorAll('[data-agsel]').forEach(e=>e.onclick=()=>{state.agSel=e.dataset.agsel||null;render()});
-  document.querySelectorAll('[data-gpt]').forEach(b=>b.onclick=()=>{const T=gpT(); if(T[b.dataset.gpt]===b.dataset.v) return;
-    T[b.dataset.gpt]=b.dataset.v; T.prev=null; if(b.dataset.gpt==='rows') T.cells={}; else T.cells={}; render()});
-  const gpRefresh=key=>{const T=gpT(), r=gpRows().find(x=>x.key===key); if(!r) return; const c=T.cells[key]||{}, net=gpRowNet(r), touched=P.assets.some(a=>c[a]!==''&&c[a]!=null);
-    const n=document.querySelector(`[data-gpnet="${CSS.escape(key)}"]`); if(n){n.textContent=touched?(net>0?'+':'')+net.toFixed(2):''; n.classList.toggle('neg',touched&&Math.abs(net)>0.005)}
-    const eqAfter=P.groups.equity.reduce((t,a)=>{const v=c[a],cur=gpRowCur(r,a)*100;return t+(v===''||v==null?cur:(T.mode==='pp'?cur+(+v):+v))},0);
-    const e=document.querySelector(`[data-gpeq="${CSS.escape(key)}"]`); if(e) e.textContent=touched?eqAfter.toFixed(1)+'%':''};
-  document.querySelectorAll('[data-gpr]').forEach(inp=>{
-    inp.oninput=()=>{const T=gpT(); (T.cells[inp.dataset.gpr]||(T.cells[inp.dataset.gpr]={}))[inp.dataset.gpa]=inp.value; T.prev=null; const o=$('#gpOut'); if(o) o.innerHTML=''; gpRefresh(inp.dataset.gpr)};
+  document.querySelectorAll('[data-gpt]').forEach(b=>b.onclick=()=>{const T=gpT(), k=b.dataset.gpt, v=k==='show'?+b.dataset.v:b.dataset.v; if(T[k]===v) return;
+    if(k==='cols'||k==='mode') T.cells={}; T[k]=v; T.prev=null; render()});
+  const gpRegrid=(focus)=>{ const g=$('#gpGrid'); if(!g) return; g.innerHTML=gpGridHtml(); bindGpCells();
+    if(focus){ const el=g.querySelector(`[data-gpr="${CSS.escape(focus[0])}"][data-gpn="${CSS.escape(focus[1])}"]`); if(el){ el.focus(); const n=el.value.length; try{el.setSelectionRange(n,n)}catch(e){} } } };
+  const bindGpCells=()=>document.querySelectorAll('[data-gpr]').forEach(inp=>{
+    inp.oninput=()=>{const T=gpT(), v=inp.value.trim(); if(v!==''&&v!=='-'&&v!=='.'&&isNaN(+v)) return; (T.cells[inp.dataset.gpr]||(T.cells[inp.dataset.gpr]={}))[inp.dataset.gpn]=(v==='-'||v==='.')?'':v;
+      if(v==='') delete T.cells[inp.dataset.gpr][inp.dataset.gpn]; T.prev=null; const o=$('#gpOut'); if(o) o.innerHTML='';
+      if(v==='-'||v==='.') return; gpRegrid([inp.dataset.gpr,inp.dataset.gpn])};
     inp.onpaste=ev=>{const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
-      const T=gpT(), rows=gpRows(), r0=rows.findIndex(r=>r.key===inp.dataset.gpr), c0=P.assets.indexOf(inp.dataset.gpa);
-      txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{const r=rows[r0+i]; if(!r) return;
-        line.split('\t').forEach((v,k)=>{const a=P.assets[c0+k]; if(!a) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); (T.cells[r.key]||(T.cells[r.key]={}))[a]=v===''||isNaN(+v)?'':v})});
-      T.prev=null; render()};
-    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const ins=[...document.querySelectorAll(`[data-gpa="${inp.dataset.gpa}"]`)], k=ins.indexOf(inp);
+      const T=gpT(), N=gpNodes().filter(n=>n.level<=T.show), cols=gpCols(), r0=N.findIndex(n=>n.id===inp.dataset.gpn), c0=cols.findIndex(c=>c.key===inp.dataset.gpr);
+      txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{const n=N[r0+i]; if(!n) return;
+        line.split('\t').forEach((v,k)=>{const c=cols[c0+k]; if(!c) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); const cell=(T.cells[c.key]||(T.cells[c.key]={})); if(v===''||isNaN(+v)) delete cell[n.id]; else cell[n.id]=v})});
+      T.prev=null; gpRegrid()};
+    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const ins=[...document.querySelectorAll(`[data-gpr="${CSS.escape(inp.dataset.gpr)}"]`)], k=ins.indexOf(inp);
       const nx=ins[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select()} };
   });
+  bindGpCells();
   const gcl=$('#gpClear'); if(gcl) gcl.onclick=()=>{const T=gpT(); T.cells={}; T.prev=null; render()};
-  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const T=gpT(); const bad=gpRows().filter(r=>{const c=T.cells[r.key]||{};return P.assets.some(a=>c[a]!==''&&c[a]!=null)&&Math.abs(gpRowNet(r))>0.005});
-    if(bad.length){toast(`Each row's changes must net to zero: check ${bad.map(r=>r.label).join(', ')}.`,'error');return}
-    const d=gpFundDeltas(); if(!Object.keys(d).length){toast('Type at least one change into the table.','error');return}
+  const gp=$('#gpPrev'); if(gp) gp.onclick=()=>{const T=gpT(), res=gpResults();
+    if(!Object.keys(res).length){toast('Type at least one change into the table.','error');return}
+    const bad=Object.values(res).flat().filter(r=>r.errors.length||Math.abs(r.net)>5e-5);
+    if(bad.length){toast(`Fix these first: ${bad.slice(0,3).map(r=>`${r.f.id}: ${r.errors[0]||'changes net '+(r.net>0?'+':'')+(r.net*100).toFixed(2)+'pp'}`).join('; ')}`,'error');return}
+    const d=gpFundDeltas(res); if(!Object.keys(d).length){toast('These entries don\'t change any weight.','error');return}
     gp.disabled=true; api('/api/trading/glide-path/table-preview',{rows:Object.entries(d).map(([fund_id,deltas])=>({fund_id,deltas}))})
-     .then(r=>{T.prev=r; T.sent=d; render(); const o=$('#gpOut'); if(o) o.scrollIntoView({block:'start',behavior:'smooth'})}).catch(e=>{gp.disabled=false;toast(e.message,'error')})};
-  const gsub=$('#gpSubmit'); if(gsub) gsub.onclick=()=>{const T=gpT(), reason=$('#gpReason').value.trim(); if(reason.length<10){toast('Please give a reason (10+ characters).');return}
+     .then(r=>{T.prev=r; T.sent=d; const o=$('#gpOut'); o.innerHTML=gpPreviewHtml(r); bindGpSubmit(); gp.disabled=false; o.scrollIntoView({block:'start',behavior:'smooth'})}).catch(e=>{gp.disabled=false;toast(e.message,'error')})};
+  const bindGpSubmit=()=>{const gsub=$('#gpSubmit'); if(gsub) gsub.onclick=()=>{const T=gpT(), reason=$('#gpReason').value.trim(); if(reason.length<10){toast('Please give a reason (10+ characters).');return}
     gsub.disabled=true; api('/api/trading/glide-path/requests',{kind:'table',rows:Object.entries(T.sent||{}).map(([fund_id,deltas])=>({fund_id,deltas})),reason})
-     .then(r=>{toast(`Request ${r.id} sent to the Investment Committee (${r.funds} funds).`);state.gpT=null;setTimeout(()=>location.reload(),900)}).catch(e=>{gsub.disabled=false;toast(e.message,'error')})};
+     .then(r=>{toast(`Request ${r.id} sent to the Investment Committee (${r.funds} funds).`);state.gpT=null;setTimeout(()=>location.reload(),900)}).catch(e=>{gsub.disabled=false;toast(e.message,'error')})}};
+  bindGpSubmit();
+  const gps=$('#gpPathSel'); if(gps) gps.onchange=()=>{state.gpPath=gps.value; render()};
   document.querySelectorAll('[data-gpretire]').forEach(b=>b.onclick=()=>{const reason=prompt?null:null;
     const box=document.createElement('div');box.innerHTML=`<div class="card" style="position:fixed;inset:auto 20px 20px auto;z-index:9;width:360px"><b>Request removal of ${esc(b.dataset.gpretire)}</b><textarea id="gpRetReason" rows="3" placeholder="Reason (required)" style="margin:8px 0"></textarea><div class="row"><button class="btn primary" id="gpRetOk">Send to the Investment Committee</button><button class="btn" id="gpRetCancel">Cancel</button></div></div>`;
     document.body.appendChild(box);$('#gpRetCancel').onclick=()=>box.remove();

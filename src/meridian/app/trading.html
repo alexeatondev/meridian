@@ -40,6 +40,8 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 .tg th,.tg td{padding:3px 4px;white-space:nowrap;border-bottom:1px solid var(--line)}.tg th{position:sticky;top:0;background:var(--surface);z-index:2;font-size:12px;line-height:1.2}
 .tg .tg-sec{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis}.tg th.tg-sec{z-index:3}
 .tg tr.tg-ac td{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--heading,var(--text));position:sticky;left:0}
+.tglv{display:inline-block;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:3px;padding:0 3px;margin-right:2px}.tg tr.tg-grp td{background:var(--surface-2)}.tg tr.tg-l0 td{border-top:2px solid var(--line-strong)}.tg .tga{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.2}.tg .tga b{color:var(--text)}.tg td.tg-ok{color:var(--ok)}.tg td.tg-bad{color:var(--neg,#b42318)}.tg tr.tg-foot td{border-top:2px solid var(--line-strong)}
+.tgctl{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}.tgctl>div{display:flex;gap:6px;align-items:center}
 .tg input{width:64px;min-height:0;height:28px;padding:3px 6px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,4px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
 .tg input:disabled{background:transparent;border-color:transparent}.tg input::placeholder{color:var(--muted)}.tg td.tg-na{color:var(--line-strong);text-align:center}
 .tg td.tg-ed{background:var(--info-bg)}.tg td.tg-x input{text-decoration:line-through}.tg tr.tg-dim td{color:var(--muted)}
@@ -116,13 +118,19 @@ function render(){
 }
 
 // ------------------------------------------------------------------ Funds & securities
+const styleChip = f => f.style ? chip({active:'Active',passive:'Passive',hybrid:'Hybrid'}[f.style], f.style==='active'?'perm':'ok') : chip('Not set','warn');
 function vFunds(){
   const fs = funds();
   const nav = fs.reduce((a,f)=>a+f.nav,0);
   let h = `<div class="card"><h2>Funds (${fs.length})</h2><div class="kpis"><div><span class="muted small">Total NAV</span><b>${musd(nav)}</b></div><div><span class="muted small">Positions as of</span><b>${esc(S.st.as_of)}</b></div><div><span class="muted small">Cash buffer (series)</span><b>${S.st.settings.buffer_bps} bp</b></div></div>
-  <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th><th>Regulations</th><th>Positions</th></tr></thead><tbody>`;
-  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}${f.glide_adjusted?' '+chip('Glide path adjusted','perm'):''}</td><td>${(f.regulations||[]).map(r=>chip(r,'ok')).join(' ')||'<span class="small muted">—</span>'}</td><td class="small">${f.positions_source.startsWith('Example')?'<span class="muted">Example</span>':esc(f.positions_source.split(' (')[0])+'<br><span class="muted">'+esc(f.positions_as_of)+'</span>'}</td></tr>`;
+  <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th>Management</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th><th>Regulations</th><th>Positions</th></tr></thead><tbody>`;
+  for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td>${styleChip(f)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}${f.glide_adjusted?' '+chip('Glide path adjusted','perm'):''}</td><td>${(f.regulations||[]).map(r=>chip(r,'ok')).join(' ')||'<span class="small muted">—</span>'}</td><td class="small">${f.positions_source.startsWith('Example')?'<span class="muted">Example</span>':esc(f.positions_source.split(' (')[0])+'<br><span class="muted">'+esc(f.positions_as_of)+'</span>'}</td></tr>`;
   h += `</tbody></table></div>`;
+  const STY={active:'Active',passive:'Passive',hybrid:'Hybrid'}, SP=S.styPend||={};
+  h += `<div class="card" id="cardStyles"><h2>Management style</h2><p class="small muted">Whether each fund is managed <b>Active</b> (security selection and tilts away from the glide path), <b>Passive</b> (index holdings that follow the glide path) or <b>Hybrid</b> (a passive core with active sleeves). Set by hand by portfolio managers; each change needs a reason and is recorded in the ledger. The home screen groups positioning by it. A fund that isn't set yet is treated as passive and flagged.</p>
+   <table><tr><th>Fund</th><th>Management</th><th>Set by</th><th>Reason</th></tr>${fs.map(f=>{const v=f.id in SP?SP[f.id]:(f.style||''); return `<tr><td><b>${f.id}</b></td><td>${BOOT.can_approve?`<select data-sty="${f.id}" aria-label="Management style ${f.id}"><option value="" ${v===''?'selected':''}>Not set</option>${Object.entries(STY).map(([k,l])=>`<option value="${k}" ${v===k?'selected':''}>${l}</option>`).join('')}</select>`:styleChip(f)}</td><td class="small">${f.style_set?esc(f.style_set.by.name)+'<br><span class="muted">'+esc(f.style_set.at.slice(0,10))+'</span>':'<span class="muted">—</span>'}</td><td class="small">${esc(f.style_set?.reason||'')}</td></tr>`}).join('')}</table>
+   ${BOOT.can_approve?`<div class="row" style="margin-top:8px"><span class="small">Set all shown to</span>${Object.entries(STY).map(([k,l])=>`<button class="btn small" data-styall="${k}">${l}</button>`).join('')}</div>
+   <label class="f" for="styReason" style="margin-top:8px">Reason</label><input type="text" id="styReason" placeholder="At least 10 characters"><div class="row" style="margin-top:8px"><button class="btn primary" id="stySave">Save management styles</button><span class="small muted" id="styN">${Object.keys(SP).length?Object.keys(SP).length+' changed':''}</span></div>`:''}</div>`;
   if (BOOT.can_approve) h += `<div class="card"><h2>Load positions (holdings at last close)</h2><p class="small muted">Excel or CSV from the custodian or transfer agent with <span class="mono">as_of, fund_id (or account), security_id (or CUSIP; CASH for cash), quantity and price, or market_value</span>. It replaces the example holdings of every fund in the file; any bad row stops the load. Fills you record on exported trade lists also update positions.</p>
    <input type="file" id="posFile" accept=".xlsx,.xlsm,.csv"> <button class="btn primary" id="posUpload">Upload positions</button> <a href="/api/trading/positions/template.csv">CSV template</a></div>`;
   h += `<div id="fundDetail"></div>`;
@@ -130,6 +138,10 @@ function vFunds(){
   if ($('#posUpload')) $('#posUpload').onclick = async()=>{const f=$('#posFile').files[0]; if(!f) return toast('Choose a file first'); const fd=new FormData(); fd.append('file', f);
     try{const r=await api('POST','/api/trading/positions/upload',null,fd); await load(); toast(`Positions loaded for ${r.funds.length} funds and recorded`)}catch(e){toast(e.message,'error')}};
   document.querySelectorAll('[data-fund]').forEach(tr=>tr.onclick=()=>openFund(tr.dataset.fund));
+  document.querySelectorAll('[data-sty]').forEach(sel=>sel.onchange=()=>{ const f=fs.find(x=>x.id===sel.dataset.sty); if(sel.value===(f.style||'')) delete SP[f.id]; else SP[f.id]=sel.value; $('#styN').textContent=Object.keys(SP).length?Object.keys(SP).length+' changed':''; });
+  document.querySelectorAll('[data-styall]').forEach(b=>b.onclick=()=>{ fs.forEach(f=>{ if((f.style||'')!==b.dataset.styall) SP[f.id]=b.dataset.styall; else delete SP[f.id]; }); vFunds(); });
+  if ($('#stySave')) $('#stySave').onclick=async()=>{ if(!Object.keys(SP).length) return toast('Change at least one fund first','warn');
+    try{ const r=await api('PUT','/api/trading/fund-styles',{funds:Object.fromEntries(Object.entries(SP).map(([k,v])=>[k,v||null])), reason:$('#styReason').value}); S.styPend={}; await load(); toast(`Management style saved for ${r.changed} fund${r.changed===1?'':'s'} and recorded`); }catch(e){toast(e.message,'error')} };
   if (S.fund && fundIds().has(S.fund)) openFund(S.fund, true);
 }
 async function openFund(id, keep){
@@ -313,50 +325,94 @@ async function showFile(){
   $('#fileView').scrollIntoView({block:'start'});
 }
 
-// ------------------------------------------------------------------ Tilts table (security tilts per fund, % of the fund)
+// ------------------------------------------------------------------ Tilts table (rows: asset levels 1-5, columns: funds)
 const fmtPct = (v,d=2) => (v>0?'+':'')+(+v).toFixed(d);
+const TG_MODES=[['tilt','Set tilt (% of fund)','Absolute: the security\'s own tilt in % of the fund (0.25 = 25 bp). Securities only; a blank or 0 removes it'],
+  ['pp','Change (pp of fund)','Absolute: move any level by percentage points of the fund, e.g. US equity +1'],
+  ['share','Share of parent (%)','Relative: the new share of the level above, e.g. emerging = 25% of international equity'],
+  ['rel','Change (% of weight)','Relative: % of the current weight, e.g. +10 turns 2% into 2.2%'],
+  ['weight','New weight (%)','The new weight in % of the fund']];
+const TG_BAL=[['parent','Within its level','The rest of the same level gives or takes the change'],['fund','Pro rata across the fund','Everything not edited gives or takes the change in proportion'],['none','Off: my edits net to zero','Nothing is balanced; enter both sides yourself']];
 async function vTilts(){
   const tok = S.tgTok = (S.tgTok||0)+1;
   let g; try { g = await api('GET','/api/trading/tilts-grid'); } catch(e) { return toast(e.message,'error'); }
   if (tok !== S.tgTok || S.tab !== 'tilts') return;
-  S.tg ||= {edits:{}, prev:null}; S.tgData = g;
-  const T=S.tg, ro=!g.can_edit;
-  const funds = g.funds.filter(f=>S.veh==='all'||f.vehicle===S.veh);
+  S.tg ||= {edits:{}, h:{}, mode:'tilt', bal:'parent', show:5, prev:null}; S.tgData = g;
+  tgRender();
+}
+function tgNodes(){ const g=S.tgData, extra={}; g.rows.forEach(r=>(extra[r.asset_class]||(extra[r.asset_class]=[])).push({id:r.instrument,name:r.name}));
+  return window.MHier&&window.MHIER_CFG ? MHier.nodes(MHIER_CFG.tree, extra) : []; }
+const tgBase = fid => { const c=S.tgData.cells[fid], b={}; for (const i in c) b[i]=c[i].tilted||0; return b; };
+function tgResults(funds){ const T=S.tg, N=tgNodes(), out={};
+  if (T.mode==='tilt') return out;
+  for (const f of funds){ const ed=T.h[f.id]||{}; if(!Object.values(ed).some(v=>v!==''&&v!=null)) continue; const base=tgBase(f.id);
+    out[f.id]={base, ...MHier.apply(N, base, ed, T.mode, T.bal)}; }
+  return out; }
+function tgCells(){ const T=S.tg, g=S.tgData;
+  if (T.mode==='tilt') return Object.entries(T.edits).map(([k,v])=>{const [fund_id,instrument]=k.split('|'); return {fund_id, instrument, pct: v===''?null:+v}});
+  const out=[];
+  for (const [fid,r] of Object.entries(tgResults(g.funds))){ if(r.errors.length||Math.abs(r.net)>5e-5) continue;
+    for (const i in g.cells[fid]){ const d=(r.w[i]||0)-(r.base[i]||0); if(Math.abs(d)<5e-7) continue;
+      out.push({fund_id:fid, instrument:i, pct:Math.round((g.cells[fid][i].sec_bps+d*1e4)*1e4)/1e6}); } }
+  return out; }
+function tgRender(focus){
+  const g=S.tgData, T=S.tg, ro=!g.can_edit, N=tgNodes(), L=(window.MHIER_CFG||{}).levels||[];
+  const funds = g.funds.filter(f=>S.veh==='all'||f.vehicle===S.veh), res=tgResults(funds), hier=T.mode!=='tilt';
   const val = (f,i) => { const k=f+'|'+i; if (k in T.edits) return T.edits[k]; const c=g.cells[f][i]; return c&&c.own_bps!=null ? +(c.own_bps/100).toFixed(4) : ''; };
-  let lastAc='', body='';
-  for (const r of g.rows) {
-    const inAny = funds.some(f=>g.cells[f.id][r.instrument]); if(!inAny) continue;
-    if (r.asset_class!==lastAc){ lastAc=r.asset_class; body+=`<tr class="tg-ac"><td colspan="${funds.length+1}">${esc(acName(r.asset_class))}</td></tr>`; }
-    body += `<tr><td class="tg-sec"><b>${esc(r.instrument)}</b> <span class="small muted">${esc(r.name)}</span></td>${funds.map(f=>{const c=g.cells[f.id][r.instrument];
-      if(!c) return '<td class="tg-na" title="Not in this fund\'s universe">—</td>';
-      const v=val(f.id,r.instrument), wide=c.own_bps==null&&Math.abs(c.bps)>1e-9, edited=(f.id+'|'+r.instrument) in T.edits;
-      const tip=`${f.id} · ${r.instrument}: weight today ${(c.weight*100).toFixed(2)}%, glide-path target ${(c.target*100).toFixed(2)}%, tilt in force ${fmtPct(c.bps/100)}%${wide?' (set for a wider scope)':''}${c.excluded?' · excluded from trading':''}${c.exiting?' · being exited':''}`;
-      return `<td class="tg-c ${edited?'tg-ed':''} ${c.excluded||c.exiting?'tg-x':''}"><input type="number" step="0.05" inputmode="decimal" data-tg="${f.id}|${r.instrument}" value="${v}" placeholder="${wide?fmtPct(c.bps/100):''}" title="${esc(tip)}" aria-label="${esc(tip)}" ${ro?'disabled':''}></td>`}).join('')}</tr>`;
+  const W=(fid,n,w)=>MHier.W(w||tgBase(fid),n), par=(fid,n)=>n.parent?W(fid,n.parent):1;
+  let body='';
+  for (const n of N.filter(n=>n.level<=T.show||(!hier&&n.security))) {
+    if (n.security && !funds.some(f=>g.cells[f.id][n.id])) continue;
+    if (!n.security && !funds.some(f=>W(f.id,n)>0) && !hier) continue;
+    const lab = n.security ? `<b>${esc(n.id)}</b> <span class="small muted">${esc(n.name)}</span>` : (n.depth===0?`<b>${esc(n.name)}</b>`:esc(n.name));
+    body += `<tr data-row class="tg-l${n.depth} ${n.security?'':'tg-grp'}"><td class="tg-sec" style="padding-left:${6+n.depth*14}px" title="Level ${n.level}: ${esc(L[n.level-1]||'')}"><span class="tglv">L${n.level}</span> ${lab}</td>${funds.map(f=>{
+      const c=n.security?g.cells[f.id][n.id]:null;
+      if (n.security && !c) return '<td class="tg-na" title="Not in this fund\'s universe">—</td>';
+      const cur=W(f.id,n), r=res[f.id], after=r?W(f.id,n,r.w):null, ch=after!=null&&Math.abs(after-cur)>1e-7;
+      const sub=`<div class="tga">${ch?`${(cur*100).toFixed(2)}→<b>${(after*100).toFixed(2)}</b>`:(cur*100).toFixed(2)}${c&&Math.abs(c.bps)>1e-9?` <span title="tilt in force">t${fmtPct(c.bps/100)}</span>`:''}</div>`;
+      if (!hier) { if(!n.security) return `<td class="tg-c tg-ro">${sub}</td>`;
+        const v=val(f.id,n.id), wide=c.own_bps==null&&Math.abs(c.bps)>1e-9, edited=(f.id+'|'+n.id) in T.edits;
+        const tip=`${f.id} · ${n.id}: weight today ${(c.weight*100).toFixed(2)}%, glide-path target ${(c.target*100).toFixed(2)}%, tilt in force ${fmtPct(c.bps/100)}%${wide?' (set for a wider scope)':''}${c.excluded?' · excluded from trading':''}${c.exiting?' · being exited':''}`;
+        return `<td class="tg-c ${edited?'tg-ed':''} ${c.excluded||c.exiting?'tg-x':''}"><input type="number" step="0.05" inputmode="decimal" data-tg="${f.id}|${n.id}" value="${v}" placeholder="${wide?fmtPct(c.bps/100):''}" title="${esc(tip)}" aria-label="${esc(tip)}" ${ro?'disabled':''}>${sub}</td>`; }
+      const v=(T.h[f.id]||{})[n.id]??'', ph=T.mode==='share'?(par(f.id,n)>0?cur/par(f.id,n)*100:0).toFixed(1):T.mode==='weight'?(cur*100).toFixed(2):'';
+      return `<td class="tg-c ${v!==''?'tg-ed':ch?'tg-chg':''}"><input type="text" inputmode="decimal" data-th="${f.id}|${esc(n.id)}" value="${esc(v)}" placeholder="${ph}" title="${esc(n.name)}, ${f.id}: ${(cur*100).toFixed(2)}% of the fund with today's tilts" aria-label="${esc(n.name)} ${f.id}" ${ro?'disabled':''}>${sub}</td>`}).join('')}</tr>`;
   }
-  const n = Object.keys(T.edits).length;
+  const foot = hier ? `<tr class="tg-foot"><td class="tg-sec"><b>Check</b></td>${funds.map(f=>{const r=res[f.id]; if(!r) return '<td></td>';
+     return `<td data-tgchk="${f.id}" class="n small ${r.errors.length||Math.abs(r.net)>5e-5?'tg-bad':'tg-ok'}" title="${esc(r.errors.join(' | '))}">${r.errors.length?'⚠ '+esc(r.errors[0].slice(0,32)):Math.abs(r.net)>5e-5?`net ${fmtPct(r.net*100)}`:'✓ 100%'}</td>`}).join('')}</tr>` : '';
+  const n = hier ? tgCells().length : Object.keys(T.edits).length;
+  const seg=(k,opts)=>`<span class="seg" role="group">${opts.map(([v,l,tip])=>`<button type="button" class="${String(T[k])===String(v)?'on':''}" data-tgt="${k}" data-v="${v}" ${tip?`title="${esc(tip)}"`:''}>${l}</button>`).join('')}</span>`;
   $('#tilts').innerHTML = `<div class="card"><h2>Tilts</h2>
-   <p class="small muted">Tilt toward (+) or away from (−) a holding within a fund, in <b>% of the fund</b> (0.25 = 25 bp). Type into as many cells as you like, preview, then save them together. Each tilt is funded pro rata from the fund's other holdings, so weights still total 100%, and applies to every allocation table (cashflows, rebalances). A blank or 0 removes that fund's own tilt. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages on Glide path &amp; bulk changes); typing a value overrides it for that fund. Hover over a cell for today's weight and target. Tip: paste a block of numbers from Excel into any cell.${ro?' <b>Read-only: portfolio managers set tilts.</b>':''}</p>
-   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${funds.map(f=>`<th class="n" title="${f.vehicle==='cit'?'CIT':'Mutual fund'} ${f.vintage}">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${body}</table></div>
-   ${ro?'':`<div class="row" style="margin-top:10px"><label class="small">Until (optional) <input type="date" id="tgUntil" value="${esc(T.until||'')}"></label><button class="btn primary" id="tgPrev">Preview</button><button class="btn" id="tgClear">Discard edits</button><span class="small muted" id="tgN">${n?`${n} cell${n===1?'':'s'} changed`:'No changes yet'}</span></div>`}
+   <p class="small muted">Tilt a fund toward (+) or away from (−) a security, or move a whole level: an asset group (stocks vs bonds), a region (US vs international), developed vs emerging, size and sector, or one security (levels 1-5). Pick how you enter changes: <b>Set tilt</b> types a security's own tilt in % of the fund (0.25 = 25 bp); the other modes move any level by percentage points, as a share of the level above, as a % of its weight, or to a new weight, and the rest balance automatically as set under <b>Balance</b>. Either way, changes become security tilts for each fund, funded pro rata from its other holdings so weights still total 100%, and apply to every allocation table (cashflows, rebalances). The small number under each cell is the weight in % of the fund with today's tilts (→ after); "t" is the tilt in force. Preview, then save them together. Tip: paste a block of numbers from Excel into any cell.${ro?' <b>Read-only: portfolio managers set tilts.</b>':''}</p>
+   <div class="tgctl"><div><span class="small">Enter</span>${seg('mode',TG_MODES)}</div>${hier?`<div><span class="small">Balance</span>${seg('bal',TG_BAL)}</div>`:''}<div><span class="small">Show levels</span>${seg('show',[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4'],[5,'1-5']])}</div></div>
+   <div class="small muted" style="margin:4px 0 8px">${esc(TG_MODES.find(m=>m[0]===T.mode)[2])}.${hier?' Balance: '+esc(TG_BAL.find(m=>m[0]===T.bal)[2])+'.':''}</div>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Level · asset · security</th>${funds.map(f=>`<th class="n" title="${f.vehicle==='cit'?'CIT':'Mutual fund'} ${f.vintage}">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${body}${foot}</table></div>
+   ${ro?'':`<div class="row" style="margin-top:10px"><label class="small">Until (optional) <input type="date" id="tgUntil" value="${esc(T.until||'')}"></label><button class="btn primary" id="tgPrev">Preview</button><button class="btn" id="tgClear">Discard edits</button><span class="small muted" id="tgN">${n?`${n} security tilt${n===1?'':'s'} changed`:'No changes yet'}</span></div>`}
    <div id="tgOut">${T.prev?tgPreviewHtml(T.prev):''}</div></div>`;
-  document.querySelectorAll('[data-tg]').forEach(inp=>{
-    inp.oninput=()=>{ T.edits[inp.dataset.tg]=inp.value; T.prev=null; $('#tgOut').innerHTML=''; inp.closest('td').classList.add('tg-ed'); const k=Object.keys(T.edits).length; $('#tgN').textContent=`${k} cell${k===1?'':'s'} changed`; };
+  document.querySelectorAll('[data-tgt]').forEach(b=>b.onclick=()=>{ const k=b.dataset.tgt, v=k==='show'?+b.dataset.v:b.dataset.v; if(T[k]===v) return;
+    if(k==='mode'){ T.edits={}; T.h={}; } T[k]=v; T.prev=null; tgRender(); });
+  if (focus){ const el=document.querySelector(`[${focus[0]}="${CSS.escape(focus[1])}"]`); if(el){ el.focus(); const k=el.value.length; try{el.setSelectionRange(k,k)}catch(e){} } }
+  const setCell=(x,v)=>{ if(x.dataset.tg){ T.edits[x.dataset.tg]=v; return; } const [fid,nid]=x.dataset.th.split('|'); const h=(T.h[fid]||(T.h[fid]={})); if(v===''||isNaN(+v)) delete h[nid]; else h[nid]=v; };
+  document.querySelectorAll('[data-tg],[data-th]').forEach(inp=>{
+    inp.oninput=()=>{ const v=inp.value.trim(); T.prev=null; $('#tgOut').innerHTML='';
+      if (inp.dataset.tg){ T.edits[inp.dataset.tg]=inp.value; inp.closest('td').classList.add('tg-ed'); const k=Object.keys(T.edits).length; $('#tgN').textContent=`${k} security tilt${k===1?'':'s'} changed`; return; }
+      if (v==='-'||v==='.') return; if (v!==''&&isNaN(+v)) return; setCell(inp,v); tgRender(['data-th',inp.dataset.th]); };
     inp.onpaste=ev=>{ const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
-      const all=[...document.querySelectorAll('[data-tg]')], rowsEl=[...document.querySelectorAll('.tg tr')].filter(tr=>tr.querySelector('.tg-sec')&&!tr.querySelector('th'));
-      const tr=inp.closest('tr'), r0=rowsEl.indexOf(tr), c0=[...tr.children].indexOf(inp.closest('td'));
+      const rowsEl=[...document.querySelectorAll('.tg tr[data-row]')], tr=inp.closest('tr'), r0=rowsEl.indexOf(tr), c0=[...tr.children].indexOf(inp.closest('td'));
       txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{ const row=rowsEl[r0+i]; if(!row) return;
-        line.split('\t').forEach((v,k)=>{ const td=row.children[c0+k]; const x=td&&td.querySelector('[data-tg]'); if(!x) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); T.edits[x.dataset.tg]=isNaN(+v)?'':v; }); });
-      T.prev=null; vTilts(); };
-    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const f=inp.dataset.tg.split('|')[0], col=[...document.querySelectorAll(`[data-tg^="${f}|"]`)], k=col.indexOf(inp), nx=col[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select();} };
+        line.split('\t').forEach((v,k)=>{ const td=row.children[c0+k]; const x=td&&td.querySelector('[data-tg],[data-th]'); if(!x) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); setCell(x,isNaN(+v)?'':v); }); });
+      T.prev=null; tgRender(); };
+    inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const at=inp.dataset.tg?'data-tg':'data-th', f=(inp.dataset.tg||inp.dataset.th).split('|')[0], col=[...document.querySelectorAll(`[${at}^="${f}|"]`)], k=col.indexOf(inp), nx=col[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select();} };
   });
   if (ro) return;
-  const cells = () => Object.entries(T.edits).map(([k,v])=>{const [fund_id,instrument]=k.split('|'); return {fund_id, instrument, pct: v===''?null:+v}});
   $('#tgUntil').onchange=e=>{T.until=e.target.value};
-  $('#tgClear').onclick=()=>{ T.edits={}; T.prev=null; vTilts(); };
-  $('#tgPrev').onclick=async()=>{ if(!Object.keys(T.edits).length) return toast('Type at least one tilt into the table','warn');
-    try{ T.prev=await api('POST','/api/trading/tilts-grid/preview',{cells:cells()}); $('#tgOut').innerHTML=tgPreviewHtml(T.prev); $('#tgOut').scrollIntoView({block:'start',behavior:'smooth'}); bindTgSave(); }catch(e){toast(e.message,'error')} };
-  const bindTgSave = () => { const b=$('#tgSave'); if(!b) return; b.onclick=async()=>{ const reason=await MUI.ask(`Save ${Object.keys(T.edits).length} tilt change${Object.keys(T.edits).length===1?'':'s'}`,{message:'Saved together and recorded in the ledger. They apply to the next trade list for these funds.', okText:'Save tilts'}); if(!reason) return;
-    try{ const r=await api('PUT','/api/trading/tilts-grid',{cells:cells(), until:T.until||'', reason}); T.edits={}; T.prev=null; await load(); toast(`Tilts saved: ${r.set} set, ${r.cleared} cleared across ${r.funds} funds`); }catch(e){toast(e.message,'error')} }; };
+  $('#tgClear').onclick=()=>{ T.edits={}; T.h={}; T.prev=null; tgRender(); };
+  $('#tgPrev').onclick=async()=>{
+    if (hier){ const bad=Object.entries(tgResults(funds)).filter(([,r])=>r.errors.length||Math.abs(r.net)>5e-5);
+      if (bad.length) return toast(`Fix these first: ${bad.slice(0,3).map(([f,r])=>`${f}: ${r.errors[0]||'changes net '+fmtPct(r.net*100)+'pp'}`).join('; ')}`,'error'); }
+    const cl=tgCells(); if(!cl.length) return toast('Type at least one change into the table','warn');
+    try{ T.prev=await api('POST','/api/trading/tilts-grid/preview',{cells:cl}); T.sent=cl; $('#tgOut').innerHTML=tgPreviewHtml(T.prev); $('#tgOut').scrollIntoView({block:'start',behavior:'smooth'}); bindTgSave(); }catch(e){toast(e.message,'error')} };
+  const bindTgSave = () => { const b=$('#tgSave'); if(!b) return; b.onclick=async()=>{ const cl=T.sent||tgCells(); const reason=await MUI.ask(`Save ${cl.length} tilt change${cl.length===1?'':'s'}`,{message:'Saved together and recorded in the ledger. They apply to the next trade list for these funds.', okText:'Save tilts'}); if(!reason) return;
+    try{ const r=await api('PUT','/api/trading/tilts-grid',{cells:cl, until:T.until||'', reason}); T.edits={}; T.h={}; T.prev=null; T.sent=null; await load(); toast(`Tilts saved: ${r.set} set, ${r.cleared} cleared across ${r.funds} funds`); }catch(e){toast(e.message,'error')} }; };
   bindTgSave();
 }
 function tgPreviewHtml(p){
@@ -369,7 +425,7 @@ function tgPreviewHtml(p){
   return `<h3>Preview: glide-path allocation (% of the fund) with these tilts</h3><p class="small muted">Before → after for each fund you changed: the tilted security moves by its tilt and the others give or take the difference in proportion. Nothing is saved yet.</p>
    <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${fids.map(f=>`<th class="n">${f.replace('-','<br>')}</th>`).join('')}</tr>${rows}</table></div>
    ${notes.length?`<div class="small" style="margin-top:6px;color:var(--warn)">${notes.map(esc).join('<br>')}</div>`:''}
-   <div class="row" style="margin-top:10px"><button class="btn primary" id="tgSave">Save ${Object.keys(S.tg.edits).length} tilt change${Object.keys(S.tg.edits).length===1?'':'s'}</button></div>`;
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="tgSave">Save ${(S.tg.sent||[]).length} tilt change${(S.tg.sent||[]).length===1?'':'s'}</button></div>`;
 }
 
 // ------------------------------------------------------------------ Routing & settings

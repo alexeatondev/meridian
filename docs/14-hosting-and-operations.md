@@ -129,6 +129,9 @@ The run summary shows the cost against the budget, agent turns, tool calls and h
 
 First hosted run: `run_tds_20261031_48d07c` (as-of 2026-10-31), published 2026-11-09.
 
+### 6a. Daily prices (home-screen returns)
+Actions → **prices** runs on weekdays at 22:17 UTC (after the 4pm ET close) and on demand (Run workflow). It runs `meridian prices fetch`, which pulls about 13 months of daily adjusted closes from Yahoo Finance for every ETF held and each asset class's proxy ETF (`meridian prices tickers` lists them), then posts them to the app (`POST /api/ingest/prices`, ingest token, the same OIDC connection as agent-run). The app keeps about 300 trading days per ticker and computes the Home screen's cumulative returns. It uses free GitHub Actions minutes and adds no AWS resources. If Yahoo is unreachable for a ticker, the summary lists it and the app shows "—" for that security. Yahoo's endpoint is unofficial and for personal, non-commercial use; replace it with a licensed source before production (doc 09).
+
 ## 7. Cost guard
 
 Stack `MeridianCostGuard` (in us-east-2; AWS Budgets is a global service).

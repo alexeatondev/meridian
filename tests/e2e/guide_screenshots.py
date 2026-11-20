@@ -85,9 +85,25 @@ def scroll_to(page, text):
 
 
 def test_console_pm(page, app_url):
+    from test_ui_home_pm import post_prices
+    post_prices(app_url)
     p = go(page, app_url, "Maya Chen", "portfolio_manager", "approver")
     p.wait_for_selector("#nav button")
     shot(p, "pm-01-home")
+    for fid, sty in {"MTRS-2040": "active", "MTRS-2045": "active", "MTRS-2050": "active", "MTRT-2040": "hybrid",
+                     "MTRT-2045": "hybrid"}.items():
+        api(p, "PUT", "/api/trading/fund-styles", {"funds": {fid: sty}, "reason": R})
+    p.reload(); p.wait_for_selector("#nav button")
+    top(p, ".card:has(h2:has-text('Positioning: passive and hybrid funds'))")
+    shot(p, "pm-16-home-positioning")
+    p.click("[data-hpshow='3']")
+    top(p, "h3:has-text('By asset class')")
+    shot(p, "pm-17-home-by-asset-class")
+    top(p, ".card:has(h2:has-text('Positioning: active funds'))")
+    shot(p, "pm-18-home-active")
+    p.wait_for_selector("#perfBody table")
+    top(p, "#perfCard")
+    shot(p, "pm-19-home-returns")
     tab(p, "Funds & vintages")
     shot(p, "pm-08-products")
     p.click("[data-pf='MTRT-2050']")
@@ -122,12 +138,10 @@ def test_console_pm(page, app_url):
     shot(p, "pm-12-approvals")
     tab(p, "Glide path")
     shot(p, "pm-13-glide-path")
-    for v, cells in {"2030": {"cash": "0.5", "us_core_bond": "-0.5"},
-                     "2050": {"us_core_bond": "0.5", "us_large_cap": "-0.5"},
-                     "2055": {"us_core_bond": "0.5", "us_large_cap": "-0.5"},
-                     "2060": {"us_tips_short": "0.25", "intl_developed_eq": "-0.25"}}.items():
-        for a, x in cells.items():
-            p.fill(f"[data-gpr='vintage:{v}'][data-gpa='{a}']", x)
+    p.fill("[data-gpr='vintage:2050'][data-gpn='us_large_cap']", "0.5")   # US small/mid gives the 0.5pp
+    p.fill("[data-gpr='vintage:2040'][data-gpn='equity']", "1")           # stocks +1pp vs bonds, mix kept
+    p.click("[data-gpt='mode'][data-v='share']")
+    p.fill("[data-gpr='vintage:2060'][data-gpn='equity_intl']", "36")     # international = 36% of equity
     top(p, "#gpTableCard")
     shot(p, "pm-15-glide-table")
     p.click("#gpPrev")
@@ -250,6 +264,8 @@ def test_trading(page, app_url):
     ttab(p, "Funds & securities")
     p.wait_for_selector("[data-fund]")
     shot(p, "trd-01-funds")
+    top(p, "#cardStyles")
+    shot(p, "trd-38-management-style")
     p.click("[data-fund='MTRS-2040']")
     p.wait_for_selector("#fundDetail h2")
     scroll_to(p, "MTRS-2040 · ")
@@ -456,6 +472,14 @@ def test_bulk_changes(page, app_url):
     p.wait_for_selector("#tgSave")
     top(p, "#tgOut")
     shot(p, "trd-36-tilts-preview")
+    p.click("#tgClear")
+    p.click("[data-tgt='mode'][data-v='pp']")
+    p.click("[data-tgt='show'][data-v='3']")
+    p.fill("[data-th='MTRS-2040|equity_us']", "1")
+    p.fill("[data-th='MTRS-2050|emerging_eq']", "0.5")
+    top(p, ".tg-wrap")
+    shot(p, "trd-37-tilts-by-level")
+    p.click("[data-tgt='mode'][data-v='tilt']")
     p.click("#veh button:text-is('All funds')")
 
 
