@@ -67,6 +67,10 @@ Product-line data comes from `config/trading.yaml` and, in the hosted app, from 
 | Trading → Tilts | Rows are levels 1-5 (securities at level 5); **Set tilt** as before, or move any level with the same modes and balancing, turned into security tilts per fund. |
 | Trading → Funds & securities | **Management** column and a **Management style** card (Active, Passive, Hybrid; PMs set it with a reason; logged). |
 | Funds & vintages | Each fund shows its management style (or *style not set*). |
+| Simulations (`/simulations`, new in the app bar) | **What do you want to simulate?** tiles: **Cashflow** (on the page) and links to Stress tests, Glide-path change and Tilts / line-up. Cashflow simulation: funds (scope + vintages), an amount split by assets, equally, per vintage or per fund (negative = redemption), a mix, **Simulate**; the result is the same now-vs-after impact panel as New trade. A banner says nothing is saved. |
+| Trading → New trade → Exit a position | **Which funds** (all, a product line with vintages, or one fund) and **Which securities** (search what those funds hold, with how many hold it); one preview and one draft for every fund holding it. |
+| Management style | A style chip with ✎ (Active, Passive, Hybrid, Not set) on console Home, Funds & vintages, Trading's funds list and fund page opens a dialog (one fund, or **Set management styles** for many with **Set all to**), reason required. |
+| Glide path and Tilts tables | **Under each cell**: Change (pp of fund), Change vs siblings (pp of parent), or Today → after; a **Net change** row (level 1 nets to zero); the glide-path preview has a **Net** column; the tilts preview starts with **Change by asset class**. |
 | Trading → Security line-up | Level 5: pick a security (or add one to the security master), the funds (scope and vintages) and add it / set its share of its asset class, take it out, exclude or include it; preview fund by fund; a securities × funds matrix of glide-path weights and shares. The glide-path table links here, since the glide path itself stops at level 4. |
 
 ## Console — what each role sees

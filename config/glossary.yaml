@@ -438,3 +438,38 @@ btn_why:
   match: ["Why?"]
   button: true
   text: Lists the decision records behind this number or proposal — agents' and people's — with who, when and the record's hash.
+
+# ---------------------------------------------------------------- simulations and net changes
+change_view:
+  title: Under each cell
+  match: [Under each cell]
+  text: "How the small number under each cell shows a change. Change (pp of fund): each level's change in percentage points of the fund, so the changes inside a group add up to the group's change and level 1 nets to zero (Equity +1 shows −1 spread across Fixed income, Real assets and Cash). Change vs siblings: the change in each asset class's share of the level above, so siblings always net to zero. Today → after: the weights themselves."
+  formula: "Change (pp) = weight after − weight today. Vs siblings = share of parent after − share of parent today. Level-1 changes always sum to 0."
+net_change:
+  title: Net change
+  match: [Net change, Net]
+  text: Checks that the changes balance. Level 1 must net to 0.00 (what one asset class gains, the others give up) and inside each group the changes add up to the group's change. A ⚠ means they don't, usually because the balance is set to off and only one side was entered.
+  formula: "Net = sum of the level-1 changes = 0.00"
+simulations:
+  title: Simulations
+  match: [Simulations, "What do you want to simulate?", Cashflow simulation]
+  text: What-ifs that save nothing. The cashflow simulation takes an amount you type (no real cashflow needed), spreads it over the funds you choose and shows the trades it would generate and their impact, using the same engine as real cashflows, with every tilt, exclusion, exit and security line-up in force.
+sim_split:
+  title: How to split a simulated cashflow
+  match: ["2. How much, and how to split it", By assets, Per vintage, Per fund]
+  text: By assets splits one amount between the chosen funds in proportion to their NAV; Equally gives each the same dollars; Per vintage takes an amount for each vintage and splits it between that vintage's mutual fund and CIT by assets; Per fund takes an amount for each fund. A negative amount simulates a redemption.
+  formula: "Fund's share (by assets) = amount × fund NAV ÷ total NAV of the chosen funds"
+btn_simulate:
+  title: Simulate
+  match: [Simulate]
+  button: true
+  text: Runs the cashflow through the allocation engine and shows the trades and the impact by fund. Nothing is saved, recorded or traded.
+exit_across:
+  title: Exit a position across funds
+  match: [Which funds, Which securities, To exit]
+  text: Choose all funds, a product line, chosen vintages or one fund, then the securities to sell. Every fund in that scope that holds them sells the whole position, in one draft trade list. A portfolio manager's save also flags the securities for exit in those funds so cashflows stop buying them; other roles can sell only positions already flagged.
+set_styles:
+  title: Set management styles
+  match: [Set management styles]
+  button: true
+  text: Opens a dialog to set Active, Passive or Hybrid for one fund or many at once (Set all to), with a reason. You can also click any fund's style chip. Portfolio managers only; each change is recorded in the ledger.

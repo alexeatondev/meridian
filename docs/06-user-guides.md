@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes and tilts in tables) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes and tilts in tables) · 2026-11-20 (Simulations page with cashflow simulation; exit a position across funds; management style from anywhere; changes shown in pp that net to zero) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -28,7 +28,9 @@ Not sure where to start? Use this table.
 | Invest today's cashflows (keep the current mix, back to the glide path, strategic) | 10.3 |
 | Get funds back to the glide path, a strategic mix or the approved proposal | 10.4 |
 | Buy or sell a specific stock, bond, ETF or fund | 10.5 |
-| Sell a position completely | 10.6 |
+| Sell a position completely, in one fund or across many funds at once | 10.6 |
+| Simulate a cashflow (e.g. $100m into 2030 or across all funds) without receiving one | 14.1 |
+| Set a fund's management style (Active, Passive, Hybrid) | 10.2a |
 | See what my trades would do before saving them | 10.7 |
 | Approve a trade list and export it to Charles River | 10.9 |
 | Add, take out, include or exclude a security in one fund or many funds and vintages | 10.12b |
@@ -50,7 +52,8 @@ Not sure where to start? Use this table.
 11. Platform Admin: User access
 12. Regulations & obligations
 13. Policy: the IPS and glide paths
-14. Not built yet
+14. Simulations
+15. Not built yet
 Appendix A: Approval checklist · Appendix B: Glossary · Appendix C: Messages and what they mean
 
 ---
@@ -90,7 +93,7 @@ Every screen has the same dark bar across the top.
 | Part of the bar | What it does |
 |---|---|
 | **Meridian** | Back to the console home |
-| **Console · Trading · Regulations · User access** | The screens you can use. You only see the ones your access allows; the one you are on is underlined |
+| **Console · Trading · Simulations · Policy · Regulations · User access** | The screens you can use. You only see the ones your access allows; the one you are on is underlined |
 | **My work (n)** | Everything waiting for you, across all screens (1.3). Amber when something is due, red when overdue |
 | **? Help** | Opens this guide inside Meridian at the section for the screen you are on (1.5) |
 | Your name and access | Your workspaces, plus any permissions (Investment Committee, CCO, Route manager, Approver) |
@@ -358,7 +361,16 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 ![Typing changes into the table](img/guide/pm-15-glide-table.png)
 *Image: `pm-15-glide-table.png`*
 
-4. Type a change into one cell; you don't have to fill the other rows. The small number under each cell shows the weight today → after (in % of the fund) for every row the change touches, and the **Check** row confirms each column still totals 100% (or shows what's wrong). Changes at different levels combine from the top down: for example equity +2pp (stocks vs bonds) and, in the same column, international = 40% of equity (US vs international) gives the new equity total split 60/40. Changing **Enter** clears the table. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
+4. Type a change into one cell; you don't have to fill the other rows. The small number under each cell shows the change, as picked under **Under each cell**:
+   - **Change (pp of fund)** (default): each row's change in percentage points of the fund. The changes inside a group add up to the group's change, and level 1 nets to zero: Equity `+1` shows **−1.00** spread across Fixed income, Real assets and Cash (for example −0.81, −0.06, −0.14).
+   - **Change vs siblings (pp of parent)**: the change in each row's share of the level above, so inside every group the changes net to zero (US +2 / international −2 inside equity).
+   - **Today → after**: the weights themselves, in % of the fund.
+
+   The **Net change** row shows the sum of the level-1 changes for each column: **✓ 0.00** when everything balances, **⚠** with the amount when it doesn't (usually **Balance** off with only one side entered). The **Check** row confirms each column still totals 100% (or shows what's wrong). The preview adds a **Net** column per fund, always 0.00.
+
+   ![Changes in pp that net to zero](img/guide/sim-05-net-change.png)
+   *Image: `sim-05-net-change.png`*
+ Changes at different levels combine from the top down: for example equity +2pp (stocks vs bonds) and, in the same column, international = 40% of equity (US vs international) gives the new equity total split 60/40. Changing **Enter** clears the table. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
 5. Click **Preview**.
 
 ![Preview of the changes, fund by fund](img/guide/pm-14-glide-request.png)
@@ -678,7 +690,7 @@ Every trade follows the same four steps on **New trade**:
 | Move to a strategic view | Rebalance to a target → **Strategic mix** |
 | Implement the approved proposal | Rebalance to a target → **Approved proposal** |
 | Buy or sell a specific stock, bond, ETF or fund | Trade a security |
-| Sell a position completely | Exit a position |
+| Sell a position completely, in one fund or across funds | Exit a position |
 
 **The four mixes**
 | Mix | What it means |
@@ -718,6 +730,13 @@ The funds list shows each fund's **Management** style (10.2a).
 
 ![Management style per fund](img/guide/trd-38-management-style.png)
 *Image: `trd-38-management-style.png`*
+
+**Quickest:** click a fund's style chip (**Active ✎**, **Passive ✎**, **Hybrid ✎** or **Not set ✎**) wherever it appears: the console's **Home** positioning tables and **Funds & vintages**, the **Funds** list and the fund page header on Trading. Or click **Set management styles** (console Home, Funds & vintages, or the Trading **Funds** card) to set many funds at once with **Set all to**. Either way a dialog asks for the style and a reason, and saves straight away.
+
+![Set management styles from anywhere](img/guide/sim-04-style-dialog.png)
+*Image: `sim-04-style-dialog.png`*
+
+Or, on the **Management style** card:
 
 1. In **Management style**, pick **Active** (security selection and tilts away from the glide path), **Passive** (index holdings that follow the glide path) or **Hybrid** (a passive core with active sleeves) for each fund, or use **Set all shown to** for the funds shown by the switch at the top right.
 2. Type a reason (10+ characters) and click **Save management styles**.
@@ -815,16 +834,20 @@ Uninvested cash is invested; holdings with no target, excluded and exiting secur
 
 To remove an order before saving, click **Remove** on its row.
 
-### 10.6 Exit a position completely
-**Who:** PM or analyst (flagging a security for exit is PM only). **Where:** Trading → **New trade** → **Exit a position**.
-**Before you start:** the security is flagged for exit in that fund (10.11, **Full exits**). If it isn't, use 10.5 with **Sell all** instead.
+### 10.6 Exit a position (one fund or across many funds)
+**Who:** PM or analyst. **Where:** Trading → **New trade** → **Exit a position**.
+**Before you start:** a PM's draft flags the security for exit in each fund it sells from. An analyst can sell only positions a PM has already flagged (10.11, **Full exits**); others are listed as *Skipped*.
 
-1. Click the **Exit a position** tile (or **Exit a position** on the fund's page).
-2. **Fund**: choose the fund. **Flagged for exit and still held** lists what will be sold.
-3. Choose the **Trade date** and click **See the impact**.
-4. Type a reason and click **Create draft trade list** (`EX-…`).
+![Exit across funds](img/guide/sim-03-exit-across.png)
+*Image: `sim-03-exit-across.png`*
 
-**You're done when** the draft opens on **Trade lists**. Each whole flagged position is sold; proceeds stay in cash (reinvesting them is a rebalance). To sell down gradually, tranche it (10.8).
+1. Click the **Exit a position** tile (or **Exit a position** on a fund's page, which picks that fund and its flagged positions).
+2. **Which funds:** **All funds**, **All mutual funds**, **All CITs** or one fund; for a product line, click vintages to narrow it (none chosen = every vintage; **2030–2045**, **2050–2070** are shortcuts).
+3. **Which securities:** type a ticker, name or asset class. The list shows how many of the chosen funds hold each security and how much in total. Click **Exit this** for each one to sell (**Remove** takes it back off).
+4. Choose the **Trade date** and click **See the impact**: one row per fund that holds it, plus *Flagged for exit when you save* and any *Skipped* funds.
+5. Type a reason and click **Create draft trade list** (one `EX-…` list for all the funds).
+
+**You're done when** the draft opens on **Trade lists**. Every fund in the scope that holds a chosen security sells the whole position; proceeds stay in cash (reinvesting them is a rebalance). To sell down gradually, tranche it (10.8).
 
 ### 10.7 Read the impact: now vs after
 The same panel appears in step 3 of **New trade** and on every saved list (**Trade lists** → **Impact: now vs after**).
@@ -1015,7 +1038,7 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 ![The tilts table](img/guide/trd-35-tilts-table.png)
 *Image: `trd-35-tilts-table.png`*
 
-1. Click **Tilts**. Rows are the asset hierarchy down to single securities: **L1** asset group, **L2** region, **L3** developed vs emerging, **L4** size and sector, **L5** each security (**Show levels** hides the lower ones). Columns are funds (the **All funds / Mutual funds / CITs** switch at the top right picks which). A **—** means the security isn't in that fund's universe. The small number under each cell is the weight in % of the fund with today's tilts; *t* shows a tilt in force.
+1. Click **Tilts**. Rows are the asset hierarchy down to single securities: **L1** asset group, **L2** region, **L3** developed vs emerging, **L4** size and sector, **L5** each security (**Show levels** hides the lower ones). Columns are funds (the **All funds / Mutual funds / CITs** switch at the top right picks which). A **—** means the security isn't in that fund's universe. The small number under each cell is the weight in % of the fund with today's tilts; *t* shows a tilt in force. In the level modes, **Under each cell** switches it to the change in pp of the fund or vs siblings, and a **Net change** row checks level 1 nets to zero (as on the glide-path table, 3.6). The preview starts with **Change by asset class (pp of the fund)**: what each level gains or gives up, ending in a **Net change ✓ 0.00** row.
 2. Pick how you enter changes under **Enter**:
    - **Set tilt (% of fund)** (default): type a security's own tilt: `0.5` tilts 0.5% (50 bp) toward the holding, `-0.25` away from it. Hover over a cell for today's weight, the glide-path target and the tilt in force. A grey number is a tilt set for a wider scope (all funds, a product line or chosen vintages, 10.12); typing a value overrides it for that fund. A blank or 0 removes that fund's own tilt.
    - **Change (pp of fund)**, **Share of parent (%)**, **Change (% of weight)** or **New weight (%)**: move any level, from a whole asset group down to one security, absolutely or relatively, and choose how the rest **Balance** (within its level, pro rata across the fund, or off), as on the glide-path table (3.6). For example US equity `+1` in MTRS-2040 moves 1pp from international equity into US equity, split across the US securities in proportion. Meridian turns the result into security tilts for each fund (the **Check** row confirms 100%).
@@ -1290,7 +1313,41 @@ Every proposal, approval, rejection and withdrawal, from the governance ledger (
 
 ---
 
-## 14. Not built yet
+## 14. Simulations
+**Who:** everyone with Trading (portfolio managers, analysts, Risk, Compliance, Audit, Leadership, Admin). **Where:** **Simulations** in the app bar.
+
+Simulations save nothing: nothing is traded, saved or recorded. The page starts with **What do you want to simulate?**:
+
+| Tile | Opens |
+|---|---|
+| **Cashflow** | The cashflow simulation below |
+| **Stress tests and scenarios ↗** | Console → Stress tests (historical and hypothetical shocks, scenario builder) |
+| **Glide-path change ↗** | Console → Glide path (type a change, preview every fund against the IPS bands) |
+| **Tilts and security line-up ↗** | Trading → Tilts (preview a tilt, or a security added, taken out or excluded, before saving) |
+
+![Simulations](img/guide/sim-01-simulations.png)
+*Image: `sim-01-simulations.png`*
+
+### 14.1 Simulate a cashflow
+You don't need a real cashflow: type an amount and see what it would trade.
+
+1. **Which funds:** **All funds**, a product line or one fund; narrow a product line by vintage.
+2. **How much, and how to split it:**
+   - **By assets**: one amount, split between the chosen funds by NAV (e.g. `100` = $100 million).
+   - **Equally**: the same dollars to each fund.
+   - **Per vintage**: an amount for each vintage, split between its mutual fund and CIT by assets (e.g. `100` in 2030 only).
+   - **Per fund**: an amount for each fund.
+
+   A negative amount simulates a redemption. **Total** shows the sum.
+3. **Invest it using:** **Keep the current mix**, **Back to the glide path**, **Strategic mix** or **Approved proposal** (as in 10.3).
+4. Click **Simulate**.
+
+![Simulated trades](img/guide/sim-02-result.png)
+*Image: `sim-02-result.png`*
+
+**You're done when** **Simulated trades** shows the total, the orders and each fund's share, with the same now-vs-after impact as a real trade (10.7): click a fund for its asset mix, securities and orders. Every tilt, exclusion, exit and security line-up in force is applied, as is the ETF cash buffer; the card lists how many are in force, with links to change them. To act on it, load the real cashflow (10.3).
+
+## 15. Not built yet
 Ask Meridian (ledger Q&A) · kill switch and autonomy controls · KPI view · replay of an approver's screen · due diligence workflow · CMA forecast-vs-realized · derivatives, in-kind redemptions, mandates, margin and capital calls (doc 17 Phase F) · Charles River API and results coming back automatically.
 
 ---

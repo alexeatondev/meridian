@@ -486,6 +486,23 @@ def trading_page(request: Request):
     return HTMLResponse(wrap(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")), user, "trading"))
 
 
+@router.get("/simulations")
+def simulations_page(request: Request):
+    """Simulations: what-ifs that save nothing (cashflows today), on the Trading page's engine and impact view."""
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login")
+    auth.require_role(user, *VIEW_ROLES)
+    from importlib.resources import files
+    html = (files("meridian.app") / "trading.html").read_text()
+    roles = user["roles"]
+    boot = {"user": {"name": user["name"], "email": user.get("email", ""), "roles": roles}, "csrf": user["csrf"], "page": "sim",
+            "can_prepare": any(r in roles for r in PREPARE_ROLES), "can_approve": any(r in roles for r in APPROVE_ROLES),
+            "can_approve_lists": False, "can_settings": False, "can_routes": False, "can_glide": False, "can_decide_calcs": False}
+    from .shell import wrap
+    return HTMLResponse(wrap(html.replace("/*BOOT*/null", json.dumps(boot).replace("</", "<\\/")), user, "simulations"))
+
+
 def _cashflows(s) -> list[dict]:
     return sorted((c.body for c in s.execute(select(Cashflow)).scalars()),
                   key=lambda b: (b["trade_date"], b["fund_id"], b["loaded_at"]), reverse=True)
@@ -516,7 +533,8 @@ def state(request: Request):
                               buffer_bps=fund_buffer(settings, fid),
                               strategic_follows=strategic_table(s, fid).get("follows_glide_path", True),
                               glide_adjusted=bool(glide_deltas(s, fid)),
-                              style=styles.get(fid, {}).get("style"), style_set=styles.get(fid)))
+                              style=styles.get(fid, {}).get("style"), style_set=styles.get(fid),
+                              held={i: round(v, 2) for i, v in p["values"].items() if v > 0}))
         from ..policy import load_universe
         uni = load_universe()
         return {"as_of": m.as_of.isoformat(), "funds": funds, "glide": glide_state(s), "scopes": SCOPES,
@@ -1424,20 +1442,9 @@ def generate(request: Request, body: dict = Body(...)):
         for c in cfs:
             net[c.body["fund_id"]] = net.get(c.body["fund_id"], 0.0) + c.body["amount"]
         tl_id = "TL-" + td.replace("-", "")[2:] + "-" + uuid.uuid4().hex[:4].upper()
-        out_funds = []
-        for fid in sorted(net, key=lambda x: (m.funds[x].vehicle, m.funds[x].vintage)):
-            pos = positions(fid)
-            table, pre = _effective_table(settings, fid, _table_or_error(s, fid, strategy))
-            r = allocate_fund(m, fid, net[fid], pos, table, routes=settings["routes"],
-                              excluded=excluded_for(settings, fid), excluded_share=settings.get("excluded_share", "redistribute"),
-                              buffer_bps=fund_buffer(settings, fid))
-            r["notes"] = pre + r["notes"]
-            r["compliance"] = _compliance(fid, r["preview"], ctx)
-            r["impact"] = _impact(s, fid, r["preview"])
-            r["vehicle"] = m.funds[fid].vehicle
-            r["cashflows"] = [c.id for c in cfs if c.body["fund_id"] == fid]
-            r["buffer_bps"] = fund_buffer(settings, fid)
-            out_funds.append(r)
+        out_funds = _allocate_flows(s, settings, net, strategy, ctx)
+        for r in out_funds:
+            r["cashflows"] = [c.id for c in cfs if c.body["fund_id"] == r["fund_id"]]
         orders = sum(len(f["orders"]) for f in out_funds)
         blocked = [f["fund_id"] for f in out_funds if f["errors"] or f["compliance"]["status"] == "FAIL"]
         body_tl = {"id": tl_id, "kind": "cashflow", "status": "draft", "trade_date": td, "strategy": strategy,
@@ -1464,6 +1471,171 @@ def generate(request: Request, body: dict = Body(...)):
             c.body = dict(c.body, status="in_trade_list", trade_list=tl_id)
             c.status = "in_trade_list"
     return body_tl
+
+
+def _allocate_flows(s, settings: dict, net: dict[str, float], strategy: str, ctx) -> list[dict]:
+    """Each fund's net cashflow split pro rata across the chosen table, with exits, tilts, exclusions, the
+    security line-up and the ETF buffer applied: the same engine for real cashflows and simulations."""
+    m = model()
+    out = []
+    for fid in sorted(net, key=lambda x: (m.funds[x].vehicle, m.funds[x].vintage)):
+        table, pre = _effective_table(settings, fid, _table_or_error(s, fid, strategy))
+        r = allocate_fund(m, fid, net[fid], positions(fid), table, routes=settings["routes"],
+                          excluded=excluded_for(settings, fid), excluded_share=settings.get("excluded_share", "redistribute"),
+                          buffer_bps=fund_buffer(settings, fid))
+        r["notes"] = pre + r["notes"]
+        r["compliance"] = _compliance(fid, r["preview"], ctx)
+        r["impact"] = _impact(s, fid, r["preview"])
+        r["vehicle"] = m.funds[fid].vehicle
+        r["buffer_bps"] = fund_buffer(settings, fid)
+        out.append(r)
+    return out
+
+
+def split_flows(amount: float, fund_ids: list[str], how: str, navs: dict[str, float],
+                by_vintage: dict | None = None, by_fund: dict | None = None) -> dict[str, float]:
+    """Spread a simulated cashflow over funds: by assets (pro rata to NAV), equally, a dollar amount per vintage
+    (split between that vintage's funds by NAV), or a dollar amount per fund."""
+    m = model()
+    if how == "fund":
+        return {f: float(v) for f, v in (by_fund or {}).items() if f in fund_ids and float(v or 0) != 0}
+    if how == "vintage":
+        out = {}
+        for v, amt in (by_vintage or {}).items():
+            fs = [f for f in fund_ids if m.funds[f].vintage == int(v)]
+            tot = sum(navs[f] for f in fs)
+            for f in fs:
+                out[f] = out.get(f, 0.0) + float(amt or 0) * (navs[f] / tot if tot else 1 / len(fs))
+        return {f: x for f, x in out.items() if x != 0}
+    if how == "equal":
+        return {f: amount / len(fund_ids) for f in fund_ids} if fund_ids else {}
+    tot = sum(navs[f] for f in fund_ids)
+    return {f: amount * navs[f] / tot for f in fund_ids} if tot else {}
+
+
+@router.post("/api/simulate/cashflows")
+def simulate_cashflows(request: Request, body: dict = Body(...)):
+    """What a subscription (or redemption) would trade, without receiving one: an amount spread across funds by
+    assets, equally, per vintage or per fund, allocated with the chosen mix and every tilt, exclusion, exit,
+    line-up and buffer in force. Nothing is saved or recorded."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *VIEW_ROLES)
+    m = model()
+    strategy = body.get("strategy", "neutral")
+    if strategy not in STRATEGIES:
+        raise HTTPException(400, f"Strategy must be one of: {', '.join(STRATEGIES)}")
+    how = body.get("split", "nav")
+    if how not in ("nav", "equal", "vintage", "fund"):
+        raise HTTPException(400, "split must be nav, equal, vintage or fund")
+    try:
+        amount = float(body.get("amount") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Give the amount in dollars, e.g. 100000000") from None
+    scope = body.get("fund") or "*"
+    vint = _vintage_list(body.get("vintages"))
+    fund_ids = scope_funds(scope, vintages=vint)
+    if not fund_ids:
+        raise HTTPException(400, "No funds in that scope")
+    td = str(body.get("trade_date") or date.today().isoformat())[:10]
+    with _store().Session() as s:
+        settings = get_settings(s)
+        navs = {f: (lambda p: p["cash"] + sum(p["values"].values()))(positions(f)) for f in fund_ids}
+        net = split_flows(amount, fund_ids, how, navs, body.get("by_vintage"), body.get("by_fund"))
+        if not net or all(abs(v) < 0.005 for v in net.values()):
+            raise HTTPException(400, "Enter an amount (negative for a redemption)")
+        for f, v in net.items():
+            if v < 0 and -v > navs[f]:
+                raise HTTPException(400, f"{f}: a redemption of ${-v:,.0f} is more than the fund's assets (${navs[f]:,.0f})")
+        out_funds = _allocate_flows(s, settings, net, strategy, _run_context())
+    for r in out_funds:
+        r["cashflows"] = []
+    orders = sum(len(f["orders"]) for f in out_funds)
+    return {"id": "SIMULATION", "kind": "simulation", "status": "preview", "trade_date": td, "strategy": strategy,
+            "strategy_name": STRATEGIES[strategy], "vehicle": "all", "funds": out_funds, "order_count": orders,
+            "blocked_funds": [f["fund_id"] for f in out_funds if f["errors"] or f["compliance"]["status"] == "FAIL"],
+            "gross": round(sum(abs(o["est_amount"]) for f in out_funds for o in f["orders"]), 2),
+            "net_flow": round(sum(net.values()), 2), "flows": {f: round(v, 2) for f, v in net.items()},
+            "split": how, "history": []}
+
+
+@router.post("/api/trading/exits")
+def exit_across_funds(request: Request, body: dict = Body(...)):
+    """Sell whole positions in one or more securities across many funds at once: every fund in the scope (all
+    funds, a product line or one fund, plus chosen vintages) that holds them. A portfolio manager's save also
+    flags them for exit in those funds; others can only sell positions already flagged. One EX- trade list."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    auth.require_role(user, *PREPARE_ROLES)
+    m = model()
+    insts = [i for i in (body.get("instruments") or []) if i in m.instruments]
+    if not insts:
+        raise HTTPException(400, "Choose at least one security")
+    scope = body.get("fund") or "*"
+    vint = _vintage_list(body.get("vintages"))
+    fund_ids = scope_funds(scope, vintages=vint)
+    if not fund_ids:
+        raise HTTPException(400, "No funds in that scope")
+    dry = _preview_only(body)
+    reason = str(body.get("reason", "")).strip() if dry else _reason(body)
+    try:
+        td = date.fromisoformat(str(body.get("trade_date", ""))[:10]).isoformat()
+    except ValueError:
+        raise HTTPException(400, "trade_date must look like 2026-11-10") from None
+    is_pm = any(r in user["roles"] for r in APPROVE_ROLES)
+    ctx = _run_context()
+    with _store().Session.begin() as s:
+        settings = get_settings(s)
+        out, skipped, flag_new = [], [], []
+        for fid in sorted(fund_ids, key=lambda x: (m.funds[x].vehicle, m.funds[x].vintage)):
+            held = positions(fid)["values"]
+            mine = [i for i in insts if held.get(i, 0) > 0]
+            if not mine:
+                continue
+            exiting = exits_for(settings, fid)
+            todo = [i for i in mine if i in exiting or is_pm]
+            skipped += [f"{fid}: {i} (not flagged for exit; a portfolio manager can flag it)" for i in mine if i not in todo]
+            if not todo:
+                continue
+            flag_new += [(fid, i) for i in todo if i not in exiting]
+            r = ticket_fund(m, fid, [{"instrument": i, "side": "SELL", "all": True} for i in todo], positions(fid),
+                            routes=settings["routes"], table=neutral_table(s, fid),
+                            excluded=excluded_for(settings, fid) - set(todo), blocked_buys=exiting | set(todo))
+            if r["errors"]:
+                raise HTTPException(400, f"{fid}: " + "; ".join(r["errors"]))
+            r.update(compliance=_compliance(fid, r["preview"], ctx), vehicle=m.funds[fid].vehicle, cashflows=[],
+                     buffer_bps=fund_buffer(settings, fid), impact=_impact(s, fid, r["preview"]))
+            r["notes"].append("Sale proceeds stay in cash; reinvesting them is a rebalance decision")
+            if any(i not in exiting for i in todo):
+                r["notes"].append("Flagged for exit in this fund when the list is saved: " + ", ".join(i for i in todo if i not in exiting))
+            out.append(r)
+        if not out:
+            raise HTTPException(400, "No fund in that scope holds " + ", ".join(insts) + (" (or it isn't flagged for exit)" if skipped else ""))
+        tl_id = "EX-" + td.replace("-", "")[2:] + "-" + uuid.uuid4().hex[:4].upper()
+        b = {"id": tl_id, "kind": "exit", "status": "draft", "trade_date": td, "strategy": "manual", "strategy_name": "Full exit",
+             "vehicle": "all", "created_by": _who(user), "created_at": _ts(), "funds": out,
+             "order_count": sum(len(f["orders"]) for f in out),
+             "blocked_funds": [f["fund_id"] for f in out if f["compliance"]["status"] == "FAIL"],
+             "gross": round(sum(o["est_amount"] for f in out for o in f["orders"]), 2), "net_flow": 0.0, "reason": reason,
+             "skipped": skipped, "flagged": [f"{f}: {i}" for f, i in flag_new],
+             "settings_used": {"routes": settings["routes"], "buffer_bps": settings["buffer_bps"],
+                               "excluded": settings.get("excluded", []), "exits": settings.get("exits", [])},
+             "history": [{"at": _ts(), "by": _who(user), "action": "exit", "note": reason}]}
+        if dry:
+            return dict(b, id="PREVIEW", status="preview", history=[])
+        if flag_new:
+            new = json.loads(json.dumps(settings))
+            # same shape as entries saved on Routing & settings, so a later settings save sees no change
+            new["exits"] = new.get("exits", []) + [{"fund": f, "reason": reason, "until": "", "by": _who(user), "at": _ts(),
+                                                    "instrument": i} for f, i in flag_new]
+            _put(s, "settings", new)
+        dr = _record(s, _who(user), "trades.exit",
+                     f"{tl_id}: full exit of {', '.join(insts)} in {len(out)} funds, {b['order_count']} orders",
+                     {"trade_list": tl_id, "trade_date": td, "orders": [dict(o, fund_id=f["fund_id"]) for f in out for o in f["orders"]],
+                      "flagged_for_exit": b["flagged"], "skipped": skipped}, reason, [f["fund_id"] for f in out])
+        b["dr_ids"] = [dr]
+        s.add(TradeList(id=tl_id, status="draft", body=b))
+    return b
 
 
 def _impact(s, fund_id: str, rows: list[dict]) -> dict:

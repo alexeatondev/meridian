@@ -105,6 +105,36 @@ function dlg(opts){
 MUI.confirm = (title, message, o={}) => dlg({title, message, okText:o.okText||'Confirm', danger:o.danger}).then(v=>!!v);
 MUI.ask = (title, o={}) => dlg({title, message:o.message, input:true, label:o.label||'Reason', minLength:o.minLength??10, cancelText:o.cancelText||'Go back',
                                 okText:o.okText||'Submit', danger:o.danger, value:o.value, match:o.match});
+/* Management style editor, from anywhere: MUI.editStyles({funds:[{id, label, style}], csrf}) -> saved styles or null.
+   One fund or many: a style per fund (or one for all), a reason, saved to PUT /api/trading/fund-styles. */
+MUI.editStyles = (o) => new Promise(resolve=>{
+  const ST=[['active','Active'],['passive','Passive'],['hybrid','Hybrid']], fs=o.funds||[];
+  const d=document.createElement('dialog'); d.className='mdlg msty'; d.setAttribute('aria-labelledby','mstyT');
+  const sel=(id,v)=>`<select data-msty="${esc(id)}" aria-label="Management style ${esc(id)}"><option value="" ${!v?'selected':''}>Not set</option>${ST.map(([k,l])=>`<option value="${k}" ${v===k?'selected':''}>${l}</option>`).join('')}</select>`;
+  d.innerHTML=`<form method="dialog"><h2 id="mstyT">Management style${fs.length===1?': '+esc(fs[0].id):''}</h2>
+    <p>Active: security selection and tilts away from the glide path. Passive: index holdings that follow the glide path. Hybrid: a passive core with active sleeves. Recorded in the ledger with your reason.</p>
+    ${fs.length>1?`<div class="mrow" style="justify-content:flex-start;gap:6px;margin:0 0 6px"><span style="font-size:12px">Set all to</span>${ST.map(([k,l])=>`<button type="button" class="mb" data-mstyall="${k}">${l}</button>`).join('')}</div>`:''}
+    <div style="max-height:46vh;overflow:auto"><table style="width:100%;font-size:13px;border-collapse:collapse">${fs.map(f=>`<tr><td style="padding:3px 6px"><b>${esc(f.id)}</b> <span style="color:var(--muted)">${esc(f.label||'')}</span></td><td style="padding:3px 6px;text-align:right">${sel(f.id,f.style)}</td></tr>`).join('')}</table></div>
+    <label for="mstyR">Reason <span style="font-weight:400">(at least 10 characters)</span></label><textarea id="mstyR"></textarea>
+    <div class="msty-err" role="alert" style="color:var(--crit,#b42318);font-size:13px;min-height:1em"></div>
+    <div class="mrow"><button type="button" class="mb" value="cancel">Cancel</button><button type="submit" class="mb p" value="ok">Save</button></div></form>`;
+  document.body.appendChild(d);
+  const ta=d.querySelector('textarea'), ok=d.querySelector('[value=ok]'), err=d.querySelector('.msty-err');
+  const check=()=>{ ok.disabled=ta.value.trim().length<10; }; ta.addEventListener('input',check); check();
+  d.querySelectorAll('[data-mstyall]').forEach(b=>b.onclick=()=>d.querySelectorAll('[data-msty]').forEach(x=>x.value=b.dataset.mstyall));
+  let result=null;
+  d.querySelector('[value=cancel]').onclick=()=>d.close();
+  d.querySelector('form').addEventListener('submit',async e=>{ e.preventDefault();
+    const funds={}; d.querySelectorAll('[data-msty]').forEach(x=>{ const f=fs.find(z=>z.id===x.dataset.msty); if((f.style||'')!==x.value) funds[f.id]=x.value||null; });
+    if(!Object.keys(funds).length){ err.textContent='Nothing changed'; return; }
+    ok.disabled=true; err.textContent='';
+    try{ const r=await fetch('/api/trading/fund-styles',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':o.csrf},body:JSON.stringify({funds, reason:ta.value.trim()})});
+      const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(typeof j.detail==='string'?j.detail:'Could not save ('+r.status+')');
+      result=j; MUI.toast(`Management style saved for ${Object.keys(funds).length} fund${Object.keys(funds).length===1?'':'s'} and recorded`); d.close();
+    }catch(x){ err.textContent=x.message; ok.disabled=false; } });
+  d.addEventListener('close',()=>{ d.remove(); resolve(result); });
+  d.showModal(); (d.querySelector('[data-msty]')||ta).focus();
+});
 
 /* ---------- fetch: busy state on the button that started it; session expiry dialog ---------- */
 let lastBtn=null, lastAt=0, expiredShown=false;

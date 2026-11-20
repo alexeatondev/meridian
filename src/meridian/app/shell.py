@@ -28,11 +28,12 @@ router = APIRouter()
 PAGES = [  # key, label, href, roles that see it
     ("console", "Console", "/runs/latest", None),
     ("trading", "Trading", "/trading", ("portfolio_manager", "analyst", "risk", "compliance", "audit", "admin", "leadership")),
+    ("simulations", "Simulations", "/simulations", ("portfolio_manager", "analyst", "risk", "compliance", "audit", "admin", "leadership")),
     ("policy", "Policy", "/policy", ("portfolio_manager", "risk", "analyst", "manager_selection", "leadership", "compliance", "audit", "admin")),
     ("regulations", "Regulations", "/regulations", ("compliance", "audit", "admin", "leadership", "portfolio_manager", "risk", "analyst")),
     ("admin", "User access", "/admin", ("admin", "audit", "compliance")),
 ]
-HELP_SECTION = {"console": "1", "trading": "10", "regulations": "12", "admin": "11", "policy": "13"}  # user guide (doc 06) section numbers
+HELP_SECTION = {"console": "1", "trading": "10", "regulations": "12", "admin": "11", "policy": "13", "simulations": "14"}  # user guide (doc 06) section numbers
 PERMISSION_LABELS = {"investment_committee": "Investment Committee", "chief_compliance_officer": "CCO",
                      "route_manager": "Route manager", "approver": "Approver"}
 

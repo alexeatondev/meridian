@@ -41,7 +41,7 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 .tg .tg-sec{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;max-width:280px;overflow:hidden;text-overflow:ellipsis}.tg th.tg-sec{z-index:3}
 .tg tr.tg-ac td{background:var(--surface-2);font-weight:600;font-size:12px;color:var(--heading,var(--text));position:sticky;left:0}
 .tabs button{white-space:nowrap}.lu-list{display:flex;flex-direction:column;gap:2px;margin:6px 0;max-width:760px}.lu-opt{text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--text);padding:6px 10px;border-radius:var(--radius-sm,6px);cursor:pointer;font:inherit}.lu-opt:hover{background:var(--surface-2)}.lu-opt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.tglv{display:inline-block;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:3px;padding:0 3px;margin-right:2px}.tg tr.tg-grp td{background:var(--surface-2)}.tg tr.tg-l0 td{border-top:2px solid var(--line-strong)}.tg .tga{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.2}.tg .tga b{color:var(--text)}.tg td.tg-ok{color:var(--ok)}.tg td.tg-bad{color:var(--neg,#b42318)}.tg tr.tg-foot td{border-top:2px solid var(--line-strong)}
+.tglv{display:inline-block;font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--line-strong);border-radius:3px;padding:0 3px;margin-right:2px}.tg tr.tg-grp td{background:var(--surface-2)}.tg tr.tg-l0 td{border-top:2px solid var(--line-strong)}.tg .tga{font-size:10.5px;color:var(--muted);text-align:right;line-height:1.2}.tg .tga b{color:var(--text)}a.tile{text-decoration:none;color:inherit}a.tile b{text-decoration:underline}.stybtn{cursor:pointer;font:inherit;font-size:12px}.stybtn:hover{text-decoration:underline}.tg td.tg-ok{color:var(--ok)}.mhpos{color:var(--ok)}.mhneg{color:var(--neg,#b42318)}.mh0{color:var(--muted)}.tg td.tg-bad{color:var(--neg,#b42318)}.tg tr.tg-foot td{border-top:2px solid var(--line-strong)}
 .tgctl{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}.tgctl>div{display:flex;gap:6px;align-items:center}
 .tg input{width:64px;min-height:0;height:28px;padding:3px 6px;text-align:right;border:1px solid var(--line-strong);border-radius:var(--radius-sm,4px);background:var(--surface);color:var(--text);font:inherit;font-variant-numeric:tabular-nums}
 .tg input:disabled{background:transparent;border-color:transparent}.tg input::placeholder{color:var(--muted)}.tg td.tg-na{color:var(--line-strong);text-align:center}
@@ -81,7 +81,7 @@ tr.grp td{font-weight:600;background:var(--surface-2)}
 <div class="tabs" role="tablist">
   <button data-tab="trade" class="active">New trade</button><button data-tab="trades">Trade lists</button><button data-tab="progress">In progress</button><button data-tab="files">Files</button><button data-tab="funds">Funds &amp; securities</button><button data-tab="cashflows">Cashflows</button><button data-tab="bulk">Glide path &amp; bulk changes</button><button data-tab="lineup">Security line-up</button><button data-tab="tilts">Tilts</button><button data-tab="settings">Routing &amp; settings</button>
 </div>
-<section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="lineup" hidden></section><section id="tilts" hidden></section><section id="settings" hidden></section>
+<section id="sim" hidden></section><section id="trade"></section><section id="funds" hidden></section><section id="cashflows" hidden></section><section id="trades" hidden></section><section id="progress" hidden></section><section id="files" hidden></section><section id="bulk" hidden></section><section id="lineup" hidden></section><section id="tilts" hidden></section><section id="settings" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -112,6 +112,7 @@ const compChip = c => c.status.startsWith('PASS') ? chip(c.status,'ok') : c.stat
 
 async function load(){ S.st = await api('GET','/api/trading/state'); if(!S.tab) S.tab = BOOT.can_prepare ? 'trade' : 'trades'; render(); }
 function render(){
+  if (BOOT.page==='sim') { vSim(); return; }
   document.querySelectorAll('#veh button').forEach(b=>b.classList.toggle('on', b.dataset.v===S.veh));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===S.tab));
   for (const t of ['trade','funds','cashflows','trades','progress','files','bulk','lineup','tilts','settings']) $('#'+t).hidden = t!==S.tab;
@@ -119,11 +120,16 @@ function render(){
 }
 
 // ------------------------------------------------------------------ Funds & securities
-const styleChip = f => f.style ? chip({active:'Active',passive:'Passive',hybrid:'Hybrid'}[f.style], f.style==='active'?'perm':'ok') : chip('Not set','warn');
+const styleChip = f => { const l=f.style?{active:'Active',passive:'Passive',hybrid:'Hybrid'}[f.style]:'Not set', c=f.style?(f.style==='active'?'perm':'ok'):'warn';
+  return BOOT.can_approve?`<button type="button" class="chip ${c} stybtn" data-trsty="${f.id}" title="Management style: ${l}. Click to change">${l} ✎</button>`:chip(l,c); };
+document.addEventListener('click',async e=>{ const b=e.target.closest('[data-trsty]'); if(!b||!window.MUI||!MUI.editStyles) return; e.preventDefault(); e.stopPropagation();
+  const k=b.dataset.trsty, list=k==='*'?funds():S.st.funds.filter(f=>f.id===k);
+  const r=await MUI.editStyles({funds:list.map(f=>({id:f.id, label:vname(f.vehicle)+' '+f.vintage, style:f.style})), csrf:BOOT.csrf});
+  if(r){ await load(); if(S.fund&&S.tab==='funds') openFund(S.fund,true); } },true);
 function vFunds(){
   const fs = funds();
   const nav = fs.reduce((a,f)=>a+f.nav,0);
-  let h = `<div class="card"><h2>Funds (${fs.length})</h2><div class="kpis"><div><span class="muted small">Total NAV</span><b>${musd(nav)}</b></div><div><span class="muted small">Positions as of</span><b>${esc(S.st.as_of)}</b></div><div><span class="muted small">Cash buffer (series)</span><b>${S.st.settings.buffer_bps} bp</b></div></div>
+  let h = `<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Funds (${fs.length})</h2>${BOOT.can_approve?`<button type="button" class="btn small" data-trsty="*">Set management styles</button>`:''}</div><div class="kpis"><div><span class="muted small">Total NAV</span><b>${musd(nav)}</b></div><div><span class="muted small">Positions as of</span><b>${esc(S.st.as_of)}</b></div><div><span class="muted small">Cash buffer (series)</span><b>${S.st.settings.buffer_bps} bp</b></div></div>
   <table><thead><tr><th>Fund</th><th>Vehicle</th><th>Product line</th><th>Management</th><th class="n">NAV</th><th class="n">Cash</th><th>Roll-down</th><th class="n">Buffer</th><th>Strategic table</th><th>Regulations</th><th>Positions</th></tr></thead><tbody>`;
   for (const f of fs) h += `<tr class="click ${S.fund===f.id?'sel':''}" data-fund="${f.id}"><td><b>${f.id}</b> <span class="muted small">${f.account}</span></td><td>${vname(f.vehicle)}</td><td>${esc(f.product_name)}</td><td>${styleChip(f)}</td><td class="n">${musd(f.nav)}</td><td class="n">${musd(f.cash)}</td><td>${f.roll_down}</td><td class="n">${f.buffer_bps} bp</td><td>${f.strategic_follows?'Follows glide path':chip('Custom','perm')}${f.glide_adjusted?' '+chip('Glide path adjusted','perm'):''}</td><td>${(f.regulations||[]).map(r=>chip(r,'ok')).join(' ')||'<span class="small muted">—</span>'}</td><td class="small">${f.positions_source.startsWith('Example')?'<span class="muted">Example</span>':esc(f.positions_source.split(' (')[0])+'<br><span class="muted">'+esc(f.positions_as_of)+'</span>'}</td></tr>`;
   h += `</tbody></table></div>`;
@@ -154,7 +160,7 @@ async function openFund(id, keep){
   const row = r => `<tr><td><b>${esc(r.instrument)}</b><br><span class="small muted">${esc(r.name)}</span>${r.note?`<br><span class="small">${esc(r.note)}</span>`:''}</td><td>${esc(r.type)}</td><td>${esc(r.asset_class)}</td><td>${statusChip(r.status)}${r.excluded?chip('Excluded from trading','crit'):''}${r.exiting?chip('Exiting','crit'):''}${r.tilt_bps?chip('Tilt '+(r.tilt_bps>0?'+':'')+r.tilt_bps+' bp','perm'):''}</td><td class="n">${r.value?musd(r.value):'—'}</td><td class="n">${r.value?pct(r.weight):'—'}</td><td class="n">${r.t_previous_close?pct(r.t_previous_close):'—'}</td><td class="n">${r.t_neutral?pct(r.t_neutral):'—'}</td><td class="n">${r.t_strategic?pct(r.t_strategic):'—'}</td><td class="n">${r.t_approved?pct(r.t_approved):'—'}</td></tr>`;
   const f = d.fund;
   let h = `<div class="card"><h2>${f.id} · ${esc(f.product_name)} ${f.vintage}</h2>
-  <div class="kpis"><div><span class="muted small">Vehicle</span><b>${vname(f.vehicle)}</b></div><div><span class="muted small">NAV</span><b>${musd(d.nav)}</b></div><div><span class="muted small">Uninvested cash</span><b>${musd(d.cash)}</b></div><div><span class="muted small">Glide-path roll-down</span><b>${f.roll_down}</b></div><div><span class="muted small">Account (Charles River)</span><b>${f.account}</b></div></div>
+  <div class="kpis"><div><span class="muted small">Vehicle</span><b>${vname(f.vehicle)}</b></div><div><span class="muted small">Management</span><b>${styleChip(S.st.funds.find(x=>x.id===f.id)||{id:f.id})}</b></div><div><span class="muted small">NAV</span><b>${musd(d.nav)}</b></div><div><span class="muted small">Uninvested cash</span><b>${musd(d.cash)}</b></div><div><span class="muted small">Glide-path roll-down</span><b>${f.roll_down}</b></div><div><span class="muted small">Account (Charles River)</span><b>${f.account}</b></div></div>
   <p class="small muted">${esc(d.positions_source)} · as of ${esc(d.as_of)}. A security with no target is never part of cash allocation. Target columns are the three allocation tables before tilts; tilts and exits are applied when trades are generated.</p>
   ${d.approved&&d.approved.source?`<p class="small"><b>Approved proposal</b> from ${esc(d.approved.source)}${Object.keys(d.approved.line_adjustment_pp||{}).length?`, plus this ${vname(f.vehicle).toLowerCase()} line's own approved glide-path adjustment not already in the run: ${Object.entries(d.approved.line_adjustment_pp).map(([a,x])=>esc(acName(a))+' '+(x>0?'+':'')+x.toFixed(2)+'pp').join(', ')}`:''}.</p>`:''}
   <h3>Held securities</h3><table>${head}${held.map(row).join('')}</table>
@@ -165,7 +171,7 @@ async function openFund(id, keep){
   bindStrategic(d);
   const go = task => { S.nt = {...S.nt, task, fund:f.id, fd:d, orders:[], prev:null, q:''}; S.tab='trade'; sessionStorage.setItem('tr_tab','trade'); render(); window.scrollTo(0,0); };
   if ($('#fdTrade')) $('#fdTrade').onclick = ()=>go('security');
-  if ($('#fdExit')) $('#fdExit').onclick = ()=>go('exit');
+  if ($('#fdExit')) $('#fdExit').onclick = ()=>{ S.ex={...exState(), scope:f.id, V:[], q:'', insts:d.rows.filter(r=>r.exiting&&r.value>0).map(r=>r.instrument)}; go('exit'); };
 }
 function strategicEditor(d){
   const st = d.strategic, can = BOOT.can_approve;
@@ -414,7 +420,7 @@ async function vTilts(){
   const tok = S.tgTok = (S.tgTok||0)+1;
   let g; try { g = await api('GET','/api/trading/tilts-grid'); } catch(e) { return toast(e.message,'error'); }
   if (tok !== S.tgTok || S.tab !== 'tilts') return;
-  S.tg ||= {edits:{}, h:{}, mode:'tilt', bal:'parent', show:5, prev:null}; S.tgData = g;
+  S.tg ||= {edits:{}, h:{}, mode:'tilt', bal:'parent', show:5, view:'pp', prev:null}; S.tgData = g;
   tgRender();
 }
 function tgNodes(){ const g=S.tgData, extra={}; g.rows.forEach(r=>(extra[r.asset_class]||(extra[r.asset_class]=[])).push({id:r.instrument,name:r.name}));
@@ -446,7 +452,7 @@ function tgRender(focus){
       const c=n.security?g.cells[f.id][n.id]:null;
       if (n.security && !c) return '<td class="tg-na" title="Not in this fund\'s universe">—</td>';
       const cur=W(f.id,n), r=res[f.id], after=r?W(f.id,n,r.w):null, ch=after!=null&&Math.abs(after-cur)>1e-7;
-      const sub=`<div class="tga">${ch?`${(cur*100).toFixed(2)}→<b>${(after*100).toFixed(2)}</b>`:(cur*100).toFixed(2)}${c&&Math.abs(c.bps)>1e-9?` <span title="tilt in force">t${fmtPct(c.bps/100)}</span>`:''}</div>`;
+      const sub=`<div class="tga">${r&&hier&&T.view!=='ba'?MHier.sub(T.view,n,r.base,r.w,2):ch?`${(cur*100).toFixed(2)}→<b>${(after*100).toFixed(2)}</b>`:(cur*100).toFixed(2)}${c&&Math.abs(c.bps)>1e-9?` <span title="tilt in force">t${fmtPct(c.bps/100)}</span>`:''}</div>`;
       if (!hier) { if(!n.security) return `<td class="tg-c tg-ro">${sub}</td>`;
         const v=val(f.id,n.id), wide=c.own_bps==null&&Math.abs(c.bps)>1e-9, edited=(f.id+'|'+n.id) in T.edits;
         const tip=`${f.id} · ${n.id}: weight today ${(c.weight*100).toFixed(2)}%, glide-path target ${(c.target*100).toFixed(2)}%, tilt in force ${fmtPct(c.bps/100)}%${wide?' (set for a wider scope)':''}${c.excluded?' · excluded from trading':''}${c.exiting?' · being exited':''}`;
@@ -454,15 +460,17 @@ function tgRender(focus){
       const v=(T.h[f.id]||{})[n.id]??'', ph=T.mode==='share'?(par(f.id,n)>0?cur/par(f.id,n)*100:0).toFixed(1):T.mode==='weight'?(cur*100).toFixed(2):'';
       return `<td class="tg-c ${v!==''?'tg-ed':ch?'tg-chg':''}"><input type="text" inputmode="decimal" data-th="${f.id}|${esc(n.id)}" value="${esc(v)}" placeholder="${ph}" title="${esc(n.name)}, ${f.id}: ${(cur*100).toFixed(2)}% of the fund with today's tilts" aria-label="${esc(n.name)} ${f.id}" ${ro?'disabled':''}>${sub}</td>`}).join('')}</tr>`;
   }
+  const netRow = hier ? `<tr class="tg-foot"><td class="tg-sec" title="Level-1 changes must net to zero, and the changes inside each group add up to the group's change"><b>Net change</b> <span class="small muted">level 1</span></td>${funds.map(f=>{const r=res[f.id]; if(!r) return '<td></td>';
+     const c=MHier.netCheck(N,r.base,r.w); return `<td data-tgnet="${f.id}" class="n small ${c.ok?'tg-ok':'tg-bad'}" title="${c.ok?'Level 1 nets to zero and every group adds up':'Worst mismatch '+MHier.fmt(c.worst)+'pp'}">${c.ok?'✓ ':'⚠ '}${MHier.fmt(c.l1)}</td>`}).join('')}</tr>` : '';
   const foot = hier ? `<tr class="tg-foot"><td class="tg-sec"><b>Check</b></td>${funds.map(f=>{const r=res[f.id]; if(!r) return '<td></td>';
      return `<td data-tgchk="${f.id}" class="n small ${r.errors.length||Math.abs(r.net)>5e-5?'tg-bad':'tg-ok'}" title="${esc(r.errors.join(' | '))}">${r.errors.length?'⚠ '+esc(r.errors[0].slice(0,32)):Math.abs(r.net)>5e-5?`net ${fmtPct(r.net*100)}`:'✓ 100%'}</td>`}).join('')}</tr>` : '';
   const n = hier ? tgCells().length : Object.keys(T.edits).length;
   const seg=(k,opts)=>`<span class="seg" role="group">${opts.map(([v,l,tip])=>`<button type="button" class="${String(T[k])===String(v)?'on':''}" data-tgt="${k}" data-v="${v}" ${tip?`title="${esc(tip)}"`:''}>${l}</button>`).join('')}</span>`;
   $('#tilts').innerHTML = `<div class="card"><h2>Tilts</h2>
    <p class="small muted">Tilt a fund toward (+) or away from (−) a security, or move a whole level: an asset group (stocks vs bonds), a region (US vs international), developed vs emerging, size and sector, or one security (levels 1-5). Pick how you enter changes: <b>Set tilt</b> types a security's own tilt in % of the fund (0.25 = 25 bp); the other modes move any level by percentage points, as a share of the level above, as a % of its weight, or to a new weight, and the rest balance automatically as set under <b>Balance</b>. Either way, changes become security tilts for each fund, funded pro rata from its other holdings so weights still total 100%, and apply to every allocation table (cashflows, rebalances). The small number under each cell is the weight in % of the fund with today's tilts (→ after); "t" is the tilt in force. Preview, then save them together. Tip: paste a block of numbers from Excel into any cell.${ro?' <b>Read-only: portfolio managers set tilts.</b>':''}</p>
-   <div class="tgctl"><div><span class="small" data-info="enter_mode">Enter</span>${seg('mode',TG_MODES)}</div>${hier?`<div><span class="small" data-info="balance_mode">Balance</span>${seg('bal',TG_BAL)}</div>`:''}<div><span class="small" data-info="level">Show levels</span>${seg('show',[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4'],[5,'1-5']])}</div></div>
+   <div class="tgctl"><div><span class="small" data-info="enter_mode">Enter</span>${seg('mode',TG_MODES)}</div>${hier?`<div><span class="small" data-info="balance_mode">Balance</span>${seg('bal',TG_BAL)}</div>`:''}<div><span class="small" data-info="level">Show levels</span>${seg('show',[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4'],[5,'1-5']])}</div>${hier?`<div><span class="small" data-info="change_view">Under each cell</span>${seg('view',MHier.VIEWS)}</div>`:''}</div>
    <div class="small muted" style="margin:4px 0 8px">${esc(TG_MODES.find(m=>m[0]===T.mode)[2])}.${hier?' Balance: '+esc(TG_BAL.find(m=>m[0]===T.bal)[2])+'.':''}</div>
-   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Level · asset · security</th>${funds.map(f=>`<th class="n" title="${f.vehicle==='cit'?'CIT':'Mutual fund'} ${f.vintage}">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${body}${foot}</table></div>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Level · asset · security</th>${funds.map(f=>`<th class="n" title="${f.vehicle==='cit'?'CIT':'Mutual fund'} ${f.vintage}">${f.id.replace('-','<br>')}</th>`).join('')}</tr>${body}${netRow}${foot}</table></div>
    ${ro?'':`<div class="row" style="margin-top:10px"><label class="small">Until (optional) <input type="date" id="tgUntil" value="${esc(T.until||'')}"></label><button class="btn primary" id="tgPrev">Preview</button><button class="btn" id="tgClear">Discard edits</button><span class="small muted" id="tgN">${n?`${n} security tilt${n===1?'':'s'} changed`:'No changes yet'}</span></div>`}
    <div id="tgOut">${T.prev?tgPreviewHtml(T.prev):''}</div></div>`;
   document.querySelectorAll('[data-tgt]').forEach(b=>b.onclick=()=>{ const k=b.dataset.tgt, v=k==='show'?+b.dataset.v:b.dataset.v; if(T[k]===v) return;
@@ -492,6 +500,12 @@ function tgRender(focus){
     try{ const r=await api('PUT','/api/trading/tilts-grid',{cells:cl, until:T.until||'', reason}); T.edits={}; T.h={}; T.prev=null; T.sent=null; await load(); toast(`Tilts saved: ${r.set} set, ${r.cleared} cleared across ${r.funds} funds`); }catch(e){toast(e.message,'error')} }; };
   bindTgSave();
 }
+function tgPrevLevels(p){ // change by level in pp of the fund: what one asset class gains the others give up
+  const N=tgNodes(); if(!N.length) return ''; const show=Math.min(S.tg.show||4,4), NS=N.filter(n=>!n.security&&n.level<=show);
+  const rows=NS.map(n=>`<tr class="tg-l${n.depth} tg-grp"><td class="tg-sec" style="padding-left:${6+n.depth*14}px"><span class="tglv">L${n.level}</span> ${n.depth===0?'<b>'+esc(n.name)+'</b>':esc(n.name)}</td>${p.funds.map(f=>{const x=MHier.W(f.after,n)-MHier.W(f.before,n); return `<td class="n">${Math.abs(x)<5e-7?'<span class="mh0">0.00</span>':`<b class="${x>0?'mhpos':'mhneg'}">${MHier.fmt(x)}</b>`}</td>`}).join('')}</tr>`).join('');
+  const net=`<tr class="tg-foot"><td class="tg-sec"><b>Net change</b> <span class="small muted">level 1</span></td>${p.funds.map(f=>{const c=MHier.netCheck(N,f.before,f.after); return `<td data-tgpnet="${f.fund_id}" class="n small ${c.ok?'tg-ok':'tg-bad'}">${c.ok?'✓ ':'⚠ '}${MHier.fmt(c.l1)}</td>`}).join('')}</tr>`;
+  return `<h3>Change by asset class (pp of the fund)</h3><p class="small muted">How the tilts move each level. Inside a group the changes add up to the group's change, and level 1 nets to zero: what one asset class gains, the others give up.</p>
+   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Level · asset</th>${p.funds.map(f=>`<th class="n">${f.fund_id.replace('-','<br>')}</th>`).join('')}</tr>${rows}${net}</table></div>`; }
 function tgPreviewHtml(p){
   const g=S.tgData, names=Object.fromEntries(g.rows.map(r=>[r.instrument,r]));
   const fids=p.funds.map(f=>f.fund_id), insts=g.rows.map(r=>r.instrument).filter(i=>p.funds.some(f=>(f.before[i]||0)>0||(f.after[i]||0)>0));
@@ -500,7 +514,8 @@ function tgPreviewHtml(p){
     return `<td class="n ${Math.abs(ta-tb)>1e-7?'tg-ed':''}">${ch?`<span class="muted small">${a.toFixed(2)}→</span><b>${b.toFixed(2)}</b>${Math.abs(ta-tb)>1e-7?`<div class="small">tilt ${fmtPct(tb)}→${fmtPct(ta)}</div>`:''}`:`<span class="muted">${b?b.toFixed(2):'—'}</span>`}</td>`}).join('')}</tr>`).join('');
   const notes=p.funds.flatMap(f=>f.notes.map(n=>`${f.fund_id}: ${n}`));
   return `<h3>Preview: glide-path allocation (% of the fund) with these tilts</h3><p class="small muted">Before → after for each fund you changed: the tilted security moves by its tilt and the others give or take the difference in proportion. Nothing is saved yet.</p>
-   <div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${fids.map(f=>`<th class="n">${f.replace('-','<br>')}</th>`).join('')}</tr>${rows}</table></div>
+   ${tgPrevLevels(p)}
+   <h3>By security</h3><div class="tg-wrap"><table class="tg"><tr><th class="tg-sec">Security</th>${fids.map(f=>`<th class="n">${f.replace('-','<br>')}</th>`).join('')}</tr>${rows}</table></div>
    ${notes.length?`<div class="small" style="margin-top:6px;color:var(--warn)">${notes.map(esc).join('<br>')}</div>`:''}
    <div class="row" style="margin-top:10px"><button class="btn primary" id="tgSave">Save ${(S.tg.sent||[]).length} tilt change${(S.tg.sent||[]).length===1?'':'s'}</button></div>`;
 }
@@ -743,7 +758,7 @@ const TASKS = [
   ['invest','Invest cashflows','Put subscriptions to work or raise cash for redemptions, split across a target mix.','prepare'],
   ['rebalance','Rebalance to a target','Move holdings back toward the glide path, a strategic mix or the approved proposal.','approve'],
   ['security','Trade a security','Buy or sell specific stocks, bonds, ETFs or funds in one fund, by amount or to a target weight.','prepare'],
-  ['exit','Exit a position','Sell whole positions that are flagged for exit in a fund.','prepare']];
+  ['exit','Exit a position','Sell a whole position in every fund that holds it, in one list: all funds, a product line, chosen vintages or one fund.','prepare']];
 const GOALS = [
   ['Invest new money (or raise cash) and stay as positioned last night','invest','previous_close','Invest cashflows → Keep the current mix: splits each fund\'s net flow in line with last night\'s close.'],
   ['Invest new money and lean back toward the glide path','invest','neutral','Invest cashflows → Back to the glide path: new money goes in at glide-path weights.'],
@@ -751,7 +766,7 @@ const GOALS = [
   ['Move to a strategic view','rebalance','strategic','Rebalance to a target → Strategic mix: trades to the fund\'s strategic table (edit it on Funds & securities).'],
   ['Implement the approved proposal','rebalance','approved','Rebalance to a target → Approved proposal: trades to the weights the committee approved.'],
   ['Buy or sell a specific stock, bond, ETF or fund','security',null,'Trade a security: pick a fund, search the security, buy/sell an amount or trade to a weight.'],
-  ['Sell a position completely','exit',null,'Exit a position (if flagged for exit) or Trade a security → Sell all.']];
+  ['Sell a position completely, in one fund or across funds','exit',null,'Exit a position: choose the security and the funds; every fund that holds it sells it all.']];
 S.nt = {task:null, strat:'neutral', date:'', fundSel:'', drift:5, fund:'', fd:null, orders:[], q:'', prev:null, impF:null};
 
 function stratPicker(keys){
@@ -766,7 +781,7 @@ function vTrade(){
    <p class="small muted">Every option shows the impact (now vs after, against target and glide path) before anything is saved. A saved draft still needs a portfolio manager's approval before it is exported to Charles River.</p></div>`;
   if (nt.task) h += `<div class="card"><h2>2. Set it up</h2>${({invest:setupInvest, rebalance:setupRebalance, security:setupSecurity, exit:setupExit})[nt.task]()}
     <div class="row" style="margin-top:14px">${nt.task==='invest'?`<span class="small">Trade date: <b>${esc(nt.date||'—')}</b> (the cashflow date)</span>`:`<label>Trade date <input type="date" id="ntDate" value="${nt.tdate||localDate()}"></label>`}<button class="btn primary" id="ntPrev">See the impact</button><span class="small muted">Nothing is saved until you create the draft.</span></div></div>`;
-  if (nt.prev) h += `<div class="card"><h2>3. Impact: now vs after these trades</h2>${impactPanel(nt.prev,'nt')}</div>
+  if (nt.prev) h += `<div class="card"><h2>3. Impact: now vs after these trades</h2>${(nt.prev.flagged||[]).length?`<p class="small">Flagged for exit when you save: ${nt.prev.flagged.map(esc).join(', ')}</p>`:''}${(nt.prev.skipped||[]).length?`<div class="warnbox small">Skipped: ${nt.prev.skipped.map(esc).join('<br>')}</div>`:''}${impactPanel(nt.prev,'nt')}</div>
     <div class="card"><h2>4. Create the draft trade list</h2><p class="small muted">The draft keeps exactly these orders. A portfolio manager then approves it (with the same impact view), and it is exported to Charles River for its own compliance check and execution. Nothing trades from here.</p>
     <label class="f" for="ntReason">Reason (kept in the ledger)</label><input type="text" id="ntReason" placeholder="At least 10 characters" value="${esc(nt.reason||'')}">
     <div class="row" style="margin-top:10px"><button class="btn primary" id="ntCreate" ${nt.prev.funds.every(f=>!f.orders.length)?'disabled':''}>Create draft trade list</button>${nt.prev.blocked_funds.length?`<span class="small neg">${nt.prev.blocked_funds.length} fund(s) blocked by an error or a compliance FAIL: the draft can be saved but not approved</span>`:''}</div></div>`;
@@ -821,19 +836,45 @@ function estOrder(o,r,d){
   else if (o.act==='weight'){const diff=v/100*d.nav-r.value; side=diff>=0?'BUY':'SELL'; amount=Math.abs(diff)}
   return {side, amount, wAfter:(r.value+(side==='BUY'?amount:-amount))/d.nav};
 }
+// Exit a position across funds: a scope (all funds, a product line, one fund) plus vintages, and one or more securities.
+const exState = () => S.ex ||= {scope: S.veh==='all'?'*':'vehicle:'+S.veh, V:[], insts:[], q:''};
+const exVints = () => [...new Set(S.st.funds.map(f=>f.vintage))].sort((a,b)=>a-b);
+function exFunds(){ const E=exState(); return S.st.funds.filter(f=>(E.scope==='*'||E.scope==='vehicle:'+f.vehicle||E.scope===f.id)&&(E.scope===f.id||!E.V.length||E.V.includes(f.vintage))); }
+function scopePicker(pre, st){ const single=!st.scope.startsWith('vehicle:')&&st.scope!=='*', V=exVints(), n=(pre==='ex'?exFunds():simFunds()).length;
+  return `<div class="row"><label>Funds <select id="${pre}Scope"><option value="*">All funds</option><option value="vehicle:mutual_fund">All mutual funds</option><option value="vehicle:cit">All CITs</option>${S.st.funds.map(f=>`<option value="${f.id}" ${st.scope===f.id?'selected':''}>${f.id} · ${vname(f.vehicle)} ${f.vintage}</option>`).join('')}</select></label><span class="small" id="${pre}N">${n} fund${n===1?'':'s'}</span></div>
+   ${single?'':`<div class="vpick" role="group" aria-label="Vintages"><span class="small muted">Vintages</span>${V.map(v=>`<button type="button" class="vchip ${st.V.includes(v)?'on':''}" data-${pre}v="${v}" aria-pressed="${st.V.includes(v)}">${v}</button>`).join('')}<button type="button" class="btn small" data-${pre}vset="all">All</button><button type="button" class="btn small" data-${pre}vset="near">2030–2045</button><button type="button" class="btn small" data-${pre}vset="far">2050–2070</button><button type="button" class="btn small" data-${pre}vset="none">Clear</button><span class="small muted">${st.V.length?st.V.length+' chosen':'none chosen = every vintage'}</span></div>`}`; }
+function bindScope(pre, st, redraw){
+  const sel=$('#'+pre+'Scope'); if(!sel) return; sel.value=st.scope;
+  sel.onchange=()=>{ st.scope=sel.value; st.prev=null; S.nt.prev=null; redraw(); };
+  document.querySelectorAll(`[data-${pre}v]`).forEach(b=>b.onclick=()=>{ const v=+b.getAttribute('data-'+pre+'v'); st.V=st.V.includes(v)?st.V.filter(x=>x!==v):st.V.concat(v).sort(); st.prev=null; S.nt.prev=null; redraw(); });
+  document.querySelectorAll(`[data-${pre}vset]`).forEach(b=>b.onclick=()=>{ const k=b.getAttribute('data-'+pre+'vset'), V=exVints(); st.V=k==='all'?V.slice():k==='none'?[]:V.filter(v=>k==='near'?v<=2045:v>=2050); st.prev=null; S.nt.prev=null; redraw(); });
+}
 function setupExit(){
-  const d = S.nt.fd; let h = `<div class="row">${fundSelect()}</div>`;
-  if (!d) return h + '<p class="small muted">Pick a fund to see positions flagged for exit.</p>';
-  const ex = d.rows.filter(r=>r.exiting && r.value>0);
-  return h + (ex.length?`<h3>Flagged for exit and still held</h3><table><tr><th>Security</th><th class="n">Held</th><th class="n">Weight</th></tr>${ex.map(r=>`<tr><td><b>${esc(r.instrument)}</b> <span class="small muted">${esc(r.name)}</span></td><td class="n">${musd(r.value)}</td><td class="n">${pct(r.weight)}</td></tr>`).join('')}</table><p class="small muted">Each whole position is sold; proceeds stay in cash (reinvesting them is a rebalance).</p>`
-    :`<p class="small">Nothing in ${esc(S.nt.fund)} is flagged for exit. Flag a security on <a href="#" data-gotab="settings">Routing &amp; settings</a> → Full exits, or use <b>Trade a security</b> → Sell all to sell one position now.</p>`);
+  const E=exState(), fs=exFunds(), q=E.q.trim().toLowerCase(), byId=Object.fromEntries(S.st.instruments.map(i=>[i.id,i]));
+  const hold={}; fs.forEach(f=>Object.entries(f.held||{}).forEach(([i,v])=>{ const h=hold[i] ||= {n:0,v:0}; h.n++; h.v+=v; }));
+  const list=Object.keys(hold).filter(i=>i!=='CASH'&&byId[i]&&!E.insts.includes(i)&&(!q||(i+' '+byId[i].name+' '+AN(byId[i].asset_class)).toLowerCase().includes(q))).sort((a,b)=>hold[b].v-hold[a].v).slice(0,q?40:10);
+  let h = `<h3>Which funds</h3>${scopePicker('ex',E)}
+   <h3>Which securities</h3><input type="search" id="exQ" placeholder="Ticker, name or asset class held in these funds" value="${esc(E.q)}" autocomplete="off" aria-label="Find a security to exit">
+   <table class="pick"><tr><th>Security</th><th>Asset class</th><th class="n">Funds holding it</th><th class="n">Held in these funds</th><th></th></tr>${list.map(i=>`<tr><td><b>${esc(i)}</b> <span class="small muted">${esc(byId[i].name)}</span></td><td class="small">${esc(AN(byId[i].asset_class))}</td><td class="n">${hold[i].n} of ${fs.length}</td><td class="n">${musd(hold[i].v)}</td><td><button class="btn small" data-exadd="${esc(i)}">Exit this</button></td></tr>`).join('')||'<tr><td colspan=5 class="muted">No match among the securities these funds hold</td></tr>'}</table>
+   ${!q&&Object.keys(hold).length>10?'<p class="small muted">Showing the 10 largest holdings across these funds. Type to search all '+Object.keys(hold).length+'.</p>':''}`;
+  if (E.insts.length) h += `<h3>To exit</h3><table><tr><th>Security</th><th class="n">Funds holding it</th><th class="n">Held</th><th></th></tr>${E.insts.map(i=>`<tr><td><b>${esc(i)}</b> <span class="small muted">${esc(byId[i]?.name||'')}</span></td><td class="n">${hold[i]?hold[i].n:0} of ${fs.length}</td><td class="n">${hold[i]?musd(hold[i].v):'—'}</td><td><button class="btn small" data-exdel="${esc(i)}">Remove</button></td></tr>`).join('')}</table>`;
+  h += `<p class="small muted">Every fund in the scope that holds a chosen security sells the whole position; proceeds stay in cash (reinvesting them is a rebalance). ${BOOT.can_approve?'Saving the draft also flags the security for exit in those funds, so cashflows stop buying it.':'Your role can sell only positions a portfolio manager has already flagged for exit; others are listed as skipped.'} One trade list covers all the funds.</p>`;
+  return h;
+}
+function bindExit(){
+  const E=exState(), re=()=>{S.nt.prev=null; vTrade()};
+  bindScope('ex', E, re);
+  if ($('#exQ')) { const q=$('#exQ'); q.oninput=()=>{E.q=q.value; const pos=q.selectionStart; vTrade(); const n=$('#exQ'); n.focus(); n.setSelectionRange(pos,pos)}; }
+  document.querySelectorAll('[data-exadd]').forEach(b=>b.onclick=()=>{E.insts.push(b.dataset.exadd); E.q=''; re()});
+  document.querySelectorAll('[data-exdel]').forEach(b=>b.onclick=()=>{E.insts=E.insts.filter(x=>x!==b.dataset.exdel); re()});
 }
 function ntRequest(){
   const nt=S.nt, td=$('#ntDate')?$('#ntDate').value:nt.date; if($('#ntDate')) nt.tdate=td;
   if (nt.task==='invest') { if(!nt.date) throw new Error('No cashflows to invest'); return ['/api/trading/trade-lists',{trade_date:nt.date, strategy:nt.strat, vehicle:S.veh}]; }
   if (nt.task==='rebalance') return ['/api/trading/rebalance',{strategy:nt.strat, trade_date:td, min_drift_bps:+nt.drift, vehicle:S.veh, fund_ids: nt.fundSel?[nt.fundSel]:null}];
+  if (nt.task==='exit') { const E=exState(); if(!E.insts.length) throw new Error('Choose at least one security to exit');
+    return ['/api/trading/exits',{fund:E.scope, vintages:E.scope.startsWith('vehicle:')||E.scope==='*'?E.V:[], instruments:E.insts, trade_date:td}]; }
   if (!nt.fund) throw new Error('Choose a fund');
-  if (nt.task==='exit') return ['/api/trading/tickets',{kind:'exit', fund_id:nt.fund, trade_date:td, orders:nt.fd.rows.filter(r=>r.exiting&&r.value>0).map(r=>({instrument:r.instrument}))}];
   if (!nt.orders.length) throw new Error('Add at least one security');
   const orders = nt.orders.map(o=>{const r=nt.fd.rows.find(x=>x.instrument===o.instrument); if(o.act==='all') return {instrument:o.instrument, side:'SELL', all:true};
     const e=estOrder(o,r,nt.fd); return {instrument:o.instrument, side:e.side, amount:Math.round(e.amount)}});
@@ -857,7 +898,59 @@ function bindTrade(){
   if ($('#ntPrev')) $('#ntPrev').onclick=async()=>{ const b=$('#ntPrev'); try{ const [url,body]=ntRequest(); b.disabled=true; nt.prev=await api('POST',url,{...body, dry_run:true}); nt.req=[url,body]; nt.impF=null; vTrade(); const c=$('#trade .card:nth-of-type(3)'); if(c) c.scrollIntoView({behavior:'smooth',block:'start'}) }catch(e){b.disabled=false; toast(e.message,'error')} };
   if ($('#ntCreate')) $('#ntCreate').onclick=async()=>{ const reason=$('#ntReason').value.trim(); nt.reason=reason; if(reason.length<10) return toast('Give a reason of at least 10 characters','error');
     const b=$('#ntCreate'); b.disabled=true; try{ const [url,body]=nt.req; const r=await api('POST',url,{...body, reason}); S.tl=r.id; sessionStorage.setItem('tr_tl',r.id); S.nt={...S.nt, prev:null, orders:[], reason:''}; S.tab='trades'; S.tlView='impact'; sessionStorage.setItem('tr_tab','trades'); await load(); toast(`${r.id}: draft created with ${r.order_count} orders, recorded in the ledger`) }catch(e){b.disabled=false; toast(e.message,'error')} };
+  if (nt.task==='exit') bindExit();
   bindImpact('nt');
+}
+
+// ------------------------------------------------------------------ Simulations page (/simulations)
+S.sim = {kind:'cash', amt:'100', split:'nav', strat:'neutral', scope:'*', V:[], byV:{}, byF:{}, prev:null};
+const simFunds = () => { const M=S.sim; return S.st.funds.filter(f=>(M.scope==='*'||M.scope==='vehicle:'+f.vehicle||M.scope===f.id)&&(M.scope===f.id||!M.V.length||M.V.includes(f.vintage))); };
+const SIM_SPLIT = [['nav','By assets','One amount, split between the chosen funds in proportion to their assets (NAV)'],['equal','Equally','One amount, the same dollars to each chosen fund'],['vintage','Per vintage','An amount for each vintage, split between its mutual fund and CIT by assets'],['fund','Per fund','An amount for each fund']];
+const SIM_KINDS = [['cash','Cashflow','What a subscription or redemption would trade, by fund, with today\'s tilts, exclusions, exits and line-up.',null],
+  ['stress','Stress tests and scenarios','How each vintage would fare in historical and hypothetical shocks, with the scenario builder.',['/runs/latest#risk','stress']],
+  ['glide','Glide-path change','Type a change at any level of the hierarchy and preview every fund against the IPS bands before submitting.',['/runs/latest#pm','glide']],
+  ['tilts','Tilts and security line-up','Preview a tilt, or a security added, taken out or excluded, across funds before saving.',['/trading','tilts']]];
+const simM = v => { const x=parseFloat(String(v).replace(/[$,\s]/g,'')); return isNaN(x)?0:x*1e6; };
+function simTotal(){ const M=S.sim; if(M.split==='vintage') return Object.values(M.byV).reduce((t,v)=>t+simM(v),0); if(M.split==='fund') return Object.values(M.byF).reduce((t,v)=>t+simM(v),0); return simM(M.amt); }
+function vSim(){
+  const M=S.sim;
+  let h=`<div class="card"><h2>What do you want to simulate?</h2><div class="tiles four">${SIM_KINDS.map(([k,t,d,go])=>go?`<a class="tile task" href="${go[0]}" data-simgo="${go[1]}" data-simtab="${go[0]==='/trading'?'tr':'mer'}"><b>${t} ↗</b><span class="small muted">${d}</span></a>`:`<button class="tile task ${M.kind===k?'on':''}" data-simk="${k}"><b>${t}</b><span class="small muted">${d}</span></button>`).join('')}</div></div>`;
+  const fs=simFunds(), V=[...new Set(fs.map(f=>f.vintage))].sort((a,b)=>a-b), single=!M.scope.startsWith('vehicle:')&&M.scope!=='*';
+  let amts='';
+  if (M.split==='vintage') amts=`<table class="compact" id="simByV"><tr><th>Vintage</th><th>Funds</th><th class="n">Amount ($m)</th></tr>${V.map(v=>`<tr><td><b>${v}</b></td><td class="small">${fs.filter(f=>f.vintage===v).map(f=>f.id).join(', ')}</td><td class="n"><input type="text" inputmode="decimal" data-simva="${v}" value="${esc(M.byV[v]??'')}" placeholder="0" style="width:110px" aria-label="Amount for ${v} in millions"></td></tr>`).join('')}</table>`;
+  else if (M.split==='fund') amts=`<table class="compact" id="simByF"><tr><th>Fund</th><th class="n">Assets</th><th class="n">Amount ($m)</th></tr>${fs.map(f=>`<tr><td><b>${f.id}</b> <span class="small muted">${vname(f.vehicle)} ${f.vintage}</span></td><td class="n">${musd(f.nav)}</td><td class="n"><input type="text" inputmode="decimal" data-simf="${f.id}" value="${esc(M.byF[f.id]??'')}" placeholder="0" style="width:110px" aria-label="Amount for ${f.id} in millions"></td></tr>`).join('')}</table>`;
+  else amts=`<div class="row"><label>Amount <input type="text" inputmode="decimal" id="simAmt" value="${esc(M.amt)}" style="width:130px" aria-label="Amount in millions"> $m</label><span class="small muted">e.g. 100 = $100 million in; −25 = a $25 million redemption</span></div>`;
+  const st=S.st.settings||{}, nT=(st.tilts||[]).length, nX=(st.excluded||[]).length, nE=(st.exits||[]).length, nL=(st.lineup||[]).length;
+  h+=`<div class="card"><h2>Cashflow simulation</h2><p class="small muted">Enter an amount instead of waiting for a real cashflow. It is spread over the funds you choose, then each fund's share is invested (or raised, for a negative amount) exactly as a real cashflow would be: split pro rata across the chosen mix, with tilts, exclusions, exits, the security line-up and the ETF cash buffer applied. You see the trades and the impact; nothing is saved or recorded.</p>
+   <h3>1. Which funds</h3>${scopePicker('sim',M)}
+   <h3>2. How much, and how to split it</h3><div class="seg" role="group" aria-label="Split">${SIM_SPLIT.map(([k,l,tip])=>`<button type="button" class="${M.split===k?'on':''}" data-simsplit="${k}" title="${esc(tip)}">${l}</button>`).join('')}</div>
+   <p class="small muted" style="margin:4px 0 8px">${esc(SIM_SPLIT.find(x=>x[0]===M.split)[2])}.</p>${amts}
+   <p class="small">Total: <b id="simTot" class="${sgn(simTotal())}">${musd(simTotal())}</b> across ${fs.length} fund${fs.length===1?'':'s'}</p>
+   <h3>3. Invest it using</h3><div class="tiles">${['previous_close','neutral','strategic','approved'].map(k=>`<label class="tile ${M.strat===k?'on':''}"><input type="radio" name="simStrat" value="${k}" ${M.strat===k?'checked':''}><b>${esc(STRAT[k][0])}</b><span class="small muted">${esc(STRAT[k][1])}</span></label>`).join('')}</div>
+   <p class="small muted">In force and applied: ${nT} tilt${nT===1?'':'s'}, ${nX} exclusion${nX===1?'':'s'}, ${nE} exit${nE===1?'':'s'}, ${nL} security line-up entr${nL===1?'y':'ies'}; cash buffer ${st.buffer_bps??'—'} bp. <a href="/trading" data-simgo="tilts" data-simtab="tr">Tilts</a> · <a href="/trading" data-simgo="lineup" data-simtab="tr">Security line-up</a> · <a href="/trading" data-simgo="settings" data-simtab="tr">Exclusions and exits</a></p>
+   <div class="row" style="margin-top:10px"><button class="btn primary" id="simRun">Simulate</button><span class="small muted">Nothing is saved.</span></div></div>`;
+  if (M.prev) h+=`<div class="card" id="simOut"><h2>Simulated trades: ${musd(M.prev.net_flow)} ${M.prev.net_flow>=0?'in':'out'}, ${M.prev.order_count} orders in ${M.prev.funds.length} funds</h2>
+    <p class="small muted">${esc(STRAT[M.prev.strategy]?.[0]||M.prev.strategy_name)}. Per fund: ${Object.entries(M.prev.flows).map(([f,v])=>`${esc(f)} ${musd(v)}`).join(' · ')}</p>${impactPanel(M.prev,'sim')}
+    <p class="small muted">To trade a real cashflow, load it on <a href="/trading" data-simgo="cashflows" data-simtab="tr">Trading → Cashflows</a> and use New trade → Invest cashflows.</p></div>`;
+  $('#sim').innerHTML=h; bindSim();
+}
+function bindSim(){
+  const M=S.sim, re=()=>{M.prev=null; vSim()};
+  document.querySelectorAll('[data-simgo]').forEach(a=>a.onclick=()=>{ try{ sessionStorage.setItem(a.dataset.simtab==='tr'?'tr_tab':'mer_tab', a.dataset.simgo); }catch(e){} });
+  document.querySelectorAll('[data-simk]').forEach(b=>b.onclick=()=>{M.kind=b.dataset.simk; vSim()});
+  bindScope('sim', M, re);
+  document.querySelectorAll('[data-simsplit]').forEach(b=>b.onclick=()=>{M.split=b.dataset.simsplit; re()});
+  const tot=()=>{ const e=$('#simTot'); if(e){ e.textContent=musd(simTotal()); e.className=sgn(simTotal()); } M.prev=null; const o=$('#simOut'); if(o) o.remove(); };
+  if ($('#simAmt')) $('#simAmt').oninput=e=>{M.amt=e.target.value; tot()};
+  document.querySelectorAll("[data-simva]").forEach(i=>i.oninput=()=>{M.byV[i.dataset.simva]=i.value; tot()});
+  document.querySelectorAll('[data-simf]').forEach(i=>i.oninput=()=>{M.byF[i.dataset.simf]=i.value; tot()});
+  document.querySelectorAll('input[name=simStrat]').forEach(r=>r.onchange=()=>{M.strat=r.value; re()});
+  $('#simRun').onclick=async()=>{ const b=$('#simRun'); try{ b.disabled=true;
+      const body={fund:M.scope, vintages:M.scope.startsWith('vehicle:')||M.scope==='*'?M.V:[], split:M.split, strategy:M.strat, amount:simM(M.amt),
+        by_vintage:Object.fromEntries(Object.entries(M.byV).map(([k,v])=>[k,simM(v)])), by_fund:Object.fromEntries(Object.entries(M.byF).map(([k,v])=>[k,simM(v)]))};
+      M.prev=await api('POST','/api/simulate/cashflows',body); S.simImpF=null; vSim(); const o=$('#simOut'); if(o) o.scrollIntoView({behavior:'smooth',block:'start'});
+    }catch(e){ b.disabled=false; toast(e.message,'error'); } };
+  bindImpact('sim');
 }
 
 // impact of a trade list (preview or saved): portfolio before vs after, against target and glide path
@@ -904,12 +997,14 @@ function fundImpact(f, t){
    <details><summary>Orders (${f.orders.length})</summary><table><tr><th>Side</th><th>Security</th><th>Type</th><th class="n">Quantity</th><th class="n">Est. price</th><th class="n">Est. amount</th><th>Destination</th></tr>${f.orders.map(o=>`<tr><td class="${o.side==='BUY'?'pos':'neg'}"><b>${o.side}</b></td><td>${esc(o.instrument)}<br><span class="small muted">${esc(o.name)}</span></td><td>${esc(o.type)}</td><td class="n">${o.quantity.toLocaleString('en-US')} <span class="small muted">${o.quantity_type.toLowerCase()}</span></td><td class="n">${usd(o.price,2)}</td><td class="n">${usd(o.est_amount)}</td><td>${esc(o.route)}</td></tr>`).join('')||'<tr><td colspan=7 class="muted">No orders</td></tr>'}</table></details>`;
 }
 function bindImpact(key){
-  document.querySelectorAll(`[data-impf^="${key}|"]`).forEach(tr=>tr.onclick=()=>{S[key+'ImpF']=tr.dataset.impf.split('|')[1]; if(key==='nt') vTrade(); else { const t=S.st.trade_lists.find(x=>x.id===S.tl); if(t) tlDetail(t); }});
+  document.querySelectorAll(`[data-impf^="${key}|"]`).forEach(tr=>tr.onclick=()=>{S[key+'ImpF']=tr.dataset.impf.split('|')[1]; if(key==='nt') vTrade(); else if(key==='sim') vSim(); else { const t=S.st.trade_lists.find(x=>x.id===S.tl); if(t) tlDetail(t); }});
 }
 
 document.querySelectorAll('#veh button').forEach(b=>b.onclick=()=>{S.veh=b.dataset.v;sessionStorage.setItem('tr_veh',S.veh);if(S.nt){S.nt.prev=null;if(S.nt.fund&&!funds().some(f=>f.id===S.nt.fund)){S.nt.fund='';S.nt.fd=null;S.nt.orders=[]}}render()});
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.pend=null;S.tab=b.dataset.tab;sessionStorage.setItem('tr_tab',S.tab);render()});
 S.tl = sessionStorage.getItem('tr_tl');
+if (BOOT.page==='sim') { document.title='Simulations · Meridian'; $('header h1').textContent='Simulations'; document.querySelectorAll('#veh,.tabs').forEach(e=>{e.hidden=true; e.style.display='none'}); $('#trade').hidden=true; $('#sim').hidden=false;
+  $('.banner').innerHTML='<b>Simulations save nothing.</b> Try a what-if on today\'s holdings with every tilt, exclusion, exit and security line-up in force. Nothing is traded, saved or recorded; to act on a result, use <a href="/trading">Trading → New trade</a>.'; }
 $('#who').innerHTML = BOOT.can_prepare||BOOT.can_settings||BOOT.can_glide ? '' : '<span class="chip">Read-only</span>';
 load().catch(e=>toast(e.message,'error'));
 </script></body></html>

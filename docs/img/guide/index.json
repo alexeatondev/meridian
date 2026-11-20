@@ -103,5 +103,10 @@
  "pol-09-builder-mix",
  "pol-10-builder-check",
  "pol-04-new-path",
- "pol-05-path-approval"
+ "pol-05-path-approval",
+ "sim-01-simulations",
+ "sim-02-result",
+ "sim-03-exit-across",
+ "sim-04-style-dialog",
+ "sim-05-net-change"
 ]

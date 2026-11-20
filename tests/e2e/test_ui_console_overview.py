@@ -114,13 +114,24 @@ def test_gp_01_glide_path_table(sign_in):
     p = sign_in("Maya Chen", "portfolio_manager", "approver")
     open_tab(p, "Glide path")
     assert p.locator("#gpScope").count() == 0 and p.locator("[data-gpv]").count() == 0
-    expect(p.locator(".gpt tr")).to_have_count(22)                      # header + 20 asset rows (levels 1-4) + check
+    expect(p.locator(".gpt tr")).to_have_count(23)                      # header + 20 asset rows (levels 1-4) + net + check
     p.click("[data-gpt='show'][data-v='1']")
-    expect(p.locator(".gpt tr")).to_have_count(6)                       # equity, fixed income, real assets, cash
+    expect(p.locator(".gpt tr")).to_have_count(7)                       # equity, fixed income, real assets, cash
     p.click("[data-gpt='show'][data-v='4']")
     # one cell: +1pp cash in 2030, funded by the other asset groups -> still 100%
     p.fill("[data-gpr='vintage:2030'][data-gpn='cash']", "1")
     expect(p.locator("[data-gpchk='vintage:2030']")).to_contain_text("100%")
+    # GP-1a: changes shown in pp and netting to zero: cash +1.00, the others give it up between them
+    cash_cell = p.locator("[data-gpr='vintage:2030'][data-gpn='cash']").locator("xpath=..")
+    expect(cash_cell.locator(".gpa")).to_have_text("+1.00")
+    eq = p.locator("[data-gpr='vintage:2030'][data-gpn='equity']").locator("xpath=..").locator(".gpa")
+    expect(eq).to_contain_text("−")
+    expect(p.locator("[data-gpnet='vintage:2030']")).to_have_text("✓ 0.00")
+    p.click("[data-gpt='view'][data-v='ba']")
+    expect(cash_cell.locator(".gpa")).to_contain_text("→")
+    p.click("[data-gpt='view'][data-v='rel']")
+    expect(p.locator("[data-gpnet='vintage:2030']")).to_have_text("✓ 0.00")
+    p.click("[data-gpt='view'][data-v='pp']")
     # switching to a relative entry clears the table; international = 45% of equity in 2060
     p.click("[data-gpt='mode'][data-v='share']")
     p.fill("[data-gpr='vintage:2060'][data-gpn='equity_intl']", "45")
@@ -135,6 +146,7 @@ def test_gp_01_glide_path_table(sign_in):
     p.click("[data-gpt='bal'][data-v='none']")
     p.fill("[data-gpr='vintage:2030'][data-gpn='cash']", "1")
     expect(p.locator("[data-gpchk='vintage:2030']")).to_contain_text("net +1.00")
+    expect(p.locator("[data-gpnet='vintage:2030']")).to_contain_text("⚠ +1.00")
     p.click("#gpPrev")
     assert "Fix these first" in toast_text(p)
     p.fill("[data-gpr='vintage:2030'][data-gpn='us_core_bond']", "-1")
