@@ -11,6 +11,7 @@ import hmac
 import io
 import json
 import os
+import re
 import uuid
 from datetime import UTC, date, datetime
 from functools import lru_cache
@@ -115,7 +116,7 @@ def _record(s, user_or_actor: dict, step: str, summary: str, output: dict, ratio
 def default_settings() -> dict:
     raw = model().raw
     return {"routes": dict(raw["routes"]), "buffer_bps": float(raw.get("cash_buffer_bps", 0)), "buffer_overrides": {},
-            "excluded": [], "excluded_share": "redistribute", "tilts": [], "exits": [], "roll_down": {},
+            "excluded": [], "excluded_share": "redistribute", "tilts": [], "exits": [], "roll_down": {}, "lineup": [], "securities": [],
             "history": []}
 
 
@@ -123,7 +124,50 @@ def get_settings(s) -> dict:
     row = s.get(TradingSetting, "settings")
     out = {**default_settings(), **row.body} if row else default_settings()
     _apply_roll_down(out.get("roll_down", {}))
+    _apply_lineup(out)
     return out
+
+
+SEC_TYPES = ("etf", "stock", "bond", "mutual_fund", "cit")
+
+
+def lineup_shares(settings: dict, fund_id: str) -> dict[str, float]:
+    """Each security's share of its asset class in a fund once the line-up entries apply. An entry fixes a
+    security's share (0 = out of the line-up) for a scope; the most specific scope wins. The other securities of
+    that asset class give or take the difference in proportion to their usual shares."""
+    m = model()
+    own: dict[str, float] = {}
+    for e in sorted((e for e in settings.get("lineup", []) if in_scope(e, fund_id)), key=_specificity):
+        if e.get("instrument") in m.instruments:
+            own[e["instrument"]] = float(e["share"])
+    if not own:
+        return {}
+    out: dict[str, float] = {}
+    for ac in {m.instruments[i]["asset_class"] for i in own}:
+        fixed = {i: x for i, x in own.items() if m.instruments[i]["asset_class"] == ac}
+        others = {i["id"]: m.base_share(i, fund_id) for i in m.instruments.values()
+                  if i["asset_class"] == ac and i["id"] not in fixed and i.get("status", "held") != "no_target"
+                  and m.base_share(i, fund_id) > 0}
+        fs, os_ = sum(fixed.values()), sum(others.values())
+        if fs >= 1 - 1e-9 or os_ <= 0:
+            out.update({i: (x / fs if fs > 0 else 0.0) for i, x in fixed.items()})
+            out.update({i: 0.0 for i in others})
+        else:
+            out.update(fixed)
+            out.update({i: x * (1 - fs) / os_ for i, x in others.items()})
+    return out
+
+
+def _apply_lineup(settings: dict) -> None:
+    """Securities added to the security master in the app, and each fund's line-up, onto the trading model."""
+    m = model()
+    for c in settings.get("securities", []):
+        m.instruments[c["id"]] = dict(c, products=[], status="held", share=0.0, added_in_app=True)
+    m.overlay = {}
+    for fid in m.funds:
+        ov = lineup_shares(settings, fid)
+        if ov:
+            m.overlay[fid] = ov
 
 
 def _apply_roll_down(overrides: dict) -> None:
@@ -947,6 +991,215 @@ def set_settings(request: Request, body: dict = Body(...)):
         dr = _record(s, _who(user), step, "Trading settings changed: " + ", ".join(sorted(changes)),
                      changes, reason)
     return {"ok": True, "dr_id": dr, "changed": sorted(changes)}
+
+
+# ------------------------------------------------------------------ security line-up (level 5: which securities a fund holds)
+def _lineup_view(s, settings: dict) -> dict:
+    m = model()
+    order = {a: k for k, a in enumerate(m.policy.assets)}
+    funds = sorted(m.funds.values(), key=lambda f: (f.vehicle, f.vintage))
+    cells: dict[str, dict] = {}
+    used = set()
+    for f in funds:
+        neutral = neutral_table(s, f.id)
+        excl, ex = excluded_for(settings, f.id), exits_for(settings, f.id)
+        own = {e["instrument"]: e for e in sorted((e for e in settings.get("lineup", []) if in_scope(e, f.id)), key=_specificity)}
+        held = positions(f.id)["values"]
+        row = {}
+        for i in m.instruments.values():
+            sh, base = m.share(i, f.id), m.base_share(i, f.id)
+            if not (sh > 0 or base > 0 or i["id"] in own or held.get(i["id"], 0) > 0 or i["id"] in excl or i["id"] in ex):
+                continue
+            used.add(i["id"])
+            row[i["id"]] = {"share": round(sh, 6), "base_share": round(base, 6), "weight": round(neutral.get(i["id"], 0.0), 6),
+                            "held": held.get(i["id"], 0.0) > 0, "excluded": i["id"] in excl, "exiting": i["id"] in ex,
+                            "no_target": i.get("status") == "no_target",
+                            "entry": {k: own[i["id"]].get(k) for k in ("fund", "vintages", "share", "by", "at", "reason")} if i["id"] in own else None}
+        cells[f.id] = row
+    secs = sorted(m.instruments.values(), key=lambda i: (order.get(i["asset_class"], 99), i["id"]))
+    return {"funds": [{"id": f.id, "vehicle": f.vehicle, "vintage": f.vintage} for f in funds],
+            "securities": [{"id": i["id"], "name": i["name"], "type": i["type"], "asset_class": i["asset_class"],
+                            "price": i.get("price"), "added_in_app": bool(i.get("added_in_app")), "status": i.get("status"),
+                            "in_any": i["id"] in used} for i in secs],
+            "cells": cells, "types": list(SEC_TYPES), "scopes": SCOPES}
+
+
+@router.get("/api/trading/lineup")
+def lineup(request: Request):
+    """Every security and, per fund, its share of its asset class, its glide-path (neutral) weight and whether it
+    is excluded from trading or being exited."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        settings = get_settings(s)
+        out = _lineup_view(s, settings)
+    out["can_edit"] = any(r in user["roles"] for r in APPROVE_ROLES)
+    return out
+
+
+LINEUP_ACTIONS = ("share", "remove", "exclude", "include")
+
+
+def _lineup_change(cur: dict, body: dict, user: dict) -> tuple[dict, list[str], str]:
+    """Apply one line-up change to a copy of the settings. Returns (new settings, funds in scope, summary)."""
+    m = model()
+    inst = body.get("instrument")
+    if inst not in m.instruments:
+        raise HTTPException(400, "Choose a security")
+    act = body.get("action")
+    if act not in LINEUP_ACTIONS:
+        raise HTTPException(400, f"action must be one of {', '.join(LINEUP_ACTIONS)}")
+    scope = body.get("fund") or "*"
+    vint = _vintage_list(body.get("vintages"))
+    funds = scope_funds(scope, vintages=vint)
+    if not funds:
+        raise HTTPException(400, "No funds in that scope")
+    e0 = {"instrument": inst, "fund": scope, "vintages": vint}
+    lab = scope_label(e0)
+    same = lambda e: (e.get("instrument") == inst and e.get("fund", "*") == scope  # noqa: E731
+                      and sorted(e.get("vintages") or []) == vint and not e.get("vintage_from") and not e.get("vintage_to"))
+    new = json.loads(json.dumps(cur))
+    stamp = {"by": _who(user), "at": _ts(), "reason": body.get("reason", ""), "source": "security line-up"}
+    name = m.instruments[inst]["name"]
+    from ..policy import load_universe
+    acn = (load_universe().get(m.instruments[inst]["asset_class"]) or {}).get("name", m.instruments[inst]["asset_class"])
+    if act == "share":
+        try:
+            pct = float(body.get("share_pct"))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Give its share of the asset class in %, e.g. 20") from None
+        if not 0 < pct <= 100:
+            raise HTTPException(400, "The share must be more than 0% and at most 100% of its asset class")
+        new["lineup"] = [e for e in new.get("lineup", []) if not same(e)] + [{**e0, "share": round(pct / 100, 6), **stamp}]
+        new["exits"] = [e for e in new.get("exits", []) if not same(e)]
+        summ = f"{inst} set to {pct:g}% of {acn} in {lab}"
+    elif act == "remove":
+        prev = next((float(e["share"]) for e in new.get("lineup", []) if same(e) and float(e.get("share", 0)) > 0), None)
+        new["lineup"] = [e for e in new.get("lineup", []) if not same(e)] + [{**e0, "share": 0.0, **stamp,
+                                                                              **({"prev_share": prev} if prev else {})}]
+        if not any(same(e) for e in new.get("exits", [])):
+            new["exits"] = new.get("exits", []) + [{**e0, "until": "", **stamp}]
+        summ = f"{inst} taken out of the line-up (target 0, flagged for exit) in {lab}"
+    elif act == "exclude":
+        if not any(same(e) for e in new.get("excluded", [])):
+            new["excluded"] = new.get("excluded", []) + [{**e0, "until": str(body.get("until") or "")[:10], **stamp}]
+        summ = f"{inst} excluded from trading in {lab}"
+    else:   # include: back to normal trading for this scope, and back in the line-up if it was taken out
+        new["excluded"] = [e for e in new.get("excluded", []) if not same(e)]
+        new["exits"] = [e for e in new.get("exits", []) if not same(e)]
+        back = []
+        for e in new.get("lineup", []):
+            if same(e) and float(e.get("share", 0)) == 0:
+                if e.get("prev_share"):          # taken out after being added here: restore its share
+                    back.append({**e0, "share": e["prev_share"], **stamp})
+                continue
+            back.append(e)
+        new["lineup"] = back
+        summ = f"{inst} included in trading again in {lab}"
+    # nothing may leave an asset class with no security
+    for fid in funds:
+        sh = lineup_shares(new, fid)
+        ac = m.instruments[inst]["asset_class"]
+        mem = [i for i in m.instruments.values() if i["asset_class"] == ac]
+        tot = sum(sh.get(i["id"], m.base_share(i, fid)) for i in mem if i.get("status", "held") != "no_target")
+        if tot <= 1e-9:
+            raise HTTPException(400, f"{fid}: {name} is the only security for {ac}; add another one first")
+    return new, funds, summ
+
+
+def _lineup_preview(s, cur: dict, new: dict, funds: list[str], inst: str) -> list[dict]:
+    m = model()
+    ac = m.instruments[inst]["asset_class"]
+    out = []
+    for fid in funds:
+        _apply_lineup(cur)
+        b, bt = {i["id"]: m.share(i, fid) for i in m.instruments.values() if i["asset_class"] == ac}, neutral_table(s, fid)
+        _apply_lineup(new)
+        a, at = {i["id"]: m.share(i, fid) for i in m.instruments.values() if i["asset_class"] == ac}, neutral_table(s, fid)
+        rows = [{"instrument": k, "before": round(b.get(k, 0.0), 6), "after": round(a.get(k, 0.0), 6),
+                 "w_before": round(bt.get(k, 0.0), 6), "w_after": round(at.get(k, 0.0), 6)}
+                for k in sorted(set(b) | set(a)) if b.get(k, 0) > 0 or a.get(k, 0) > 0]
+        out.append({"fund_id": fid, "asset_class": ac, "rows": rows,
+                    "excluded": inst in excluded_for(new, fid), "exiting": inst in exits_for(new, fid)})
+    _apply_lineup(cur)
+    return out
+
+
+@router.post("/api/trading/lineup/preview")
+def lineup_preview(request: Request, body: dict = Body(...)):
+    """What a line-up change does to each fund in scope: the asset class's split before and after, and the
+    security's glide-path weight. Nothing is saved."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        cur = get_settings(s)
+        new, funds, summ = _lineup_change(cur, body, user)
+        return {"summary": summ, "funds": _lineup_preview(s, cur, new, funds, body["instrument"])}
+
+
+@router.put("/api/trading/lineup")
+def lineup_save(request: Request, body: dict = Body(...)):
+    """Save a line-up change (PM, reason): add a security to funds or change its share of its asset class,
+    take it out (target 0 and flagged for exit), exclude it from trading, or include it again."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    if not any(r in user["roles"] for r in APPROVE_ROLES):
+        raise HTTPException(403, "Only portfolio managers change the security line-up")
+    reason = _reason(body)
+    with _store().Session.begin() as s:
+        cur = get_settings(s)
+        new, funds, summ = _lineup_change(cur, {**body, "reason": reason}, user)
+        if {k: new.get(k) for k in ("lineup", "excluded", "exits")} == {k: cur.get(k) for k in ("lineup", "excluded", "exits")}:
+            raise HTTPException(400, "Nothing changed")
+        new["history"] = (list(cur.get("history", [])) + [{"at": _ts(), "by": _who(user), "reason": reason,
+                                                           "changed": ["lineup"]}])[-100:]
+        _put(s, "settings", new)
+        dr = _record(s, _who(user), "settings.change", f"Security line-up: {summ}",
+                     {"change": {k: body.get(k) for k in ("instrument", "action", "fund", "vintages", "share_pct", "until")},
+                      "before": {k: cur.get(k, []) for k in ("lineup", "excluded", "exits")},
+                      "after": {k: new.get(k, []) for k in ("lineup", "excluded", "exits")}}, reason, funds)
+        get_settings(s)
+    return {"ok": True, "dr_id": dr, "summary": summ, "funds": len(funds)}
+
+
+@router.post("/api/trading/securities")
+def add_security(request: Request, body: dict = Body(...)):
+    """Add a security to the security master (PM, reason). It isn't in any fund until it is added to the
+    line-up. Prices are estimates until vendor prices are connected."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    if not any(r in user["roles"] for r in APPROVE_ROLES):
+        raise HTTPException(403, "Only portfolio managers add securities")
+    reason = _reason(body)
+    m = model()
+    sid = re.sub(r"[^A-Z0-9.\-]", "", str(body.get("id", "")).upper())[:20]
+    name = str(body.get("name", "")).strip()[:80]
+    if not sid or len(name) < 3:
+        raise HTTPException(400, "Give the ticker (or ID) and a name")
+    if sid in m.instruments:
+        raise HTTPException(409, f"{sid} is already in the security master")
+    if body.get("type") not in SEC_TYPES:
+        raise HTTPException(400, f"type must be one of {', '.join(SEC_TYPES)}")
+    if body.get("asset_class") not in m.policy.assets:
+        raise HTTPException(400, "Choose the asset class")
+    try:
+        price = float(body.get("price"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Give an estimated price") from None
+    if price <= 0:
+        raise HTTPException(400, "The price must be more than 0")
+    sec = {"id": sid, "name": name, "type": body["type"], "asset_class": body["asset_class"], "price": round(price, 4),
+           "added_by": _who(user), "added_at": _ts(), "reason": reason}
+    if body.get("cusip"):
+        sec["cusip"] = re.sub(r"[^A-Z0-9]", "", str(body["cusip"]).upper())[:12]
+    with _store().Session.begin() as s:
+        cur = get_settings(s)
+        new = json.loads(json.dumps(cur))
+        new["securities"] = new.get("securities", []) + [sec]
+        _put(s, "settings", new)
+        dr = _record(s, _who(user), "settings.change", f"Security master: {sid} ({name}) added", {"security": sec}, reason)
+        get_settings(s)
+    return {"ok": True, "dr_id": dr, "security": sec}
 
 
 # ------------------------------------------------------------------ tilts table (security tilts per fund, in %)
