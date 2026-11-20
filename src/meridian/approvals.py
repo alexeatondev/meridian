@@ -11,7 +11,10 @@ from pathlib import Path
 from .ledger import Ledger
 
 
-def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision: str, reason: str) -> str:
+def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision: str, reason: str,
+                    user_id: str | None = None, email: str = "") -> str:
+    """`user_id` (Cognito sub) identifies the person for segregation of duties; older records only carry the name."""
+    uid = user_id
     run_dir = Path(run_dir)
     res = json.loads((run_dir / "results.json").read_text())
     v = res["vintages"].get(str(vintage))
@@ -31,7 +34,8 @@ def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision:
     sod = load_policy().raw.get("controls", {}).get("segregation_of_duties", True)
     for r in L.records():
         if sod and r["dr_type"] == "approval" and r["step"] == "approval.decision" \
-                and f"MTRS-{vintage}" in r["portfolio_scope"] and r["actor"].get("id") == name and r["approvals"][0]["role"] != role:
+                and f"MTRS-{vintage}" in r["portfolio_scope"] and r["approvals"][0]["role"] != role \
+                and ((uid and r["actor"].get("user_id") == uid) or r["actor"].get("id") == name):
             raise SystemExit(f"Segregation of duties: {name} already decided on {vintage} as {r['approvals'][0]['role']}; "
                              f"a different person must approve as {role}.")
         if r["dr_type"] == "approval" and r["step"] == "approval.decision" and f"MTRS-{vintage}" in r["portfolio_scope"] \
@@ -41,7 +45,8 @@ def record_decision(run_dir: Path, vintage: int, role: str, name: str, decision:
     if adj:
         cio = next(r for r in L.records() if r["dr_id"] == adj["dr_id"])
     return L.record(dr_type="approval", run_id=res["run_id"], step="approval.decision",
-                    actor={"kind": "human", "id": name, "role": role}, inputs=[cio["dr_id"]],
+                    actor={"kind": "human", "id": name, "role": role, **({"user_id": uid} if uid else {}),
+                           **({"email": email} if email else {})}, inputs=[cio["dr_id"]],
                     portfolio_scope=[f"MTRS-{vintage}"], policy_version=cio["policy_version"],
                     summary=f"{vintage}: {decision} by {name} ({role})", rationale=reason,
                     approvals=[{"role": role, "name": name, "decision": decision}])

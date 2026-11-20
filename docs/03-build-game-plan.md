@@ -27,7 +27,7 @@
 1. **Trading runs on example data.** Until real positions and cashflows arrive from SS&C and State Street (uploads work today), every trade list is a demonstration; fills are booked from a file or marked filled in shadow mode.
 2. **One proposal per vintage for both product lines.** Since 2026-11-18 the agents build on the Investment Committee's adjusted glide path; where mutual funds and CITs differ they use the average and trading adds each line's difference back. Separate proposals per product line would need the console and approvals to work per line.
 3. **One person holds every role.** Segregation of duties is enforced in code but has only been exercised with test logins.
-4. **Security hardening is held** (admin deploy role, no MFA). Acceptable with test users only.
+4. **Security hardening partly done** (2026-11-20, doc 19): free controls built; the admin deploy role stays until runbook R-1 is run, and MFA is deferred. Acceptable with test users only.
 5. **No human CCO or counsel review.** Blocks production, not development.
 
 ## Built 2026-11-10 (evening)
@@ -91,7 +91,13 @@
 - **Info bubbles** (later the same day): an **i** next to column headers, tiles, headings, table controls and key buttons explains each one in plain words, with a simplified formula where a number is calculated; 87 entries in `config/glossary.yaml`, editable without code (doc 06 §1.6a, doc 11, UX-9).
 - **Simulations, exits across funds, styles, net changes** (later the same day): a **Simulations** page in the app bar (cashflow simulation: type an amount, spread it by assets, equally, per vintage or per fund, invest it with any mix, with every tilt, exclusion, exit and line-up applied; nothing saved; links to the stress tests, glide-path and tilts previews); **Exit a position** across all funds, a product line, chosen vintages or one fund in one `EX-` list; management style editable from a dialog wherever a fund's style chip appears (console Home and Funds & vintages, Trading funds list and fund page); glide-path and tilts tables show changes in pp of the fund or vs siblings with a **Net change** row (level 1 nets to zero), and the tilts preview adds a change-by-asset-class table (doc 06 §3.6, 10.2a, 10.6, 14; SIM-1 to SIM-4).
 
+## Built 2026-11-20 (security hardening, NIST SP 800-53 Moderate)
+- Product owner's decisions: target the **SP 800-53 Rev 5 Moderate** baseline; **MFA deferred** (open gap G-1, required before real users); **free controls only now**, every cost item kept in a costed backlog; least-privilege IAM as code, run once by an administrator.
+- Built: 30-minute inactivity timeout with a warning; security event log (sign-ins, failures, refused requests, session ends, CSRF and token failures) append-only with a review screen and CSV; last sign-in and 90-day inactive flag; user ID on every record and segregation of duties by ID; server-stamped authors on settings entries; CSP, HSTS and other headers; private load balancer behind a CloudFront VPC origin; TLS to the database; CI security checks (pip-audit, bandit, gitleaks, Trivy, cfn-lint), CodeQL and Dependabot; least-privilege GitHub roles and CloudFormation policy prepared (`infra/security/github-oidc-roles.yaml`).
+- **Doc 19** holds the control map, open gaps, backlog with time and cost (high-priority items S-1 to S-4: ~2 days, ~$11-16/month; all items: ~12-15 days, ~$95-115/month) and runbooks. Docs 03, 06 (1.7, 11.4), 11, 14 §12, 16 (SEC-1 to SEC-3) updated.
+
 ## Next steps (not blocked, in order)
+0. **You:** run doc 19 runbook R-1 (least-privilege roles, about 1 hour) and turn on branch protection for `main` (G-4); decide when MFA (S-0) and the high-priority cost items (S-1 to S-4) go in.
 1. **Leadership controls:** kill switch (pause per pipeline or globally) and autonomy level in the app, with ledger records; a KPI view (approvals vs overrides, exceptions, obligations on time).
 2. **Calculation templates in New trade:** pick a template while building an exit or a rebalance, so the impact view shows the tranche dates before the draft is saved.
 3. **Real average daily volumes** for liquidity-capped templates from a market-data source (today example figures in `config/trading.yaml`).
@@ -110,7 +116,7 @@
 | Real positions and cashflows | Sample files or API access from SS&C (mutual funds) and State Street (CITs), plus their data terms |
 | Real Charles River file, API, results back, official positions (IBOR) | **Held by you** (doc 17 §9); then Charles River version, hosting and import specification from your Charles River admins |
 | Who holds the route permission; second approver for route changes | **Held by you** (doc 17 §9) |
-| Security hardening (deploy-role split, MFA, approvals by user ID) | **Held by you** until more users join (doc 14 §12) |
+| Security hardening still open: run the least-privilege roles (R-1), MFA (G-1), cost items S-1 to S-20 | R-1 needs an administrator login (doc 19 §6); MFA and cost items **held by you** (doc 19 §4-5) |
 | WORM copy, daily ledger anchor, longer backups, CloudWatch alarms | **Deferred to production by you** (adds AWS cost) |
 | Scheduled monthly run; next ad hoc run | **Held by you** (cost) |
 | Portfolio-level entitlements (F-3) | Your decision on who may see which funds |
@@ -129,7 +135,7 @@
 ## Backlog (held by the product owner; keep visible)
 | Item | Status | Why it matters |
 |---|---|---|
-| Security hardening: split the GitHub deploy role, require a GitHub environment, require MFA for approvers and admins, record approvals against the Cognito user ID/email (doc 14 §12) | **Held** until later in the build; must be done before anyone beyond test users signs in | Least privilege; unambiguous identity for audit |
+| Security hardening still open (doc 19): run the least-privilege roles (R-1; approvals by user ID done 2026-11-20), require MFA (S-0), cost items S-1 to S-20 | **R-1 ready to run; MFA and cost items held by you**; must be done before anyone beyond test users signs in | Least privilege; strong authentication; detection and recovery |
 | WORM evidence copy (S3 Object Lock), daily ledger anchor, longer database backups | **Deferred to production** (adds AWS cost) | Books and records (doc 04 REC-2/REC-3) |
 | Scheduled monthly agent run with notifications | **Held**: runs stay ad hoc during development | Operating loop |
 | Next ad hoc run (as of 2026-11-30) | **Held** | Gives "Changes since last run" real data |

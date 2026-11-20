@@ -187,17 +187,20 @@ Keys are never pasted into chat or committed. Secret values are entered by the p
 - 2026-11-09: organization advanced features activated by the product owner (irreversible; removes the free-plan spend limit, which the cost guard replaces). OIDC provider created; trust policy pinned to the immutable `sub` claim; first deploy (run 42677958733) succeeded. Support case 179424629200877 updated as resolved.
 - Organization SCPs deny us-east-1 for this account; keep all regional resources in us-east-2.
 
-## 12. Planned hardening (not yet done)
+## 12. Security hardening (NIST SP 800-53 Moderate; doc 19)
 
-| Item | Why |
+The control-by-control assessment, open gaps, costed backlog and runbooks are in **doc 19**. Status of the items first planned here:
+
+| Item | Status |
 |---|---|
-| Split `meridian-github-deploy` into deploy / users / run roles; require a GitHub environment in each trust policy | Least privilege; today any workflow on `main` has admin access |
-| Narrow the deploy role to CDK's minimum and remove `cdk bootstrap` from the workflow | Bootstrap is the only step that needs broad access |
-| Narrow `cdk-hnb659fds-cfn-exec-role` with a custom execution policy and permissions boundary | CloudFormation acts as this role during deploys; it has admin by default |
-| Require MFA for approvers and admins | Approvals are regulated decisions |
-| Record approvals against the Cognito user ID/email, not the display name | Unambiguous identity for audit and segregation of duties |
-| WORM evidence store (S3 Object Lock), daily ledger anchor, longer backup retention (deferred to production: adds cost) | Docs 04 REC-2/REC-3 and 05 §3 |
-| CloudWatch alarms (5xx, unhealthy target, database storage/CPU) emailed to the admin | Today an outage would go unnoticed |
-| Schedule `agent-run` after the monthly data refresh, with a notification (held: runs stay ad hoc during development) | Operating loop |
-| Update GitHub Actions still on Node 20 | Deprecation warnings |
-| **Custom domain (held until production).** Register or pick a domain; request an ACM certificate for it in us-east-1 (CloudFront only uses us-east-1 certificates; the organization SCP denies the deploy role there, so request it in the console or add a narrow SCP exception); add it as an alternate domain name on the CloudFront distribution in the CDK stack; create the DNS alias (Route 53 hosted zone about $0.50/month, or your registrar's DNS); add the new address to the Cognito app client's callback and sign-out URLs; update docs and UAT links | A memorable address such as `meridian.<firm>.com`. A `*.cloudfront.net` name is assigned by AWS and can't be chosen |
+| Split `meridian-github-deploy` into deploy / users / ingest roles, each tied to a GitHub environment; narrow the CDK CloudFormation execution role; remove `cdk bootstrap` from the workflow | **Prepared 2026-11-20** (`infra/security/github-oidc-roles.yaml`); takes effect when an administrator runs doc 19 runbook R-1 |
+| Require MFA for approvers and admins | **Deferred by the product owner (2026-11-20)**; open gap G-1, backlog S-0 (free, 0.5 day). Required before real users |
+| Record approvals against the Cognito user ID, not the display name | **Done 2026-11-20**: records carry `user_id`; segregation-of-duties checks use it |
+| Load balancer not reachable from the internet | **Done 2026-11-20**: internal ALB in private subnets behind a CloudFront VPC origin |
+| Security event log, idle timeout, security headers, CI security scanning | **Done 2026-11-20** (doc 19 §2) |
+| WORM evidence store, daily ledger anchor, longer backups | Backlog S-8, S-9 (adds cost; before production) |
+| CloudWatch alarms emailed to the admin | Backlog S-4 (~$1/month) |
+| WAF, CloudTrail, GuardDuty, Security Hub, flow logs, longer log retention | Backlog S-2, S-3, S-5, S-6, S-7 |
+| Schedule `agent-run` after the monthly data refresh (held: runs stay ad hoc) | Held |
+| Update GitHub Actions still on Node 20 | Dependabot now opens these updates weekly |
+| **Custom domain (held until production)** | Backlog S-1: also gives viewers TLS 1.2+ only (the default `*.cloudfront.net` certificate still accepts TLS 1.0/1.1) and HTTPS from CloudFront to the load balancer. Steps: register or pick a domain; request an ACM certificate in us-east-1 (the organization SCP denies the deploy role there, so request it in the console or add a narrow SCP exception); add it to the CloudFront distribution in the CDK stack with a TLS 1.2 minimum; DNS alias; add the address to the Cognito callback and sign-out URLs; update docs and UAT links |

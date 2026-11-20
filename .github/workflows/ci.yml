@@ -1,5 +1,6 @@
 name: ci
 on: [push, pull_request]
+permissions: {contents: read}      # least privilege for the workflow token (SP 800-218 PO.5)
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,3 +17,31 @@ jobs:
       - name: Golden pipeline run (cached data, offline judgment)
         env: {MERIDIAN_LLM: "off", MERIDIAN_OFFLINE: "1"}
         run: meridian run target-date --as-of 2026-10-31
+
+  # Secure development checks (NIST SP 800-53 RA-5, SI-2, SA-11; SP 800-218 PW.7, PW.8, RV.1). Any finding fails CI.
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install ".[app]" pip-audit bandit cfn-lint
+      - name: Known vulnerabilities in Python dependencies (pip-audit, OSV / PyPI advisories)
+        run: pip-audit --progress-spinner off
+      - name: Static analysis of the code (bandit, medium and high)
+        run: bandit -q -r src -ll
+      - name: Least-privilege IAM template is valid CloudFormation (cfn-lint)
+        run: cfn-lint infra/security/github-oidc-roles.yaml
+      - name: Secrets committed to the repository, whole history (gitleaks)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.21.2 detect --source /repo --no-banner --redact -c /repo/.gitleaks.toml
+      - name: Build the app image
+        run: docker build -t meridian-app:ci .
+      - name: Vulnerabilities and misconfigurations in the image and repository (Trivy, high and critical, fixable)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/src" aquasec/trivy:0.57.1 \
+            image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --no-progress meridian-app:ci
+          docker run --rm -v "$PWD:/src" aquasec/trivy:0.57.1 \
+            fs --exit-code 1 --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --no-progress \
+            --skip-dirs /src/data --skip-dirs /src/notebooks /src

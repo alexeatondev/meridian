@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 import httpx
 import jwt
 from fastapi import HTTPException, Request
-from itsdangerous import BadSignature, URLSafeTimedSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 ROLES = {
     "portfolio_manager": "Portfolio Manager",
@@ -44,7 +44,10 @@ ROLES.update(PERMISSIONS)
 CONSOLE_ROLE = {"portfolio_manager": "pm", "risk": "risk", "analyst": "research", "manager_selection": "mgr",
                 "leadership": "lead", "compliance": "compliance", "audit": "audit", "admin": "audit"}
 SESSION_COOKIE = "meridian_session"
-SESSION_TTL = 8 * 3600
+SESSION_TTL = 8 * 3600          # absolute session lifetime (NIST SP 800-63B AAL2 allows up to 12 h)
+IDLE_TTL = int(os.getenv("MERIDIAN_IDLE_MINUTES", "30")) * 60   # inactivity timeout (800-63B AAL2: 30 min; 800-53 AC-11, AC-12)
+TOUCH_EVERY = 60                # refresh the activity time at most once a minute
+BACKGROUND_PATHS = ("/api/my-work", "/api/session")   # polling: doesn't count as activity
 
 
 def mode() -> str:
@@ -61,22 +64,76 @@ def _serializer() -> URLSafeTimedSerializer:
 
 
 def make_session(user: dict) -> str:
-    return _serializer().dumps({**user, "csrf": secrets.token_urlsafe(16), "iat": time.time()})
+    t = time.time()
+    return _serializer().dumps({**user, "csrf": secrets.token_urlsafe(16), "iat": t, "la": t})
+
+
+def who(user: dict) -> dict:
+    """The person behind an action, for records: a stable user ID (Cognito sub) as well as name and email, so
+    segregation of duties and audit don't rest on a display name (800-53 IA-2, AU-3)."""
+    return {"id": user.get("sub") or user.get("email") or user.get("name"), "name": user.get("name"),
+            "email": user.get("email", "")}
+
+
+def same_person(rec: dict | None, user: dict) -> bool:
+    """Whether a recorded person (requested_by, drafted_by, created_by ...) is the signed-in user, for segregation
+    of duties. Matches on the stable user ID when the record has one, else on email, else on name (older records)."""
+    if not rec:
+        return False
+    uid = user.get("sub") or ""
+    if rec.get("id") and uid:
+        return rec["id"] == uid
+    em = (user.get("email") or "").lower()
+    if rec.get("email") and em:
+        return rec["email"].lower() == em
+    return bool(rec.get("name")) and (rec.get("name") or "").lower() == (user.get("name") or "").lower()
+
+
+def _decode(raw: str) -> tuple[dict | None, str]:
+    """(session, problem) where problem is '', 'invalid', 'expired', 'idle' or 'revoked'. For 'idle' and
+    'revoked' the session is returned too (for the security log); callers must refuse it."""
+    try:
+        u = _serializer().loads(raw, max_age=SESSION_TTL)
+    except SignatureExpired:
+        return None, "expired"
+    except BadSignature:
+        return None, "invalid"
+    if time.time() - u.get("la", u.get("iat", 0)) > IDLE_TTL:
+        return u, "idle"
+    if REVOKED_AFTER is not None:               # set by the app: sessions issued before an access change are void
+        t = REVOKED_AFTER(u.get("email", ""))
+        if t is not None and u.get("iat", 0) <= t:
+            return u, "revoked"
+    return u, ""
 
 
 def current_user(request: Request) -> dict | None:
     raw = request.cookies.get(SESSION_COOKIE)
     if not raw:
         return None
-    try:
-        u = _serializer().loads(raw, max_age=SESSION_TTL)
-    except BadSignature:
+    u, problem = _decode(raw)
+    if problem and SECURITY_EVENT is not None and not getattr(request.state, "session_logged", False):
+        request.state.session_logged = True
+        SECURITY_EVENT(request, f"session.{problem}", "denied", u, {})
+    return None if problem else u
+
+
+def touched(raw: str, path: str) -> str | None:
+    """A refreshed session cookie when the person was active (not a background poll) and the last refresh is
+    more than a minute old. The absolute lifetime (iat) never moves."""
+    if not raw or path.startswith(BACKGROUND_PATHS):
         return None
-    if REVOKED_AFTER is not None:               # set by the app: sessions issued before an access change are void
-        t = REVOKED_AFTER(u.get("email", ""))
-        if t is not None and u.get("iat", 0) <= t:
-            return None
-    return u
+    u, problem = _decode(raw)
+    if problem or time.time() - u.get("la", 0) < TOUCH_EVERY:
+        return None
+    left = SESSION_TTL - (time.time() - u.get("iat", 0))
+    if left <= 0:
+        return None
+    return _serializer().dumps({**u, "la": time.time()})
+
+
+# Hook set by main.py: (request, kind, outcome, user, detail) -> None, writes the security event log
+SECURITY_EVENT = None
 
 
 # Hook set by main.py: email -> timestamp after which earlier sessions are revoked (or None)
@@ -106,7 +163,10 @@ def require_approver(user: dict, role: str | None = None) -> None:
 
 
 def check_csrf(request: Request, user: dict) -> None:
-    if request.headers.get("x-csrf-token") != user.get("csrf"):
+    import hmac
+    if not hmac.compare_digest(str(request.headers.get("x-csrf-token") or ""), str(user.get("csrf") or "")):
+        if SECURITY_EVENT is not None:
+            SECURITY_EVENT(request, "csrf.failure", "denied", user, {})
         raise HTTPException(403, "CSRF check failed")
 
 

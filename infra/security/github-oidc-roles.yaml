@@ -1,0 +1,230 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Meridian least-privilege roles for GitHub Actions (NIST SP 800-53 AC-6, AC-6(9), IA-2; SP 800-218 PO.5).
+  Replaces the single admin role meridian-github-deploy with three narrow roles, each usable only from one
+  GitHub environment of the alexeatondev/meridian repository, plus a narrowed policy for the CDK
+  CloudFormation execution role. Deployed once by an administrator (see doc 19, runbook R-1). No resources
+  that cost money.
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: alexeatondev/meridian
+    Description: owner/repo allowed to assume the roles
+  OidcProviderArn:
+    Type: String
+    Default: ""
+    Description: >-
+      ARN of the existing GitHub OIDC provider (token.actions.githubusercontent.com). Leave blank to use the
+      account's default provider ARN.
+  AppRegion:
+    Type: String
+    Default: us-east-2
+  CdkQualifier:
+    Type: String
+    Default: hnb659fds
+
+Conditions:
+  DefaultProvider: !Equals [!Ref OidcProviderArn, ""]
+
+Resources:
+  # ---------------------------------------------------------------- deploy: cdk deploy only (environment "production")
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: meridian-gh-deploy
+      Description: GitHub Actions deploy.yml (environment production) - assumes the CDK bootstrap roles only
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [DefaultProvider, !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com", !Ref OidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:environment:production"
+      Policies:
+        - PolicyName: cdk-deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AssumeCdkBootstrapRoles
+                Effect: Allow
+                Action: sts:AssumeRole
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-${CdkQualifier}-deploy-role-${AWS::AccountId}-${AppRegion}"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-${CdkQualifier}-file-publishing-role-${AWS::AccountId}-${AppRegion}"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-${CdkQualifier}-image-publishing-role-${AWS::AccountId}-${AppRegion}"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-${CdkQualifier}-lookup-role-${AWS::AccountId}-${AppRegion}"
+              - Sid: ReadStackOutputs
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AppRegion}:${AWS::AccountId}:stack/Meridian/*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AppRegion}:${AWS::AccountId}:stack/MeridianCostGuard/*"
+
+  # ---------------------------------------------------------------- users: manage-users.yml (environment "user-admin")
+  UsersRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: meridian-gh-users
+      Description: GitHub Actions manage-users.yml (environment user-admin) - Cognito user admin in the app user pool only
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [DefaultProvider, !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com", !Ref OidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:environment:user-admin"
+      Policies:
+        - PolicyName: user-admin
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadStackOutputs
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:${AppRegion}:${AWS::AccountId}:stack/Meridian/*"
+              - Sid: CognitoUserAdmin
+                Effect: Allow
+                Action:
+                  - cognito-idp:AdminCreateUser
+                  - cognito-idp:AdminAddUserToGroup
+                  - cognito-idp:AdminRemoveUserFromGroup
+                  - cognito-idp:AdminListGroupsForUser
+                  - cognito-idp:AdminDisableUser
+                  - cognito-idp:AdminUserGlobalSignOut
+                Resource: !Sub "arn:${AWS::Partition}:cognito-idp:${AppRegion}:${AWS::AccountId}:userpool/*"
+                Condition:
+                  StringEquals:
+                    aws:ResourceTag/project: meridian
+
+  # ---------------------------------------------------------------- ingest: agent-run.yml, prices.yml (environment "ingest")
+  IngestRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: meridian-gh-ingest
+      Description: GitHub Actions agent-run.yml and prices.yml (environment ingest) - read the ingest token only
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [DefaultProvider, !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com", !Ref OidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepo}:environment:ingest"
+      Policies:
+        - PolicyName: ingest
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadStackOutputs
+                Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:${AppRegion}:${AWS::AccountId}:stack/Meridian/*"
+              - Sid: ReadIngestTokenOnly
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AppRegion}:${AWS::AccountId}:secret:IngestToken*"
+
+  # ---------------------------------------------------------------- what CloudFormation may do during a Meridian deploy
+  # Attached to cdk-<qualifier>-cfn-exec-role by re-bootstrapping (runbook R-1, step 4) in place of AdministratorAccess.
+  CfnExecutionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: meridian-cfn-execution
+      Description: Services the Meridian CDK stacks use; IAM limited to Meridian-named roles and policies
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: StackServices
+            Effect: Allow
+            Action:
+              - cloudformation:*
+              - ec2:*
+              - elasticloadbalancing:*
+              - ecs:*
+              - ecr:*
+              - logs:*
+              - rds:*
+              - secretsmanager:*
+              - cognito-idp:*
+              - cloudfront:*
+              - application-autoscaling:*
+              - budgets:*
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - lambda:*
+              - s3:GetObject
+              - s3:ListBucket
+              - kms:DescribeKey
+              - sts:GetCallerIdentity
+            Resource: "*"
+          - Sid: MeridianRolesOnly
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - iam:UpdateRole
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:GetRolePolicy
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:UpdateAssumeRolePolicy
+              - iam:PassRole
+              - iam:CreatePolicy
+              - iam:DeletePolicy
+              - iam:GetPolicy
+              - iam:CreatePolicyVersion
+              - iam:DeletePolicyVersion
+              - iam:ListPolicyVersions
+              - iam:TagPolicy
+            Resource:
+              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/Meridian*"
+              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/meridian-budgets-action"
+              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/meridian-*"
+          - Sid: ServiceLinkedRoles
+            Effect: Allow
+            Action: iam:CreateServiceLinkedRole
+            Resource: "*"
+            Condition:
+              StringLike:
+                iam:AWSServiceName:
+                  - ecs.amazonaws.com
+                  - elasticloadbalancing.amazonaws.com
+                  - rds.amazonaws.com
+                  - cloudfront.amazonaws.com
+                  - vpcorigin.cloudfront.amazonaws.com
+          - Sid: NoPrivilegeEscalation
+            Effect: Deny
+            Action:
+              - iam:CreateUser
+              - iam:CreateAccessKey
+              - iam:CreateLoginProfile
+              - iam:AttachUserPolicy
+              - iam:PutUserPolicy
+              - organizations:*
+              - account:*
+            Resource: "*"
+
+Outputs:
+  DeployRoleArn: {Value: !GetAtt DeployRole.Arn, Description: "GitHub variable AWS_DEPLOY_ROLE_ARN"}
+  UsersRoleArn: {Value: !GetAtt UsersRole.Arn, Description: "GitHub variable AWS_USERS_ROLE_ARN"}
+  IngestRoleArn: {Value: !GetAtt IngestRole.Arn, Description: "GitHub variable AWS_INGEST_ROLE_ARN"}
+  CfnExecutionPolicyArn: {Value: !Ref CfnExecutionPolicy, Description: "Pass to cdk bootstrap --cloudformation-execution-policies"}

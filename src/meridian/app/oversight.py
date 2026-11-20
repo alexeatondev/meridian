@@ -42,7 +42,7 @@ def _store():
 
 
 def _who(user: dict) -> dict:
-    return {"name": user.get("name"), "email": user.get("email", "")}
+    return auth.who(user)
 
 
 def _date(v, field: str) -> str:
@@ -66,7 +66,8 @@ def governance_record(s, *, step: str, actor: dict, summary: str, output: dict, 
     last = s.execute(select(LedgerRecord).where(LedgerRecord.run_id == "governance")
                      .order_by(LedgerRecord.seq.desc()).limit(1)).scalar()
     body = {"dr_id": "dr_" + uuid.uuid4().hex[:20], "dr_type": dr_type, "run_id": "governance", "step": step,
-            "actor": {"kind": "human", "id": actor.get("name"), "email": actor.get("email", "")},
+            "actor": {"kind": "human", "id": actor.get("name"), "email": actor.get("email", ""),
+                      **({"user_id": actor["id"]} if actor.get("id") else {})},
             "portfolio_scope": scope or [], "inputs": [], "policy_version": "", "output": output,
             "summary": summary, "rationale": rationale, "alternatives_considered": [], "constraints_checked": [],
             "dissent": [], "approvals": [], "data_flags": {}, "created_at": datetime.now(timezone.utc).isoformat(),

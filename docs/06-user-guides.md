@@ -1,6 +1,6 @@
 # 06 — User Guides by Role
 
-**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes and tilts in tables) · 2026-11-20 (Simulations page with cashflow simulation; exit a position across funds; management style from anywhere; changes shown in pp that net to zero) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
+**Version 1.0 · 2026-11-18 (calculation templates; glide-path adjustments reach the agents; fiscal year ends; trade files and trades in progress; Policy screen with the versioned IPS and named glide paths; % of market cap owned and SEC financials on Look-through; Principal Financial Group brand theme; glide-path changes and tilts in tables) · 2026-11-20 (Simulations page with cashflow simulation; exit a position across funds; management style from anywhere; changes shown in pp that net to zero; 30-minute inactivity sign-out and the security log) · Applies to: the hosted Meridian pilot (https://d3maw6l4k5cc0v.cloudfront.net). Everything in this guide is built and live unless it is marked *Not built yet*.**
 
 **About the screenshots.** They were taken from a local copy of the app signed in as the fictional people in the persona roster (doc 15), on the offline example run and the example trading data. Numbers, run IDs and dates in your app will differ. Image files: `docs/img/guide/` in the repository (regenerate with `MERIDIAN_OFFLINE=1 pytest tests/e2e/guide_screenshots.py`). Illustrated copy with every screenshot: https://claude.ai/artifact/VtD4preFCa4NvY65h9sUTU (this Project copy carries the image names in place of the pictures).
 
@@ -37,6 +37,7 @@ Not sure where to start? Use this table.
 | Raise or close an exception | 8.2 |
 | Add a user | 11.1 |
 | Tag a fund with a regulation | 12.1 |
+| Review sign-ins, failed sign-ins and refused requests | 11.4 |
 
 ## Contents
 1. Signing in and finding your way around
@@ -162,7 +163,7 @@ A small **i** in a circle sits next to most column headings, tiles, headings, ta
 The same wording appears everywhere that label is used. Admins can add or reword entries in `config/glossary.yaml` (doc 11).
 
 ### 1.7 If your session expires
-Sessions last 8 hours. If yours ends while a page is open, your next action shows **Your session has expired**.
+For security, Meridian signs you out after **30 minutes without activity**, and every session ends after **8 hours** whatever you do (NIST SP 800-63B; doc 19). Two minutes before the 30 minutes are up, a box asks **Still there?**: click **Stay signed in** to carry on, or **Sign out**. Two minutes before the 8 hours, a message tells you to save your work. If a session ends while a page is open, your next action shows **Your session has expired**.
 1. If you typed something you want to keep, click **Stay on page** and copy it first.
 2. Click **Sign in** and sign in again.
 3. Go back to the screen and re-enter anything that was not saved.
@@ -1150,6 +1151,20 @@ To approve (a PM or Risk user with the Approver permission, not the person who p
 *Image: `adm-04-log.png`*
 
 2. **Access log**: every change with when, who, action, before, after and reason. The database refuses edits or deletions.
+
+The **Users** list also shows each person's **Last sign-in**, and **Inactive n d** when an enabled account hasn't signed in for 90 days or more: check whether it's still needed and, if not, **Disable** it (11.2). Review this monthly with Compliance (doc 19 §6).
+
+### 11.4 Review the security log
+**Who:** Admin, Audit and Compliance (read-only for everyone; nobody can change it). **Where:** User access → **Security log**.
+
+![The security log](img/guide/sec-01-security-log.png)
+*Image: `sec-01-security-log.png`*
+
+1. Click **Security log**. It lists, newest first: sign-ins and sign-outs, **failed sign-ins**, sessions ended for inactivity (`session.idle`), the 8-hour limit (`session.expired`) or an access change (`session.revoked`), **refused requests** (`access.denied`: someone tried something their role doesn't allow), CSRF failures, bad machine tokens (`token.invalid`) and requests that didn't come through CloudFront (`origin.blocked`). Each line has who, when (UTC), the address it came from and the page or call.
+2. Narrow it with **Show** (the kind of event), **Email** and **Last … days**, then **Apply**. The line above the table counts failed sign-ins, refused requests and sign-ins.
+3. **Download CSV** saves exactly what is shown (all matching events, not only the first 1,000) for an investigation or the weekly review record.
+
+**You're done when** you have looked at the last 7 days. Do this weekly (doc 19 §6): several failed sign-ins for one person, refused requests from someone who shouldn't be trying, or any `origin.blocked`, `token.invalid` or `csrf.failure` are worth a closer look; raise an exception (8.2) if something needs action. Each event is also copied to the app's CloudWatch log.
 
 Deploys, agent runs and the fallback `manage-users` workflow are in GitHub Actions (doc 14).
 

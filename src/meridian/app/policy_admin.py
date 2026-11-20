@@ -54,7 +54,7 @@ def _store():
 
 
 def _who(user: dict) -> dict:
-    return {"name": user.get("name"), "email": user.get("email", "")}
+    return auth.who(user)
 
 
 def _ts() -> str:
@@ -69,7 +69,7 @@ def _reason(body: dict, n: int = 10) -> str:
 
 
 def _same(a: dict, user: dict) -> bool:
-    return (a.get("email") or a.get("name") or "").lower() in {(user.get("email") or "").lower(), (user.get("name") or "").lower()} - {""}
+    return auth.same_person(a, user)
 
 
 def _record(s, user: dict, step: str, summary: str, output: dict, rationale: str = "", scope=None) -> str:

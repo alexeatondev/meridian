@@ -90,6 +90,25 @@ class DevUser(Base):
     created = Column(DateTime(timezone=True), default=now, nullable=False)
 
 
+class SecurityEvent(Base):
+    """Security-relevant events: sign-in and sign-out, failed sign-ins, expired or revoked sessions, refused
+    requests (403), CSRF failures, bad machine tokens, direct hits on the load balancer. Append-only
+    (NIST SP 800-53 AU-2, AU-3, AU-9); reviewed on User access → Security log (AU-6)."""
+    __tablename__ = "security_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    at = Column(DateTime(timezone=True), default=now, nullable=False, index=True)
+    kind = Column(String(40), nullable=False, index=True)     # e.g. signin.success, access.denied
+    outcome = Column(String(12), nullable=False)               # success | failure | denied | info
+    user_id = Column(String(320))                              # Cognito sub (or dev id)
+    email = Column(String(320), index=True)
+    name = Column(String(200))
+    ip = Column(String(64))
+    user_agent = Column(String(300))
+    method = Column(String(10))
+    path = Column(String(300))
+    detail = Column(JSON)
+
+
 class SessionRevocation(Base):
     """Sessions issued before `revoked_at` for this email are no longer accepted (access changed)."""
     __tablename__ = "session_revocations"
@@ -121,7 +140,7 @@ class Store:
 
         Any UPDATE or DELETE on these records is rejected by a trigger, whoever issues it. Idempotent.
         """
-        for table in ("ledger_records", "access_events"):
+        for table in ("ledger_records", "access_events", "security_events"):
             self._append_only(table)
 
     def _append_only(self, table: str) -> None:
@@ -299,6 +318,31 @@ class Store:
             s.add(AccessEvent(actor={k: actor.get(k) for k in ("name", "email", "sub")}, action=action,
                               target=target, before=before, after=after, reason=reason))
 
+    def log_security(self, **e) -> None:
+        with self.Session.begin() as s:
+            s.add(SecurityEvent(**e))
+
+    def security_events(self, limit: int = 1000, kind: str = "", email: str = "", since=None) -> list[dict]:
+        with self.Session() as s:
+            q = select(SecurityEvent).order_by(SecurityEvent.id.desc())
+            if kind:
+                q = q.where(SecurityEvent.kind.startswith(kind))
+            if email:
+                q = q.where(SecurityEvent.email == email.lower())
+            if since is not None:
+                q = q.where(SecurityEvent.at >= since)
+            return [{"id": e.id, "at": e.at.isoformat(), "kind": e.kind, "outcome": e.outcome, "user_id": e.user_id,
+                     "email": e.email, "name": e.name, "ip": e.ip, "user_agent": e.user_agent, "method": e.method,
+                     "path": e.path, "detail": e.detail or {}} for e in s.execute(q.limit(limit)).scalars()]
+
+    def last_signins(self) -> dict[str, str]:
+        """Most recent successful sign-in per email (for inactive-account review, AC-2(3))."""
+        from sqlalchemy import func
+        with self.Session() as s:
+            q = (select(SecurityEvent.email, func.max(SecurityEvent.at)).where(SecurityEvent.kind == "signin.success")
+                 .group_by(SecurityEvent.email))
+            return {e: (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).isoformat() for e, t in s.execute(q) if e}
+
     def revoke_sessions(self, email: str) -> None:
         with self.Session.begin() as s:
             row = s.get(SessionRevocation, email.lower())
@@ -365,4 +409,5 @@ def db_url_from_env() -> str | None:
     d = json.loads(raw)
     from urllib.parse import quote_plus
     return (f"postgresql+psycopg://{quote_plus(d['username'])}:{quote_plus(d['password'])}"
-            f"@{d['host']}:{d.get('port', 5432)}/{d.get('dbname', 'meridian')}")
+            f"@{d['host']}:{d.get('port', 5432)}/{d.get('dbname', 'meridian')}"
+            "?sslmode=require")          # encrypted connection to RDS (800-53 SC-8); the server also forces TLS

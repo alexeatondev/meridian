@@ -59,7 +59,7 @@ def _store():
 
 
 def _who(user: dict) -> dict:
-    return {"name": user.get("name"), "email": user.get("email", "")}
+    return auth.who(user)
 
 
 def _ts() -> str:

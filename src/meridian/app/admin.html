@@ -38,9 +38,9 @@ label.f{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}input
 </header>
 <main>
 <div class="tabs" role="tablist">
-  <button data-tab="users" class="active">Users</button><button data-tab="review">Access review</button><button data-tab="log">Access log</button>
+  <button data-tab="users" class="active">Users</button><button data-tab="review">Access review</button><button data-tab="log">Access log</button><button data-tab="sec">Security log</button>
 </div>
-<section id="users"></section><section id="review" hidden></section><section id="log" hidden></section>
+<section id="users"></section><section id="review" hidden></section><section id="log" hidden></section><section id="sec" hidden></section>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
@@ -75,6 +75,7 @@ function renderUsers(){
     <td><b>${esc(u.name||'—')}</b><div class="small muted">${esc(u.email)}</div></td><td>${statusChip(u)}</td>
     <td>${u.roles.filter(r=>S.roles[r]).map(r=>`<span class="chip">${esc(label(r))}</span>`).join('')||'<span class="muted small">none</span>'}</td>
     <td>${u.roles.filter(r=>S.perms[r]).map(r=>`<span class="chip perm">${esc(label(r))}</span>`).join('')||'<span class="muted small">—</span>'}</td>
+    <td class="small">${u.last_signin?esc(u.last_signin.slice(0,10)):'<span class="muted">—</span>'}${u.inactive?` <span class="chip warn" title="No sign-in for ${u.inactive_days} days: review whether this account is still needed, then disable it (NIST AC-2(3))">Inactive ${u.inactive_days} d</span>`:''}</td>
     <td>${u.warnings.length?`<span class="chip warn" title="${esc(u.warnings.join('\n'))}">⚠ ${u.warnings.length}</span>`:''}</td>
     <td>${BOOT.can_edit?`<button class="btn" data-edit="${esc(u.email)}">Edit</button>`:''}</td></tr>`).join('');
   $('#users').innerHTML = `<div class="card"><div class="row"><h2 style="margin:0">Users (${S.users.length})</h2><span class="sp" style="flex:1"></span>
@@ -82,7 +83,7 @@ function renderUsers(){
     ${BOOT.can_edit?'<button class="btn primary" id="add">Add user</button>':'<span class="chip">Read-only</span>'}</div>
     <p class="small muted">Workspaces decide which screens a person sees. Permissions are switched on or off per person and allow
     decisions that need that authority. Any change to someone's access signs them out of Meridian so it applies at once.</p>
-    <table><thead><tr><th>Person</th><th>Status</th><th>Workspaces</th><th>Permissions</th><th></th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <table><thead><tr><th>Person</th><th>Status</th><th>Workspaces</th><th>Permissions</th><th>Last sign-in</th><th></th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div id="panel"></div>`;
   $('#q').oninput = e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#users tbody tr').forEach(tr=>{
     const u=S.users.find(x=>x.email===tr.dataset.email);tr.hidden=q&&!(`${u.name} ${u.email} ${u.roles.map(label).join(' ')}`.toLowerCase().includes(q))})};
@@ -165,10 +166,32 @@ function renderLog(){
       ||'<tr><td colspan="7" class="muted">No changes yet</td></tr>'}</tbody></table></div>`;
 }
 
+const SEC_KINDS=[['','All events'],['signin','Sign-ins'],['signin.failure','Failed sign-ins'],['access.denied','Refused requests'],['session','Sessions ended (idle, expired, revoked)'],['csrf','CSRF failures'],['token','Bad machine tokens'],['origin','Direct hits on the load balancer'],['signout','Sign-outs']];
+S.secF={kind:'',email:'',days:30};
+async function loadSec(){ const f=S.secF, q=new URLSearchParams({kind:f.kind,email:f.email,days:f.days});
+  S.sec=await api('GET','/api/admin/security-log?'+q); renderSec(); }
+function renderSec(){
+  const d=S.sec, f=S.secF, oc={success:'ok',failure:'crit',denied:'warn',info:''};
+  const fails=(d.counts['signin.failure']||0), denied=(d.counts['access.denied']||0);
+  $('#sec').innerHTML=`<div class="card"><h2>Security log</h2><p class="small muted">Sign-ins and sign-outs, failed sign-ins, sessions ended by inactivity (30 minutes) or the 8-hour limit, refused requests, CSRF failures, bad machine tokens and requests that didn't come through CloudFront: who, when, from which address and what. Newest first. The database refuses edits or deletions of these entries; each one is also written to the CloudWatch log. Review it at least weekly (NIST SP 800-53 AU-6).</p>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><label class="small">Show <select id="secKind">${SEC_KINDS.map(([k,l])=>`<option value="${k}" ${f.kind===k?'selected':''}>${l}</option>`).join('')}</select></label>
+     <label class="small">Email <input type="search" id="secEmail" value="${esc(f.email)}" placeholder="any" style="width:220px"></label>
+     <label class="small">Last <select id="secDays">${[1,7,30,90,365].map(n=>`<option ${f.days==n?'selected':''}>${n}</option>`).join('')}</select> days</label>
+     <button class="btn" id="secGo">Apply</button><a class="btn" id="secCsv" href="/api/admin/security-log?${new URLSearchParams({kind:f.kind,email:f.email,days:f.days,format:'csv'})}">Download CSV</a></div>
+    <div class="row small" style="gap:14px;margin:10px 0"><span><b>${d.total}</b> events</span><span>Failed sign-ins <b class="${fails?'neg':''}">${fails}</b></span><span>Refused requests <b>${denied}</b></span><span>Sign-ins <b>${d.counts['signin.success']||0}</b></span></div>
+    <div style="overflow-x:auto"><table id="secTable"><thead><tr><th>When (UTC)</th><th>Event</th><th>Outcome</th><th>Person</th><th>From</th><th>Request</th><th>Detail</th></tr></thead><tbody>
+    ${d.events.map(e=>`<tr><td class="mono small">${esc(e.at.slice(0,19).replace('T',' '))}</td><td><span class="chip">${esc(e.kind)}</span></td><td><span class="chip ${oc[e.outcome]||''}">${esc(e.outcome)}</span></td>
+      <td class="small">${esc(e.name||'')}${e.email?`<div class="muted">${esc(e.email)}</div>`:''}</td><td class="mono small">${esc(e.ip||'')}</td>
+      <td class="mono small">${esc((e.method||'')+' '+(e.path||''))}</td><td class="small">${esc(Object.entries(e.detail||{}).map(([k,v])=>k+': '+(Array.isArray(v)?v.join(', '):v)).join('; '))}</td></tr>`).join('')
+      ||'<tr><td colspan="7" class="muted">No events in this period</td></tr>'}</tbody></table></div>
+    ${d.total>d.events.length?`<p class="small muted">Showing the newest ${d.events.length}; the CSV has all ${d.total}.</p>`:''}</div>`;
+  $('#secGo').onclick=()=>{ S.secF={kind:$('#secKind').value,email:$('#secEmail').value.trim(),days:+$('#secDays').value}; loadSec().catch(e=>toast(e.message,'error')); };
+}
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x===b));
-  ['users','review','log'].forEach(t=>$('#'+t).hidden=t!==b.dataset.tab);
+  ['users','review','log','sec'].forEach(t=>$('#'+t).hidden=t!==b.dataset.tab);
   if(b.dataset.tab==='log') loadLog();
+  if(b.dataset.tab==='sec') loadSec().catch(e=>toast(e.message,'error'));
 });
 $('#who').innerHTML = BOOT.can_edit ? '' : '<span class="chip">Read-only</span>';
 load().catch(e=>toast(e.message,'error'));

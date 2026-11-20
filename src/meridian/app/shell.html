@@ -136,6 +136,23 @@ MUI.editStyles = (o) => new Promise(resolve=>{
   d.showModal(); (d.querySelector('[data-msty]')||ta).focus();
 });
 
+/* ---------- inactivity warning (NIST 800-63B AAL2: sign-out after 30 minutes without activity) ----------
+   Checks the session once a minute (a background call that doesn't count as activity). Two minutes before the
+   inactivity timeout it asks whether to stay signed in; the 8-hour limit is shown, not extendable. */
+let idleShown=false;
+async function idleCheck(){
+  if(idleShown) return;
+  let j; try{ const r=await _fetch('/api/session',{credentials:'same-origin'}); if(!r.ok) return; j=await r.json(); }catch(e){ return; }
+  if(j.absolute_left<=120 && j.absolute_left>0){ idleShown=true; MUI.toast('Your 8-hour session ends in about 2 minutes. Save your work; you will need to sign in again.','warn'); return; }
+  if(j.idle_left>120) return;
+  idleShown=true;
+  const stay=await dlg({title:'Still there?', message:`For security you'll be signed out in about ${Math.max(1,Math.round(j.idle_left/60))} minute${j.idle_left>90?'s':''} because there has been no activity for ${Math.round((j.idle_limit-j.idle_left)/60)} minutes.`, okText:'Stay signed in', cancelText:'Sign out'});
+  idleShown=false;
+  if(stay){ try{ await _fetch('/api/session/ping',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':j.csrf}}); }catch(e){} }
+  else location.href='/logout';
+}
+setInterval(idleCheck, 60000);
+
 /* ---------- fetch: busy state on the button that started it; session expiry dialog ---------- */
 let lastBtn=null, lastAt=0, expiredShown=false;
 document.addEventListener('click',e=>{const b=e.target.closest('button, .btn'); if(b && !b.closest('.mbar,dialog,#mtoasts')){lastBtn=b;lastAt=performance.now()}},true);
