@@ -370,7 +370,8 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 
    ![Changes in pp that net to zero](img/guide/sim-05-net-change.png)
    *Image: `sim-05-net-change.png`*
- Changes at different levels combine from the top down: for example equity +2pp (stocks vs bonds) and, in the same column, international = 40% of equity (US vs international) gives the new equity total split 60/40. Changing **Enter** clears the table. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
+
+   Changes at different levels combine from the top down: for example equity +2pp (stocks vs bonds) and, in the same column, international = 40% of equity (US vs international) gives the new equity total split 60/40. Changing **Enter** clears the table. You can paste a block of numbers from Excel into any cell, and **↑ ↓ Enter** move up and down a column. **Clear table** starts again.
 5. Click **Preview**.
 
 ![Preview of the changes, fund by fund](img/guide/pm-14-glide-request.png)
