@@ -38,6 +38,8 @@ Every screen takes its colours, fonts, corner rounding, app-bar look and chart c
 | Add a logo | Put the company's licensed file in `config/brand/` and name it in `logo:`; it replaces the mark in the app bar (served at `/brand/logo`). No logo is shipped |
 | Check a theme | `meridian brand check`: every token present and every text/background pair at WCAG AA contrast (4.5:1); the same check runs in the test suite |
 
+**Sign-in pages (2026-11-20).** The app's own pages outside the shell (sign-in, signed out, no role) use the theme too: the brand's app bar and a centred card. In the hosted app, `/login` shows a branded **Sign in to Meridian** page; its button (`/login?go=1`) goes to the Amazon Cognito sign-in page, which the CDK stack styles from the same theme (`branding.cognito_css()` → `AWS::Cognito::UserPoolUICustomizationAttachment` "SignInBranding", client `ALL`): page background, navy banner, labels, inputs, buttons, errors and password checks. Cognito's classic sign-in pages accept only their own CSS classes and a few properties each, at most 3 KB, and no fonts; a logo image is set through Cognito's API, not CloudFormation, so none is set (the theme has no licensed logo). Changing the theme and deploying restyles both.
+
 How it works: pages keep using the shared CSS variables (`--bg`, `--surface`, `--accent`, `--crit`, `--radius-lg`, `--font`, `--appbar-bg`, `--s1`…); `src/meridian/branding.py` writes them for the active theme into every page (app shell, console, sign-in pages), after each page's own defaults. Code: `branding.py`, `config/brand.yaml`; tests `tests/test_branding.py`.
 
 ## Console update (product owner feedback, 2026-11-13)

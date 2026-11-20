@@ -21,6 +21,14 @@ ROLES = ["portfolio_manager", "risk", "analyst", "manager_selection", "leadershi
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
+def _cognito_css() -> str:
+    """The active brand theme as Cognito sign-in CSS (src/meridian/branding.py)."""
+    import sys
+    sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
+    from meridian.branding import cognito_css
+    return cognito_css()
+
+
 class MeridianStack(Stack):
     def __init__(self, scope: Construct, cid: str, **kw):
         super().__init__(scope, cid, **kw)
@@ -96,6 +104,12 @@ class MeridianStack(Stack):
             id_token_validity=Duration.hours(1), access_token_validity=Duration.hours(1),
             prevent_user_existence_errors=True)
         client_secret = sm.Secret(self, "CognitoClientSecret", secret_string_value=client.user_pool_client_secret)
+
+        # Sign-in pages (Cognito hosted UI, classic) in the brand's colours, from config/brand.yaml. Applies to
+        # every app client of the pool ("ALL"). CSS only: Cognito takes a logo image through its API, not here.
+        signin_css = cognito.CfnUserPoolUICustomizationAttachment(self, "SignInBranding", user_pool_id=pool.user_pool_id,
+                                                                  client_id="ALL", css=_cognito_css())
+        signin_css.node.add_dependency(domain)                    # Cognito needs the domain before UI settings
 
         c = svc.task_definition.default_container
         for k, v in {"MERIDIAN_AUTH": "cognito", "APP_BASE_URL": base_url, "COGNITO_DOMAIN": domain.base_url(),

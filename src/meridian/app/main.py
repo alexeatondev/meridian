@@ -100,13 +100,31 @@ def _brand_css() -> str:
     return theme_css()
 
 
-def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
-    return HTMLResponse(f"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title}</title><style>body{{font-family:system-ui,sans-serif;background:var(--bg,#f4f3f0);color:var(--text,#111);display:grid;place-items:center;min-height:100vh;margin:0}}
-.card{{background:var(--surface,#fff);border:1px solid var(--line,#e2e0da);border-top:4px solid var(--accent,#1f4e8c);border-radius:var(--radius-lg,12px);padding:28px;max-width:440px;width:100%}}h1{{font-size:20px;margin:0 0 6px}}
-label{{display:block;margin:10px 0 4px;font-size:13px}}input[type=text]{{width:100%;padding:8px;border:1px solid var(--line-strong,#ccc);border-radius:var(--radius-sm,8px);box-sizing:border-box}}
-.btn{{display:inline-block;margin-top:16px;background:var(--accent,#1f4e8c);color:var(--accent-ink,#fff);border:0;padding:10px 16px;border-radius:var(--radius-sm,8px);font-weight:600;text-decoration:none;cursor:pointer}}
-.muted{{color:var(--muted,#666);font-size:13px}}</style>{_brand_css()}</head><body><div class="card">{body}</div></body></html>""", status_code=status)
+def _page(title: str, body: str, status: int = 200, wide: bool = False) -> HTMLResponse:
+    """Pages outside the app shell (sign-in, signed out, no role): the brand's app bar and a centred card."""
+    import html as _h
+    from ..branding import active, logo_path
+    t = active()
+    product, company = _h.escape(t.get("product") or "Meridian"), _h.escape(t.get("company") or "")
+    mark = '<img src="/brand/logo" alt="">' if logo_path(t) else '<i aria-hidden="true"></i>'
+    return HTMLResponse(f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title} · {product}</title><style>
+body{{font-family:system-ui,sans-serif;background:var(--bg,#f4f3f0);color:var(--text,#111);margin:0;min-height:100vh;display:flex;flex-direction:column}}
+.pbar{{background:var(--appbar-bg,#14233b);color:var(--appbar-text,#fff);height:56px;display:flex;align-items:center;padding:0 24px;gap:10px}}
+.pbar .pm{{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:.2px}}
+.pbar .pm i{{display:inline-block;width:24px;height:24px;border-radius:var(--radius-sm,6px);background:var(--appbar-mark,linear-gradient(135deg,#7aa7e6,#2f6bc1))}}
+.pbar .pm img{{height:26px;width:auto;display:block}}.pbar .pc{{font-weight:400;font-size:12px;color:var(--appbar-muted,#c9d3e3);border-left:1px solid rgba(255,255,255,.3);padding-left:9px}}
+main{{flex:1;display:grid;place-items:center;padding:32px 16px}}
+.card{{background:var(--surface,#fff);border:1px solid var(--line,#e2e0da);border-top:4px solid var(--accent,#1f4e8c);border-radius:var(--radius-lg,12px);padding:30px 32px;max-width:{'560' if wide else '440'}px;width:100%;box-sizing:border-box;box-shadow:0 2px 10px rgba(0,0,0,.05)}}
+h1{{font-size:22px;margin:0 0 8px;color:var(--heading,var(--text,#111))}}p{{line-height:1.5}}
+label{{display:block;margin:10px 0 4px;font-size:13px}}input[type=text]{{width:100%;padding:9px;border:1px solid var(--line-strong,#ccc);border-radius:var(--radius-sm,8px);box-sizing:border-box;font:inherit}}
+.btn{{display:inline-block;margin-top:16px;background:var(--accent,#1f4e8c);color:var(--accent-ink,#fff);border:1px solid var(--accent,#1f4e8c);padding:11px 18px;border-radius:var(--radius-sm,8px);font-weight:600;text-decoration:none;cursor:pointer;font:inherit;font-weight:600}}
+.btn:hover{{background:var(--accent-hover,var(--accent,#1f4e8c))}}.btn:focus-visible,a:focus-visible,input:focus-visible{{outline:2px solid var(--focus,#2f6bc1);outline-offset:2px}}
+.btn.full{{display:block;width:100%;text-align:center;box-sizing:border-box}}
+.muted{{color:var(--muted,#666);font-size:13px}}.note{{border-top:1px solid var(--line,#e2e0da);margin-top:22px;padding-top:14px}}
+.roles label{{display:flex;gap:8px;align-items:center;margin:4px 0}}footer{{text-align:center;padding:14px;font-size:12px;color:var(--muted,#666)}}
+</style>{_brand_css()}</head><body><header class="pbar" role="banner"><span class="pm">{mark}{product}</span>{f'<span class="pc">{company}</span>' if company else ''}</header>
+<main id="main"><div class="card">{body}</div></main><footer>{product} · shadow mode: nothing is traded automatically</footer></body></html>""", status_code=status)
 
 
 # ------------------------------------------------------------------ auth routes
@@ -117,12 +135,20 @@ def healthz():
 
 @app.get("/login")
 def login(request: Request):
+    from ..branding import active
+    product = (active().get("product") or "Meridian")
     if auth.mode() == "dev":
         boxes = "".join(f'<label><input type="checkbox" name="roles" value="{k}"> {v}</label>' for k, v in auth.ROLES.items())
-        return _page("Sign in (dev)", f"""<h1>Meridian — development sign-in</h1><p class="muted">Local testing only. On AWS, sign-in uses Amazon Cognito.</p>
-<form method="post" action="/dev-login"><label>Name</label><input type="text" name="name" value="Dev" required>
-<label>Email (optional)</label><input type="text" name="email" value="">{boxes}
-<button class="btn" type="submit">Sign in</button></form>""")
+        return _page("Sign in (dev)", f"""<h1>Sign in to {product}</h1><p class="muted">Development sign-in for local testing only. On AWS, sign-in uses Amazon Cognito.</p>
+<form method="post" action="/dev-login"><label for="dn">Name</label><input id="dn" type="text" name="name" value="Dev" required>
+<label for="de">Email (optional)</label><input id="de" type="text" name="email" value=""><div class="roles">{boxes}</div>
+<button class="btn full" type="submit">Sign in</button></form>""")
+    if request.query_params.get("go") != "1":
+        return _page("Sign in", f"""<h1>Sign in to {product}</h1>
+<p>Agentic portfolio management for the target-date series: proposals, risk, compliance and trading in one place.</p>
+<a class="btn full" href="/login?go=1" id="signin">Sign in</a>
+<div class="note muted">You'll sign in with your work email and password on the secure sign-in page, then come straight back here. Forgot your password? Use <b>Forgot your password?</b> on the next page.<br><br>
+For authorized users only. Every decision you record is kept in the audit ledger with your name.</div>""")
     state = secrets.token_urlsafe(24)
     resp = RedirectResponse(auth.login_url(state))
     resp.set_cookie("meridian_oauth_state", state, max_age=600, httponly=True, secure=_secure(), samesite="lax")
@@ -162,7 +188,7 @@ def logout():
 
 @app.get("/signed-out")
 def signed_out():
-    return _page("Signed out", '<h1>Signed out</h1><a class="btn" href="/login">Sign in again</a>')
+    return _page("Signed out", '<h1>You\'re signed out</h1><p class="muted">Close the browser tab, or sign in again to continue.</p><a class="btn full" href="/login?go=1">Sign in again</a>')
 
 
 # ------------------------------------------------------------------ console

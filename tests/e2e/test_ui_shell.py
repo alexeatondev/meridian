@@ -115,4 +115,4 @@ def test_ux_04_help_and_session_expiry(sign_in, app_url):
     dlg = page.locator("dialog.mdlg[open]")
     expect(dlg).to_contain_text("Your session has expired")
     dlg.locator("button[value=ok]").click()
-    page.wait_for_url("**/login")
+    page.wait_for_url("**/login?go=1")

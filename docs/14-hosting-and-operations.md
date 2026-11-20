@@ -12,7 +12,7 @@ How the hosted Meridian app is built, deployed and run, and what to do when some
 | AWS account | 950088505912 (member account in organization `o-gz7gwi4fzq`, advanced features activated 2026-11-09) |
 | Region | us-east-2. An organization SCP denied this account's deploy role in us-east-1 (seen 2026-11-09); keep all regional resources in us-east-2. Global services (IAM, CloudFront, Budgets) work |
 | Infrastructure as code | AWS CDK (Python), `infra/app.py`, two CloudFormation stacks: `Meridian` and `MeridianCostGuard` |
-| Sign-in | Amazon Cognito user pool `us-east-2_OX4vbNaqC`, hosted sign-in at https://meridian-950088505912.auth.us-east-2.amazoncognito.com |
+| Sign-in | Amazon Cognito user pool `us-east-2_OX4vbNaqC`, hosted sign-in at https://meridian-950088505912.auth.us-east-2.amazoncognito.com (hosted UI classic, styled from the brand theme by the CDK resource `SignInBranding`, 2026-11-20); the app's `/login` shows a branded page first |
 | Mode | Shadow mode: no money moves. Hosted app runs with `MERIDIAN_LLM=off`; live LLM judgment runs in the `agent-run` GitHub workflow |
 
 ## 2. Architecture

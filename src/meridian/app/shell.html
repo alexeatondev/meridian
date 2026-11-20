@@ -120,7 +120,7 @@ window.fetch = async function(input, init){
     if(r.status===401 && !expiredShown && !/\/api\/my-work/.test(url)){
       expiredShown=true;
       dlg({title:'Your session has expired', message:'For security, you were signed out after a period of inactivity. Sign in again to continue; anything you had not saved will need to be re-entered.', okText:'Sign in', cancelText:'Stay on page'})
-        .then(v=>{expiredShown=false; if(v) location.href='/login'});
+        .then(v=>{expiredShown=false; if(v) location.href='/login?go=1'});
     }
     return r;
   } finally { if(btn){btn.removeAttribute('aria-busy');btn.disabled=false;} }

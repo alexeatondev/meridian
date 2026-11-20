@@ -77,6 +77,44 @@ def theme_css(t: dict | None = None) -> str:
     return f'{font_link}<style id="meridian-brand" data-brand="{t.get("key", "")}">{css}</style>'
 
 
+def cognito_css(t: dict | None = None) -> str:
+    """CSS for the Amazon Cognito sign-in pages (hosted UI, classic) in the theme's colours. Cognito accepts only
+    its own *-customizable classes, a few properties each, colour values, and at most 3 KB; fonts can't be set."""
+    t = t or active()
+    c, ab = t.get("colors") or {}, t.get("appbar") or {}
+    g = lambda k, d: str(c.get(k) or d)  # noqa: E731
+    rules = {
+        ".background-customizable": {"background-color": g("bg", "#f4f3f0")},
+        ".banner-customizable": {"padding": "22px 0px 22px 0px", "background-color": ab.get("bg") or g("accent", "#1f4e8c")},
+        ".logo-customizable": {"max-width": "60%", "max-height": "30%"},
+        ".label-customizable": {"font-weight": "600", "color": g("text", "#111111")},
+        ".textDescription-customizable": {"padding-top": "10px", "padding-bottom": "10px", "display": "block",
+                                          "font-size": "14px", "color": g("text-2", "#444444")},
+        ".idpDescription-customizable": {"padding-top": "10px", "padding-bottom": "10px", "display": "block",
+                                         "font-size": "14px", "color": g("text-2", "#444444")},
+        ".legalText-customizable": {"color": g("muted", "#666666"), "font-size": "12px"},
+        ".submitButton-customizable": {"font-size": "14px", "font-weight": "bold", "margin": "20px 0px 10px 0px",
+                                       "height": "40px", "width": "100%", "color": g("accent-ink", "#ffffff"),
+                                       "background-color": g("accent", "#1f4e8c")},
+        ".submitButton-customizable:hover": {"color": g("accent-ink", "#ffffff"), "background-color": g("accent-hover", g("accent", "#1f4e8c"))},
+        ".errorMessage-customizable": {"padding": "5px", "font-size": "14px", "width": "100%", "background": g("crit-bg", "#f8e1de"),
+                                       "border": f"2px solid {g('crit', '#a3261b')}", "color": g("crit", "#a3261b")},
+        ".inputField-customizable": {"width": "100%", "height": "36px", "color": g("text", "#111111"),
+                                     "background-color": g("surface", "#ffffff"), "border": f"1px solid {g('line-strong', '#cccccc')}"},
+        ".inputField-customizable:focus": {"border-color": g("focus", g("accent", "#1f4e8c")), "outline": "0px"},
+        ".passwordCheck-notValid-customizable": {"color": g("crit", "#a3261b")},
+        ".passwordCheck-valid-customizable": {"color": g("ok", "#1d7a46")},
+        ".idpButton-customizable": {"height": "40px", "width": "100%", "text-align": "center", "margin-bottom": "15px",
+                                    "color": g("accent-ink", "#ffffff"), "background-color": g("accent", "#1f4e8c"),
+                                    "border-color": g("accent", "#1f4e8c")},
+        ".idpButton-customizable:hover": {"color": g("accent-ink", "#ffffff"), "background-color": g("accent-hover", g("accent", "#1f4e8c"))},
+    }
+    css = "\n".join(f"{sel} {{ {' '.join(f'{k}: {v};' for k, v in props.items())} }}" for sel, props in rules.items())
+    if len(css.encode()) > 3000:
+        raise ValueError(f"Cognito CSS is {len(css.encode())} bytes; the limit is 3 KB")
+    return css
+
+
 def logo_path(t: dict | None = None) -> Path | None:
     t = t or active()
     name = (t.get("logo") or "").strip()
