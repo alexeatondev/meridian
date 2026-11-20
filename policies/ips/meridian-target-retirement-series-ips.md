@@ -253,7 +253,7 @@ This IPS is reviewed at least annually and whenever there is a material change i
 | Chair, Governing Body | | | |
 | Chief Investment Officer | | | |
 | Chief Compliance Officer | | | |
-| Portfolio Manager | Dev (Alex Eaton) | | |
+| Portfolio Manager | Product owner (named in the hosted app) | | |
 
 ---
 

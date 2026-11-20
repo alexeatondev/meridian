@@ -484,7 +484,7 @@ function tgRender(focus){
     inp.onpaste=ev=>{ const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
       const rowsEl=[...document.querySelectorAll('.tg tr[data-row]')], tr=inp.closest('tr'), r0=rowsEl.indexOf(tr), c0=[...tr.children].indexOf(inp.closest('td'));
       txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{ const row=rowsEl[r0+i]; if(!row) return;
-        line.split('\t').forEach((v,k)=>{ const td=row.children[c0+k]; const x=td&&td.querySelector('[data-tg],[data-th]'); if(!x) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); setCell(x,isNaN(+v)?'':v); }); });
+        line.split('\t').forEach((v,k)=>{ const td=row.children[c0+k]; const x=td&&td.querySelector('[data-tg],[data-th]'); if(!x) return; v=v.trim().replace(/[%,\s]/g,''); setCell(x,isNaN(+v)?'':v); }); });
       T.prev=null; tgRender(); };
     inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const at=inp.dataset.tg?'data-tg':'data-th', f=(inp.dataset.tg||inp.dataset.th).split('|')[0], col=[...document.querySelectorAll(`[${at}^="${f}|"]`)], k=col.indexOf(inp), nx=col[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select();} };
   });
@@ -706,8 +706,8 @@ function trancheEditor(t){
   const lines = [];
   if (P.default) lines.push(['Whole trade list', fmt(P.default), 'list']);
   for (const [k,v] of Object.entries(P.funds)) lines.push(['Fund '+k, fmt(v), 'fund:'+k]);
-  for (const [k,v] of Object.entries(P.securities)) lines.push(['Security '+k.replace('|',' · ')+((P.calcs||{})[k]?` (${(P.calcs||{})[k].name} v${(P.calcs||{})[k].version})`:''), fmt(v), 'sec:'+k]);
-  for (const k of P.excluded) lines.push(['Security '+k.replace('|',' · '), 'Not tranched: trades in full on '+t.trade_date, 'exc:'+k]);
+  for (const [k,v] of Object.entries(P.securities)) lines.push(['Security '+k.replaceAll('|',' · ')+((P.calcs||{})[k]?` (${(P.calcs||{})[k].name} v${(P.calcs||{})[k].version})`:''), fmt(v), 'sec:'+k]);
+  for (const k of P.excluded) lines.push(['Security '+k.replaceAll('|',' · '), 'Not tranched: trades in full on '+t.trade_date, 'exc:'+k]);
   const usable = (S.st.calcs||[]).filter(c=>c.usable);
   const calcBox = `<div class="card"><h2>Use a calculation</h2><p class="small muted">Run an approved calculation template over the orders in scope. Each order gets its own series (for example, a liquidity cap gives a large order more days than a small one). Preview first; applying adds the series to this bucket, replacing any series already set on those securities. Templates are managed on <b>Routing &amp; settings</b>.</p>
   ${usable.length?`<div class="row"><label>Template <select id="clTpl">${usable.map(c=>`<option value="${c.id}">${esc(c.name)} (v${c.current.version})</option>`).join('')}</select></label><label>Apply to <select id="clScope">${scopes.join('')}</select></label><button class="btn" id="clPrev">Preview</button><button class="btn primary" id="clApply">Apply and save</button></div><p class="small muted" id="clDesc">${esc(usable[0].current.description)}</p><div id="clOut"></div>`:'<p class="muted">No approved templates yet.</p>'}</div>`;

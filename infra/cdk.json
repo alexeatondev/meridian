@@ -3,8 +3,7 @@
   "context": {
     "@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature": false,
     "costGuard": {
-      "monthlyLimitUsd": 75,
-      "email": "aeaton3252@gmail.com"
+      "monthlyLimitUsd": 75
     }
   }
 }

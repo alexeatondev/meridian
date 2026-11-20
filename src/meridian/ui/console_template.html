@@ -1251,14 +1251,14 @@ function gpGridHtml(){ const T=gpT(), N=gpNodes(), cols=gpCols(), res=gpResults(
     if(view==='ba'||!rs) return ch?`${(info.cur*100).toFixed(1)}→<b>${(info.after*100).toFixed(1)}</b>`:(info.cur*100).toFixed(1);
     const x=avg(rs.map(r=>MHier.change(view,n,r.base,r.w))); return Math.abs(x)<5e-7?'<span class="mh0">0.00</span>':`<b class="${x>0?'mhpos':'mhneg'}">${MHier.fmt(x)}</b>`; };
   const rows=N.filter(n=>n.level<=T.show).map(n=>`<tr class="gp-l${n.depth}"><td class="gpn" style="padding-left:${6+n.depth*16}px" title="Level ${n.level}: ${esc(L[n.level-1]||'')}"><span class="gplv">L${n.level}</span> ${n.depth===0?'<b>'+esc(n.name)+'</b>':esc(n.name)}</td>${cols.map(c=>{const info=gpCellInfo(n,c,res), v=(T.cells[c.key]||{})[n.id]??'', ch=info.after!=null&&Math.abs(info.after-info.cur)>1e-6;
-      return `<td class="gpc ${v!==''?'gped':ch?'gpchg':''}"><input type="text" inputmode="decimal" data-gpr="${esc(c.key)}" data-gpn="${esc(n.id)}" value="${esc(v)}" placeholder="${ph(info)}" title="${esc(n.name)}, ${esc(c.label.replace('\n',' '))}: ${(info.cur*100).toFixed(2)}% of the fund today (${(info.share*100).toFixed(1)}% of ${esc(n.parent?n.parent.name:'the fund')})" aria-label="${esc(n.name)} ${esc(c.label)}"><div class="gpa">${subTxt(n,c,info,ch)}</div></td>`}).join('')}</tr>`).join('');
+      return `<td class="gpc ${v!==''?'gped':ch?'gpchg':''}"><input type="text" inputmode="decimal" data-gpr="${esc(c.key)}" data-gpn="${esc(n.id)}" value="${esc(v)}" placeholder="${ph(info)}" title="${esc(n.name)}, ${esc(c.label.replaceAll('\n',' '))}: ${(info.cur*100).toFixed(2)}% of the fund today (${(info.share*100).toFixed(1)}% of ${esc(n.parent?n.parent.name:'the fund')})" aria-label="${esc(n.name)} ${esc(c.label)}"><div class="gpa">${subTxt(n,c,info,ch)}</div></td>`}).join('')}</tr>`).join('');
   const net=`<tr class="gpfoot"><td class="gpn" title="Level-1 changes must net to zero, and the changes inside each group add up to the group's change"><b>Net change</b> <span class="small muted">level 1</span></td>${cols.map(c=>{const rs=res[c.key]; if(!rs) return '<td></td>';
       const ck=rs.map(r=>MHier.netCheck(N,r.base,r.w)), l1=avg(ck.map(x=>x.l1)), ok=ck.every(x=>x.ok);
       return `<td data-gpnet="${esc(c.key)}" class="num ${ok?'gpok':'gpbad'}" title="${esc(ok?'Level 1 nets to zero and every group adds up':'Changes do not net to zero: '+ck.filter(x=>!x.ok).map(x=>'worst '+MHier.fmt(x.worst)+'pp').join(', '))}">${ok?'✓ ':'⚠ '}${MHier.fmt(l1)}</td>`}).join('')}</tr>`;
   const foot=`<tr class="gpfoot"><td class="gpn"><b>Check</b></td>${cols.map(c=>{const rs=res[c.key]; if(!rs) return '<td></td>';
       const errs=[...new Set(rs.flatMap(r=>r.errors))], net=rs.reduce((t,r)=>t+r.net,0)/rs.length;
       return `<td data-gpchk="${esc(c.key)}" class="num ${errs.length||Math.abs(net)>5e-5?'gpbad':'gpok'}" title="${esc(errs.join(' | '))}">${errs.length?'⚠ '+esc(errs[0].slice(0,40)):Math.abs(net)>5e-5?`net ${net>0?'+':''}${(net*100).toFixed(2)}`:'✓ 100%'}</td>`}).join('')}</tr>`;
-  return `<table class="gpt"><tr><th class="gpn">Level · asset</th>${cols.map(c=>`<th class="num" title="${esc(c.sub)}">${esc(c.label).replace('\n','<br>')}<div class="small muted">${esc(c.sub)}</div></th>`).join('')}</tr>${rows}${net}${foot}</table>`; }
+  return `<table class="gpt"><tr><th class="gpn">Level · asset</th>${cols.map(c=>`<th class="num" title="${esc(c.sub)}">${esc(c.label).replaceAll('\n','<br>')}<div class="small muted">${esc(c.sub)}</div></th>`).join('')}</tr>${rows}${net}${foot}</table>`; }
 function gpTableHtml(){ const T=gpT();
   const seg=(k,opts)=>`<span class="seg" role="group">${opts.map(([v,l,tip])=>`<button type="button" class="btn ${String(T[k])===String(v)?'primary':''}" data-gpt="${k}" data-v="${v}" ${tip?`title="${esc(tip)}"`:''}>${l}</button>`).join('')}</span>`;
   return `<h2>Propose glide-path changes</h2>
@@ -1393,7 +1393,7 @@ function bindNew(){
     inp.onpaste=ev=>{const txt=(ev.clipboardData||window.clipboardData).getData('text'); if(!/[\t\n]/.test(txt.trim())) return; ev.preventDefault();
       const T=gpT(), N=gpNodes().filter(n=>n.level<=T.show), cols=gpCols(), r0=N.findIndex(n=>n.id===inp.dataset.gpn), c0=cols.findIndex(c=>c.key===inp.dataset.gpr);
       txt.replace(/\r/g,'').split('\n').filter(l=>l.length).forEach((line,i)=>{const n=N[r0+i]; if(!n) return;
-        line.split('\t').forEach((v,k)=>{const c=cols[c0+k]; if(!c) return; v=v.trim().replace('%','').replace(/[,\s]/g,''); const cell=(T.cells[c.key]||(T.cells[c.key]={})); if(v===''||isNaN(+v)) delete cell[n.id]; else cell[n.id]=v})});
+        line.split('\t').forEach((v,k)=>{const c=cols[c0+k]; if(!c) return; v=v.trim().replace(/[%,\s]/g,''); const cell=(T.cells[c.key]||(T.cells[c.key]={})); if(v===''||isNaN(+v)) delete cell[n.id]; else cell[n.id]=v})});
       T.prev=null; gpRegrid()};
     inp.onkeydown=ev=>{ if(!['ArrowUp','ArrowDown','Enter'].includes(ev.key)) return; const ins=[...document.querySelectorAll(`[data-gpr="${CSS.escape(inp.dataset.gpr)}"]`)], k=ins.indexOf(inp);
       const nx=ins[k+(ev.key==='ArrowUp'?-1:1)]; if(nx){ev.preventDefault(); nx.focus(); nx.select()} };

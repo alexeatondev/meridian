@@ -224,8 +224,11 @@ MeridianStack(app, "Meridian", env=cdk.Environment(account=os.getenv("CDK_DEFAUL
                                                    region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2")),
               description="Meridian agentic portfolio management — hosted app")
 cg = app.node.try_get_context("costGuard") or {}
-if cg.get("email"):
-    CostGuardStack(app, "MeridianCostGuard", limit_usd=float(cg.get("monthlyLimitUsd", 75)), email=cg["email"],
+# The alert address is personal data, so it is not in the (public) repository: the deploy workflow passes it from the
+# GitHub Actions secret COST_GUARD_EMAIL. It lands only in the CloudFormation template inside the AWS account.
+cg_email = os.getenv("COST_GUARD_EMAIL", "").strip() or cg.get("email", "")
+if cg_email:
+    CostGuardStack(app, "MeridianCostGuard", limit_usd=float(cg.get("monthlyLimitUsd", 75)), email=cg_email,
                    app_region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2"),
                    env=cdk.Environment(account=os.getenv("CDK_DEFAULT_ACCOUNT"),
                                        region=os.getenv("MERIDIAN_AWS_REGION", "us-east-2")),

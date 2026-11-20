@@ -206,7 +206,7 @@ The pilot runs a deliberately smaller stack than the recommendation above. Detai
 
 | Concern | Pilot implementation |
 |---|---|
-| Hosting | AWS account 950088505912, us-east-2, defined in AWS CDK (`infra/app.py`), stacks `Meridian` and `MeridianCostGuard` |
+| Hosting | The Meridian AWS account (ID kept out of the public repository), us-east-2, defined in AWS CDK (`infra/app.py`), stacks `Meridian` and `MeridianCostGuard` |
 | Edge | CloudFront (HTTPS) → Application Load Balancer that only accepts CloudFront's secret origin header |
 | App | FastAPI + server-rendered Meridian Console on ECS Fargate (1 task) |
 | Data | RDS PostgreSQL (encrypted, isolated subnets): runs, decision ledger (append-only triggers), governance ledger (exceptions, trading, regulations), access log (append-only), exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings (incl. positions, glide-path adjustments), fund regulations, compliance obligations |

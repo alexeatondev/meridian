@@ -36,7 +36,14 @@ jobs:
         run: cdk bootstrap --require-approval never
       - name: Deploy
         working-directory: infra
-        run: cdk deploy --all --require-approval never --outputs-file outputs.json
+        env:
+          # personal data kept out of the public repository (doc 19 G-7); masked in logs by GitHub
+          COST_GUARD_EMAIL: ${{ secrets.COST_GUARD_EMAIL }}
+        run: |
+          if [ -z "$COST_GUARD_EMAIL" ]; then
+            echo "::error::Set the repository secret COST_GUARD_EMAIL (cost-alert address); without it the cost guard stack would be left out"; exit 1
+          fi
+          cdk deploy --all --require-approval never --outputs-file outputs.json
       - name: Summary
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"

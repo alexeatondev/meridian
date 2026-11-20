@@ -2,7 +2,7 @@
 
 Project-specific instructions go above the AWS block. Where they conflict with the AWS rules below, these project instructions take precedence.
 
-- AWS: account 950088505912 with advanced features activated (2026-11-09). Selected Region us-east-2 (CloudFront and its certificate live in us-east-1 by design).
+- AWS: the Meridian account (its ID isn't kept in this public repository; `aws sts get-caller-identity` shows it), with organization advanced features activated (2026-11-09). Selected Region us-east-2 (CloudFront and its certificate live in us-east-1 by design).
 - Deploys go through GitHub Actions OIDC (role `meridian-github-deploy`); do not create long-lived access keys.
 
 <!-- BEGIN AWS Agent Toolkit rules -->

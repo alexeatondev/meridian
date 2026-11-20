@@ -78,7 +78,7 @@ Record retention applied: **6 years** (strictest selected regime).
 | Role | Name | Decision | Date |
 |---|---|---|---|
 | chief_compliance_officer | — unfilled — | pending | |
-| portfolio_manager | Dev (Alex Eaton) | pending | |
+| portfolio_manager | Product owner (named in the hosted app) | pending | |
 | derivatives_risk_manager | — unfilled — | pending | |
 | liquidity_program_administrator | — unfilled — | pending | |
 | fund_board | — unfilled — | pending | |

@@ -300,7 +300,7 @@ def console(request: Request, run_id: str):
             "role_ids": {auth.CONSOLE_ROLE[r]: r for r in user["roles"] if r in auth.CONSOLE_ROLE},
             "permissions": [r for r in user["roles"] if r in auth.PERMISSIONS],
             "is_approver": auth.APPROVER in user["roles"],
-            "csrf": user["csrf"], "runs": st.list_runs()[:24], "run_id": rid}
+            "csrf": user["csrf"], "runs": st.list_runs()[:24], "run_id": run.id}
     from .oversight import list_cases, previous_summary
     live["prev"] = previous_summary(st, run)
     live["exceptions"] = list_cases()

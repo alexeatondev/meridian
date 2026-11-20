@@ -92,8 +92,9 @@ sources:
     transport: http
     enabled: true
     # company financials from SEC XBRL frames (data.sec.gov). SEC fair-access rules: declare a name and contact email.
-    # SEC_USER_AGENT (env or repository variable) overrides this.
-    options: {user_agent: "Meridian research alex.w.eaton@outlook.com"}
+    # The contact is personal data, so it is not kept here: the data-refresh workflow sets SEC_USER_AGENT from the
+    # repository secret of the same name (e.g. "Meridian research name@firm.com"). Without it a generic agent is sent.
+    options: {}
 
   manual:
     provider: manual
