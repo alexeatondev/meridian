@@ -43,7 +43,7 @@ jobs:
         id: aws
         if: vars.AWS_DEPLOY_ROLE_ARN != ''
         continue-on-error: true            # run still works (artifact only) if the app is not reachable yet
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-east-2
