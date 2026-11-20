@@ -39,7 +39,7 @@ meridian = "meridian.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-meridian = ["ui/*.html", "app/*.html"]
+meridian = ["ui/*.html", "app/*.html", "app/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

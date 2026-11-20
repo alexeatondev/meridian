@@ -197,6 +197,17 @@ def _put(s, key: str, body: dict) -> None:
         s.add(TradingSetting(key=key, body=body))
 
 
+# ------------------------------------------------------------------ management style per fund (set by hand)
+STYLES = {"active": "Active", "passive": "Passive", "hybrid": "Hybrid"}
+
+
+def fund_styles(s) -> dict[str, dict]:
+    """{fund_id: {style, by, at, reason}} for funds whose management style a PM has set. Unset funds are reported
+    as None and treated as passive until set (they follow the glide path with index holdings)."""
+    row = s.get(TradingSetting, "styles")
+    return dict(row.body.get("funds", {})) if row else {}
+
+
 def strategic_table(s, fund_id: str) -> dict:
     row = s.get(TradingSetting, f"strategic:{fund_id}")
     m = model()
@@ -449,6 +460,7 @@ def state(request: Request):
         settings = get_settings(s)
         from .regulations import active_tags
         regs_by_fund: dict[str, list] = {}
+        styles = fund_styles(s)
         for t in active_tags(s):
             regs_by_fund.setdefault(t["fund_id"], []).append(t)
         funds = []
@@ -459,7 +471,8 @@ def state(request: Request):
                               regulations=[t["regulation"] for t in regs_by_fund.get(fid, [])],
                               buffer_bps=fund_buffer(settings, fid),
                               strategic_follows=strategic_table(s, fid).get("follows_glide_path", True),
-                              glide_adjusted=bool(glide_deltas(s, fid))))
+                              glide_adjusted=bool(glide_deltas(s, fid)),
+                              style=styles.get(fid, {}).get("style"), style_set=styles.get(fid)))
         from ..policy import load_universe
         uni = load_universe()
         return {"as_of": m.as_of.isoformat(), "funds": funds, "glide": glide_state(s), "scopes": SCOPES,
@@ -470,6 +483,57 @@ def state(request: Request):
                 "cashflows": _cashflows(s), "trade_lists": _trade_lists(s),
                 "calcs": [_calc_view(t) for t in calc_state(s)["templates"]], "calc_kinds": calcs_mod.KINDS,
                 "trading_records": [r for r in _store().ledger("governance") if r.get("dr_type") == "trading"][-200:]}
+
+
+@router.get("/api/trading/fund-styles")
+def get_fund_styles(request: Request):
+    """Management style per fund (Active, Passive, Hybrid), set by hand by portfolio managers."""
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    with _store().Session() as s:
+        st = fund_styles(s)
+    return {"styles": STYLES, "funds": {fid: st.get(fid) for fid in model().funds},
+            "can_edit": any(r in user["roles"] for r in APPROVE_ROLES)}
+
+
+@router.put("/api/trading/fund-styles")
+def put_fund_styles(request: Request, body: dict = Body(...)):
+    """Set the management style of one or more funds: {funds: {fund_id: "active"|"passive"|"hybrid"|null}, reason}.
+    Portfolio managers only; recorded in the ledger."""
+    user = auth.require_user(request)
+    auth.check_csrf(request, user)
+    if not any(r in user["roles"] for r in APPROVE_ROLES):
+        raise HTTPException(403, "Only portfolio managers set a fund's management style")
+    reason = _reason(body)
+    m = model()
+    req = body.get("funds")
+    if not isinstance(req, dict) or not req:
+        raise HTTPException(400, "Give at least one fund")
+    for fid, st in req.items():
+        if fid not in m.funds:
+            raise HTTPException(400, f"Unknown fund {fid}")
+        if st not in (*STYLES, None, ""):
+            raise HTTPException(400, f"{fid}: style must be active, passive or hybrid")
+    with _store().Session.begin() as s:
+        cur = fund_styles(s)
+        new = dict(cur)
+        changes = []
+        for fid, st in sorted(req.items()):
+            before = (cur.get(fid) or {}).get("style")
+            if (st or None) == before:
+                continue
+            changes.append({"fund_id": fid, "before": before, "after": st or None})
+            if st:
+                new[fid] = {"style": st, "by": _who(user), "at": _ts(), "reason": reason}
+            else:
+                new.pop(fid, None)
+        if not changes:
+            raise HTTPException(400, "Nothing changed")
+        _put(s, "styles", {"funds": new})
+        summ = ", ".join(f"{c['fund_id']} {STYLES.get(c['before'], 'not set')} -> {STYLES.get(c['after'], 'not set')}" for c in changes[:6])
+        dr = _record(s, _who(user), "settings.change", f"Management style: {summ}{' ...' if len(changes) > 6 else ''}",
+                     {"styles": changes}, reason, [c["fund_id"] for c in changes])
+    return {"ok": True, "dr_id": dr, "changed": len(changes)}
 
 
 @router.get("/api/trading/funds/{fund_id}")
@@ -501,6 +565,86 @@ def fund_detail(request: Request, fund_id: str):
     return {"fund": m.funds[fund_id].as_dict(), "nav": nav, "cash": p["cash"], "positions_source": p["source"],
             "as_of": p["as_of"], "rows": rows, "strategic": {k: st.get(k) for k in ("follows_glide_path", "version", "history")},
             "approved": {"source": appr_src, "line_adjustment_pp": {a: round(x * 100, 4) for a, x in appr_resid.items()}}}
+
+
+# ---------------------------------------------------------------------------------------------- daily prices
+@router.post("/api/ingest/prices")
+def ingest_prices(request: Request, body: dict = Body(...)):
+    """Daily closes from the prices workflow: {as_of, source, series: {ticker: {date: close}}}. Merged into what is
+    kept (about 13 months per ticker). Machine token only."""
+    if not _machine_ok(request):
+        raise HTTPException(401, "Invalid token")
+    series = body.get("series")
+    if not isinstance(series, dict) or not series:
+        raise HTTPException(400, "No prices in the file")
+    with _store().Session.begin() as s:
+        row = s.get(TradingSetting, "prices")
+        cur = dict(row.body) if row else {"series": {}}
+        keep = dict(cur.get("series", {}))
+        for t, pts in series.items():
+            if not isinstance(pts, dict):
+                continue
+            today = date.today().isoformat()
+            merged = {**keep.get(str(t), {}), **{str(d)[:10]: float(v) for d, v in pts.items()
+                                                 if v is not None and str(d)[:10] <= today}}
+            cut = sorted(merged)[-300:]                        # ~13 months of trading days
+            keep[str(t)] = {d: merged[d] for d in cut}
+        last = max((max(v) for v in keep.values() if v), default=None)
+        _put(s, "prices", {"series": keep, "as_of": last, "source": str(body.get("source", ""))[:200],
+                           "fetched_at": _ts(), "errors": body.get("errors") or {}})
+    return {"ok": True, "as_of": last, "tickers": len(series)}
+
+
+@router.get("/api/performance")
+def performance(request: Request):
+    """Cumulative returns (1W, MTD, QTD, YTD, 1Y) of every security held and of each fund. Fund returns are
+    hypothetical: today's holdings weights x each holding's price return (no trading, fees or flows)."""
+    from .. import prices as px
+    user = auth.require_user(request)
+    auth.require_role(user, *VIEW_ROLES)
+    m = model()
+    with _store().Session() as s:
+        row = s.get(TradingSetting, "prices")
+        st = row.body if row else None
+    if not st or not st.get("series"):
+        return {"as_of": None, "periods": list(px.PERIODS), "funds": [], "securities": [],
+                "note": "No prices yet: the daily prices workflow posts them after the US close on weekdays."}
+    as_of, ser = st["as_of"], st["series"]
+    from ..policy import load_universe
+    uni = load_universe()
+    rets: dict[str, dict] = {}
+    secs, held_in = {}, {}
+    funds = []
+    for fid, f in sorted(m.funds.items(), key=lambda kv: (kv[1].vintage, kv[1].vehicle)):
+        p = positions(fid)
+        nav = p["cash"] + sum(p["values"].values()) or 1.0
+        w = {i: v / nav for i, v in p["values"].items() if v > 0}
+        cash_w = p["cash"] / nav
+        acc = {k: 0.0 for k in px.PERIODS}
+        cov = {k: 0.0 for k in px.PERIODS}
+        for i, wi in list(w.items()) + ([("__cash__", cash_w)] if cash_w > 0 else []):
+            inst = m.instruments.get(i) or {"id": i, "type": "cash", "asset_class": "cash"}
+            t, proxy = px.price_ticker(inst, uni)
+            if t not in rets:
+                rets[t] = px.returns(ser.get(t, {}), as_of) if t in ser else {k: None for k in px.PERIODS}
+            if i != "__cash__":
+                secs[i] = {"instrument": i, "name": inst.get("name", i), "type": inst.get("type"),
+                           "asset_class": inst.get("asset_class"), "ticker": t, "proxy": proxy, "returns": rets[t]}
+                held_in.setdefault(i, []).append(fid)
+            for k in px.PERIODS:
+                if rets[t][k] is not None:
+                    acc[k] += wi * rets[t][k]
+                    cov[k] += wi
+        funds.append({"fund_id": fid, "vehicle": f.vehicle, "vintage": f.vintage, "nav": nav,
+                      "returns": {k: (acc[k] / cov[k] if cov[k] > 0.98 else None) for k in px.PERIODS},
+                      "priced_share": {k: round(cov[k], 4) for k in px.PERIODS}})
+    order = {a: k for k, a in enumerate(m.policy.assets)}
+    sec_list = sorted(secs.values(), key=lambda r: (order.get(r["asset_class"], 99), r["instrument"]))
+    for r in sec_list:
+        r["held_in"] = len(held_in[r["instrument"]])
+    return {"as_of": as_of, "fetched_at": st.get("fetched_at"), "source": st.get("source"),
+            "periods": list(px.PERIODS), "starts": px.period_starts(as_of), "funds": funds, "securities": sec_list,
+            "missing": sorted(t for t, r in rets.items() if all(v is None for v in r.values()))}
 
 
 # ---------------------------------------------------------------------------------------------- cashflows
@@ -859,6 +1003,8 @@ def tilts_grid(request: Request):
             nav = p["cash"] + sum(p["values"].values()) or 1.0
             neutral = neutral_table(s, fid)
             eff = tilts_for(settings, fid, neutral)
+            sec_only = tilts_for(settings, fid, None)          # security tilts without asset-class spreads
+            tilted, _ = _effective_table(settings, fid, neutral)
             own = {e["instrument"]: float(e["bps"]) for e in _active(settings.get("tilts", []), fid)
                    if e.get("instrument") and e.get("fund") == fid and not e.get("vintages")
                    and not e.get("vintage_from") and not e.get("vintage_to")}
@@ -869,6 +1015,7 @@ def tilts_grid(request: Request):
                 used.add(i["id"])
                 row[i["id"]] = {"weight": p["values"].get(i["id"], 0.0) / nav, "target": neutral.get(i["id"], 0.0),
                                 "own_bps": own.get(i["id"]), "bps": round(eff.get(i["id"], 0.0), 2),
+                                "sec_bps": round(sec_only.get(i["id"], 0.0), 4), "tilted": tilted.get(i["id"], 0.0),
                                 "excluded": i["id"] in excluded_for(settings, fid), "exiting": i["id"] in exits_for(settings, fid)}
             cells[fid] = row
     order = {a: k for k, a in enumerate(m.policy.assets)}

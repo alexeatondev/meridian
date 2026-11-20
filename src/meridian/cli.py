@@ -65,6 +65,11 @@ def main(argv=None):
     br = sub.add_parser("brand", help="list or check brand themes (config/brand.yaml)")
     br.add_argument("action", choices=["list", "check"], nargs="?", default="list")
 
+    px = sub.add_parser("prices", help="fetch daily closing prices for the home-screen performance table")
+    px.add_argument("action", choices=["fetch", "tickers"], nargs="?", default="fetch")
+    px.add_argument("--out", type=Path, default=Path("prices.json"))
+    px.add_argument("--days", type=int, default=400)
+
     v = sub.add_parser("verify", help="verify a run's ledger integrity")
     v.add_argument("ledger", type=Path)
 
@@ -149,6 +154,22 @@ def main(argv=None):
         else:
             for cr in gv.list_requests():
                 print(f"{cr['id']} {cr['status']:9s} {cr['kind']} {cr['target']} {cr['current']:.2%}->{cr['proposed']:.2%} by {cr['requested_by']['name']}")
+    elif a.cmd == "prices":
+        import json as _json
+
+        import yaml as _yaml
+
+        from . import REPO_ROOT, prices
+        insts = _yaml.safe_load((REPO_ROOT / "config" / "trading.yaml").read_text())["instruments"]
+        syms = prices.tickers(insts)
+        if a.action == "tickers":
+            print(" ".join(syms))
+        else:
+            out = prices.fetch(syms, days=a.days)
+            a.out.write_text(_json.dumps(out))
+            print(_json.dumps({"as_of": out["as_of"], "tickers": len(out["series"]), "errors": out["errors"]}))
+            if not out["series"]:
+                return 1
     elif a.cmd == "brand":
         from . import branding
         bad = 0

@@ -55,6 +55,16 @@ How it works: pages keep using the shared CSS variables (`--bg`, `--surface`, `-
 
 Product-line data comes from `config/trading.yaml` and, in the hosted app, from uploaded or booked positions and approved glide-path adjustments (`meridian.trading.overview`). Holdings remain example data until custodian or transfer-agent files are loaded.
 
+## Product-owner feedback, 2026-11-20
+
+| Screen | What changed |
+|---|---|
+| Home (PM) | **Positioning: passive and hybrid funds** and **Positioning: active funds** (by each fund's management style): per fund Δ vs target by asset group, tracking error, risk budget used in total and by asset group (contribution to tracking error); then by asset class (levels 1-4) asset-weighted: target, portfolio, difference, risk budget used, share of the level above vs the global market-cap mix (`config/market.yaml`) with the ratio. **Cumulative returns**: 1W, MTD, QTD, YTD, 1Y for funds (hypothetical, from today's holdings) and each security held (proxy ETFs marked), from daily closes. |
+| Glide path | **Glide path** picklist (IPS path or any named path; named paths drawn with the IPS equity dashed). The change table's rows are the asset hierarchy (levels 1-4) and its columns vintages or funds; one cell is enough, the rest balance within the level, pro rata across the fund, or not at all; entries in pp, share of parent, % of weight or new weight; today → after under each cell and a Check row. |
+| Trading → Tilts | Rows are levels 1-5 (securities at level 5); **Set tilt** as before, or move any level with the same modes and balancing, turned into security tilts per fund. |
+| Trading → Funds & securities | **Management** column and a **Management style** card (Active, Passive, Hybrid; PMs set it with a reason; logged). |
+| Funds & vintages | Each fund shows its management style (or *style not set*). |
+
 ## Console — what each role sees
 | Role (sign-in group) | Workspace tabs | Home page shows | Can act |
 |---|---|---|---|

@@ -1,0 +1,45 @@
+# Asset hierarchy for glide-path changes and tilts (levels 1-5), product owner 2026-11-20.
+#   Level 1  asset group           Equity / Fixed income / Real assets / Cash
+#   Level 2  region                US vs International (within each group)
+#   Level 3  market                Developed vs Emerging (where it applies)
+#   Level 4  size or sector        Large vs Small/Mid (developed equity); US bond sectors
+#   Level 5  individual securities (tilts only; the securities each fund holds in that asset class)
+# Every policy asset class appears exactly once, as a leaf (`asset`). `level` on a leaf says which level it
+# answers (US large cap is level 4; emerging equity is level 3). Edit names or regroup freely; the glide-path
+# and tilt tables read this file. `meridian` checks it against the policy's asset list on start.
+levels: ["Asset group", "Region", "Developed / emerging", "Size / sector", "Security"]
+tree:
+  - id: equity
+    name: Equity
+    children:
+      - id: equity_us
+        name: US equity
+        children:
+          - {asset: us_large_cap, name: US large cap, level: 4}
+          - {asset: us_small_mid_cap, name: US small/mid cap, level: 4}
+      - id: equity_intl
+        name: International equity
+        children:
+          - {asset: intl_developed_eq, name: Developed markets, level: 3}
+          - {asset: emerging_eq, name: Emerging markets, level: 3}
+  - id: fixed_income
+    name: Fixed income
+    children:
+      - id: fi_us
+        name: US fixed income
+        children:
+          - {asset: us_core_bond, name: Core bond, level: 4}
+          - {asset: us_long_treasury, name: Long Treasury, level: 4}
+          - {asset: us_tips_short, name: Short-term TIPS, level: 4}
+          - {asset: us_high_yield, name: High yield, level: 4}
+      - id: fi_intl
+        name: International fixed income
+        children:
+          - {asset: intl_bond_hedged, name: Developed (hedged), level: 3}
+          - {asset: em_debt, name: Emerging market debt, level: 3}
+  - id: real_assets
+    name: Real assets
+    children:
+      - {asset: global_reits, name: Global REITs, level: 2}
+      - {asset: commodities, name: Commodities, level: 2}
+  - {asset: cash, name: Cash, level: 1}

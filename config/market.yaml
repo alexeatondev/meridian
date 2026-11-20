@@ -1,0 +1,18 @@
+# Market-cap reference mix for the PM home positioning tables ("portfolio vs market").
+# Each value is a node's share of its parent in config/hierarchy.yaml (0-1), from the cited index data.
+# A target-date fund's stock/bond/real-asset mix is set by its glide path, not by market cap, so level 1 has no
+# market weight: the market mix is applied inside each asset group at the fund's own group total.
+# null = no sourced value yet (shown as "—"). Update the values and as_of when the indexes are refreshed.
+as_of: "2026-06-30"
+nodes:
+  equity_us:          {share: 0.627, source: "MSCI ACWI IMI: United States 62.7% (MSCI, A Complete Geographic Breakdown of the MSCI ACWI IMI, data as of 2026-06-30)"}
+  equity_intl:        {share: 0.373, source: "MSCI ACWI IMI: 100% - United States 62.7%"}
+  intl_developed_eq:  {share: 0.670, source: "MSCI ACWI IMI: developed ex-US 25.0% of 37.3% non-US (EM 12.3%), as of 2026-06-30"}
+  emerging_eq:        {share: 0.330, source: "MSCI ACWI IMI: Emerging Markets 12.3% of 37.3% non-US, as of 2026-06-30"}
+  us_large_cap:       {share: 0.80, source: "S&P DJI: the S&P 500 covers approximately 80% of available US market capitalization"}
+  us_small_mid_cap:   {share: 0.20, source: "S&P DJI: the rest of the US market, about 20%"}
+  fi_us:              {share: null, source: "Bloomberg Global Aggregate US share: not sourced yet; enter it from the index factsheet"}
+  fi_intl:            {share: null, source: "Bloomberg Global Aggregate ex-US share: not sourced yet"}
+links:
+  - "https://www.msci.com/research-and-insights/video/acwi-imi-complete-geographic-breakdown"
+  - "https://www.spglobal.com/spdji/en/indices/equity/sp-500/"

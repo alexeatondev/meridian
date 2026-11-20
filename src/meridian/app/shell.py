@@ -66,7 +66,10 @@ def help_anchor(page: str) -> str:
 
 @lru_cache(maxsize=1)
 def _assets() -> str:
-    return (files("meridian.app") / "shell.html").read_text()
+    from .. import hierarchy
+    tree = json.dumps(dict(hierarchy.load(), market=hierarchy.market())).replace("</", "<\\/")
+    return ((files("meridian.app") / "shell.html").read_text()
+            + f"<script>window.MHIER_CFG={tree};</script><script>{(files('meridian.app') / 'hier.js').read_text()}</script>")
 
 
 def wrap(html: str, user: dict, current: str) -> str:
