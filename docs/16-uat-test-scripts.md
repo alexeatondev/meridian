@@ -10,7 +10,7 @@ One script per role, built from the personas (doc 15). Each step has an expected
 
 | Test account | Roles | Use for |
 |---|---|---|
-| Alex Eaton (full access) | All eight (approving also needs the Approver permission, doc 06 §1.9) | PM, Research, Manager Selection, Leadership scripts (switch workspace in the side bar) |
+| Product owner (full access) | All eight (approving also needs the Approver permission, doc 06 §1.9) | PM, Research, Manager Selection, Leadership scripts (switch workspace in the side bar) |
 | RCTest User | Risk, Compliance | Risk and Compliance scripts; second approver for segregation-of-duties steps |
 
 Approvals made in the hosted app are permanent ledger records (it is shadow mode, so no money moves). Use reasons that start with "UAT:" so they're easy to find later. To test as the fictional people in the roster (doc 15), an admin can invite extra logins using plus-addresses of an inbox you own (e.g. `you+maya@…`), which most email providers deliver to the same inbox.
@@ -280,7 +280,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 |---|---|---|---|---|---|
 | 0 (automated) | 2026-11-09 | Browser tests | All | 34 pass, F-1 expected fail | Found F-1, F-2 |
 | 0b (automated) | 2026-11-09 | Browser tests | All + permissions | 38 pass | F-1 fixed; placeholder CCO verified as still a blocker |
-| 1 (manual, hosted) | 2026-11-10 | Claude, in Alex Eaton's signed-in session | PM-1–5, RISK-1–5 and 7, RES-1–3, MGR-1–3, LEAD-1–3 and 5, COMP-1–4, AUD-1–3, ADM-2, ADM-10–13 | All run steps passed. Not run: RISK-6 (needs a second person), ACC-1–3 and ADM-14–15 (need other logins; covered by automated tests) | Found F-4 to F-9, F-11. Approvals, one adjustment and a disabled test login (aeaton3252+uat@gmail.com) are in the live ledger and access log, all marked "UAT (run by Claude for Alex)" |
+| 1 (manual, hosted) | 2026-11-10 | Claude, in the product owner's signed-in session | PM-1–5, RISK-1–5 and 7, RES-1–3, MGR-1–3, LEAD-1–3 and 5, COMP-1–4, AUD-1–3, ADM-2, ADM-10–13 | All run steps passed. Not run: RISK-6 (needs a second person), ACC-1–3 and ADM-14–15 (need other logins; covered by automated tests) | Found F-4 to F-9, F-11. Approvals, one adjustment and a disabled test login (a plus-address of the product owner's inbox) are in the live ledger and access log, all marked "UAT (run by Claude for Alex)" |
 | 2 (automated) | 2026-11-10 | Browser + API tests | All + OVS | 99 pass | Found F-10; F-5 to F-10 fixed |
 | 4 (automated) | 2026-11-10 | Browser + API tests | All + REG + TRD-14 to 16 | 125 pass | Regulations, rebalance, positions, fills; F-4 and F-11 fixed |
 | 3 (automated) | 2026-11-10 | Browser + API tests | All + TRD-1 to TRD-13 | 115 pass (all) | Trading slice 1 and 2; route permission; no new findings. Guide screenshots generated from the same local app (`tests/e2e/guide_screenshots.py`) |

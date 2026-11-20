@@ -167,8 +167,8 @@ def schedule(kind: str, p: dict, order: dict, trade_date: str, holidays: set[str
             why.append(f"${p['max_usd_per_day']:,.0f} a day")
         try:
             pcts = _pcts_from_cap(order["quantity"], min(caps), _lot(order))
-        except ValueError as e:
-            return None, str(e)
+        except ValueError:
+            return None, "the cap is smaller than one trading lot: trades in one order"
         if len(pcts) == 1:
             return None, "within the cap: trades in one order"
         if len(pcts) > p["max_days"]:

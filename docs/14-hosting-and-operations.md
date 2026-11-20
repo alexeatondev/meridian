@@ -9,10 +9,10 @@ How the hosted Meridian app is built, deployed and run, and what to do when some
 | Item | Value |
 |---|---|
 | App URL | https://d3maw6l4k5cc0v.cloudfront.net (health check: `/healthz`) |
-| AWS account | 950088505912 (member account in organization `o-gz7gwi4fzq`, advanced features activated 2026-11-09) |
+| AWS account | Meridian's account (ID and organization ID kept out of this public repository; `aws sts get-caller-identity` shows the ID) (member account in an AWS Organization, advanced features activated 2026-11-09) |
 | Region | us-east-2. An organization SCP denied this account's deploy role in us-east-1 (seen 2026-11-09); keep all regional resources in us-east-2. Global services (IAM, CloudFront, Budgets) work |
 | Infrastructure as code | AWS CDK (Python), `infra/app.py`, two CloudFormation stacks: `Meridian` and `MeridianCostGuard` |
-| Sign-in | Amazon Cognito user pool `us-east-2_OX4vbNaqC`, hosted sign-in at https://meridian-950088505912.auth.us-east-2.amazoncognito.com (hosted UI classic, styled from the brand theme by the CDK resource `SignInBranding`, 2026-11-20); the app's `/login` shows a branded page first |
+| Sign-in | Amazon Cognito user pool (ID: stack output `UserPoolId`), hosted sign-in at the stack output `SignInDomain` (`https://meridian-<account-id>.auth.us-east-2.amazoncognito.com`) (hosted UI classic, styled from the brand theme by the CDK resource `SignInBranding`, 2026-11-20); the app's `/login` shows a branded page first |
 | Mode | Shadow mode: no money moves. Hosted app runs with `MERIDIAN_LLM=off`; live LLM judgment runs in the `agent-run` GitHub workflow |
 
 ## 2. Architecture
@@ -46,7 +46,7 @@ GitHub Actions signs in to AWS with OpenID Connect (OIDC): each workflow run get
 
 | Item | Value |
 |---|---|
-| Identity provider | `arn:aws:iam::950088505912:oidc-provider/token.actions.githubusercontent.com`, audience `sts.amazonaws.com` |
+| Identity provider | `arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com`, audience `sts.amazonaws.com` |
 | Role | `meridian-github-deploy` (repo variable `AWS_DEPLOY_ROLE_ARN`) |
 | Trust condition | `sub` must equal `repo:alexeatondev@82978383/meridian@1448386556:ref:refs/heads/main` (GitHub's immutable owner/repo ID format), `aud` must equal `sts.amazonaws.com` |
 | Permissions today | AWS-managed `AdministratorAccess`. Least-privilege replacements (`meridian-gh-deploy`, `-users`, `-ingest`, one GitHub environment each) are ready in `infra/security/github-oidc-roles.yaml`; doc 19 runbook R-1 switches over |
@@ -102,9 +102,11 @@ Cognito emails the temporary password; the person sets their own password at fir
 
 | User | Roles | Purpose |
 |---|---|---|
-| Alex Eaton (aeaton3252@gmail.com) | All eight | Product owner; full-access testing |
-| RCTest User (aeaton52@hotmail.com) | `risk`, `compliance` | Second person for segregation-of-duties testing |
-| UAT Committee Tester (aeaton3252+uat@gmail.com) | Disabled | Created and disabled during UAT round 1 (doc 16) |
+| Product owner | All eight | Full-access testing |
+| RCTest User | `risk`, `compliance` | Second person for segregation-of-duties testing |
+| UAT Committee Tester | Disabled | Created and disabled during UAT round 1 (doc 16) |
+
+Email addresses aren't listed because the repository is public; admins see them on User access.
 
 Nobody holds `route_manager` yet; who should hold it is held by the product owner (doc 17 §9).
 
@@ -139,16 +141,16 @@ Stack `MeridianCostGuard` (in us-east-2; AWS Budgets is a global service).
 | Item | Setting |
 |---|---|
 | Budget | `meridian-cost-guard`, $75 per month, all account costs |
-| Email alerts (aeaton3252@gmail.com) | Actual spend > 80%; forecast spend > 100% |
-| Automatic block | At actual spend > 100%, AWS Budgets attaches the deny policy `meridian-spend-block` to `meridian-github-deploy` and `cdk-hnb659fds-cfn-exec-role-950088505912-us-east-2` |
+| Email alerts (product owner; address in the `COST_GUARD_EMAIL` secret) | Actual spend > 80%; forecast spend > 100% |
+| Automatic block | At actual spend > 100%, AWS Budgets attaches the deny policy `meridian-spend-block` to `meridian-github-deploy` and `cdk-hnb659fds-cfn-exec-role-<account-id>-us-east-2` |
 | What the block denies | Creating or scaling up billable resources: EC2 instances/volumes/NAT/EIPs, RDS create/start/modify, ECS create/update service and tasks, load balancers, Lambda, EKS, SageMaker, Redshift, ElastiCache, OpenSearch, CloudFront distributions, Lightsail, Bedrock invocation, Auto Scaling. Deploys fail while it is attached |
 | What it does not do | Stop running resources. The app keeps running and keeps costing money |
 | Reset | AWS removes the policy automatically at the start of the next month |
 | Expected run-rate | About $60–65/month at list prices (Fargate ~$18, load balancer ~$17, RDS ~$14, public IPv4 ~$11, other ~$3); to be confirmed from Cost Explorer. Product owner's Cost Explorer check on 2026-11-10: about $1 spent so far |
 
-**Lifting the block early** (e.g., to deploy a fix): deploys are blocked, so do this in the AWS console, where your own access is not affected. Go to Billing and Cost Management → Budgets → `meridian-cost-guard`, raise the amount if needed, then Actions → select the action → Reverse. CLI equivalent: `aws budgets execute-budget-action --account-id 950088505912 --budget-name meridian-cost-guard --action-id <id> --execution-type REVERSE_BUDGET_ACTION`. After the reversal, AWS does not re-evaluate the action until next month, so update `infra/cdk.json` to match the new amount on the next deploy.
+**Lifting the block early** (e.g., to deploy a fix): deploys are blocked, so do this in the AWS console, where your own access is not affected. Go to Billing and Cost Management → Budgets → `meridian-cost-guard`, raise the amount if needed, then Actions → select the action → Reverse. CLI equivalent: `aws budgets execute-budget-action --account-id <account-id> --budget-name meridian-cost-guard --action-id <id> --execution-type REVERSE_BUDGET_ACTION`. After the reversal, AWS does not re-evaluate the action until next month, so update `infra/cdk.json` to match the new amount on the next deploy.
 
-The alert email address lives in `infra/cdk.json` (`costGuard.email`). **The repository is public** (checked 2026-11-20), so that address and the infrastructure code are visible to anyone; see doc 19 gap G-7.
+The alert email address is kept out of the public repository: the deploy workflow reads it from the GitHub Actions secret `COST_GUARD_EMAIL` (masked in logs) and passes it to CDK, so it exists only in the CloudFormation template inside the AWS account. A deploy fails with a clear message if the secret is missing, so the cost guard can't be dropped silently (doc 19 G-7).
 
 ## 8. Monitoring & logs
 
@@ -175,7 +177,7 @@ No CloudWatch alarms or uptime notifications exist yet (§12).
 | Secret | Where | Rotation |
 |---|---|---|
 | `ANTHROPIC_API_KEY`, `FRED_API_KEY` | GitHub repository secrets | Reminder scheduled 2026-12-02 |
-| SEC contact (not a secret) | `config/data_sources.yaml` → `sec_edgar.options.user_agent` (set 2026-11-18 to the product owner's contact, `alex.w.eaton@outlook.com`). A repository variable `SEC_USER_AGENT` overrides it if set (the session that set this up could not write repository variables) | Change when the contact changes |
+| SEC contact (personal data) | GitHub Actions secret `SEC_USER_AGENT` (e.g. `Meridian research name@firm.com`), read by the data-refresh workflow; the public config holds no contact (doc 19 G-7). The product owner sets it in GitHub → Settings → Secrets and variables → Actions | Change when the contact changes |
 | `MERIDIAN_BRAND` (optional) | Container environment | Picks the brand theme for a deployment; default is `active:` in `config/brand.yaml` |
 | Database credentials, session key, ingest token, Cognito client secret | AWS Secrets Manager, generated by CDK, injected into the container at start | Not yet rotated automatically |
 
@@ -184,7 +186,7 @@ Keys are never pasted into chat or committed. Secret values are entered by the p
 ## 11. Account guardrails and history
 
 - 2026-11-06: account upgraded from the Free plan to the Paid plan. A managed SCP from the free-plan organization still denied `iam:CreateOpenIDConnectProvider`.
-- 2026-11-09: organization advanced features activated by the product owner (irreversible; removes the free-plan spend limit, which the cost guard replaces). OIDC provider created; trust policy pinned to the immutable `sub` claim; first deploy (run 42677958733) succeeded. Support case 179424629200877 updated as resolved.
+- 2026-11-09: organization advanced features activated by the product owner (irreversible; removes the free-plan spend limit, which the cost guard replaces). OIDC provider created; trust policy pinned to the immutable `sub` claim; first deploy succeeded. AWS Support case updated as resolved.
 - Organization SCPs deny us-east-1 for this account; keep all regional resources in us-east-2.
 
 ## 12. Security hardening (NIST SP 800-53 Moderate; doc 19)

@@ -82,7 +82,11 @@ def wrap(html: str, user: dict, current: str) -> str:
     data = json.dumps(nav_for(user, current)).replace("</", "<\\/")
     brand = "" if 'id="meridian-brand"' in html else branding.theme_css()
     html = html.replace("</head>", _assets() + brand + "</head>", 1)
-    return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + f'<script>window.MERIDIAN_NAV={data};</script>', html, count=1)
+    i = html.find("<body")
+    j = html.find(">", i) if i >= 0 else -1
+    if j < 0:
+        return html
+    return html[:j + 1] + f'<script>window.MERIDIAN_NAV={data};</script>' + html[j + 1:]
 
 
 @router.get("/brand/logo")
@@ -225,9 +229,9 @@ def help_page(request: Request):
 @router.get("/help/img/{name}")
 def help_image(request: Request, name: str):
     auth.require_user(request)
-    if not re.fullmatch(r"[a-z0-9-]+\.png", name):
-        raise HTTPException(404, "Not found")
-    p = REPO_ROOT / "docs" / "img" / "guide" / name
-    if not p.exists():
+    base = (REPO_ROOT / "docs" / "img" / "guide").resolve()
+    known = {f.name: f for f in base.glob("*.png")} if base.is_dir() else {}
+    p = known.get(name)            # only files that exist in the guide folder; the name never builds a path
+    if p is None:
         raise HTTPException(404, "Not found")
     return FileResponse(p, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})

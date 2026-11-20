@@ -78,8 +78,13 @@ def test_lookthrough_without_edgar():
     assert fin["available"] is False and fin["rows"] == {}
 
 
-def test_user_agent_from_config(monkeypatch):
-    monkeypatch.delenv("SEC_USER_AGENT", raising=False)
+def test_user_agent_from_env_not_the_repository(monkeypatch):
+    """The SEC contact comes from the SEC_USER_AGENT secret; the public config holds no email (doc 19 G-7)."""
     from meridian.data.registry import DataRegistry
+    monkeypatch.delenv("SEC_USER_AGENT", raising=False)
+    E._UA.clear()
     DataRegistry.from_config().sources()["sec_edgar"]
-    assert "alex.w.eaton@outlook.com" in E.user_agent()
+    assert "@" not in E.user_agent()
+    monkeypatch.setenv("SEC_USER_AGENT", "Meridian research ops@example.com")
+    assert E.user_agent() == "Meridian research ops@example.com"
+
