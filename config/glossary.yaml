@@ -396,6 +396,12 @@ check_row:
   text: Confirms each column still totals 100% after your entries, or says what's wrong (e.g. not enough left at that level to fund the change).
 
 # ---------------------------------------------------------------- buttons
+new_glide_path:
+  title: New glide path
+  match: [+ New glide path]
+  button: true
+  text: "Opens a guided builder on Policy → Glide paths: name the path, start from scratch or copy an existing path, shape the equity path, fine-tune each asset class, then check and submit it to the Investment Committee. Once approved you can move funds onto it."
+
 btn_preview:
   title: Preview
   match: [Preview, See the impact]

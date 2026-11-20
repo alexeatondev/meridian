@@ -1170,6 +1170,7 @@ V.approvals = () => {
 
 // --------------------------------------------------------------- Glide path
 function gpShiftText(sh){ return (sh||[]).map(s=>`${s.pp>0?'+':''}${(+s.pp).toFixed(2)}pp ${esc(nm(s.asset_class))} from ${esc(nm(s.from))}`).join('; '); }
+function gpCanDraft(){ return !!LIVE && ((LIVE.user||{}).roles||[]).some(r=>['portfolio_manager','compliance','leadership','risk'].includes(r)); }
 function gpSelPath(){ const id=state.gpPath; if(!id||id==='ips'||!state.gpPaths) return null; return state.gpPaths.paths.find(p=>p.id===id)||null; }
 function gpLoadPaths(){ if(!LIVE||state.gpPathsLoading||state.gpPaths) return; state.gpPathsLoading=true;
   fetch('/api/policy/glide-paths').then(r=>r.ok?r.json():null).then(d=>{ if(d){ state.gpPaths=d; if(state.tab==='glide') render(); } }).catch(()=>{}); }
@@ -1185,7 +1186,7 @@ V.glide = () => {
   const form=canReq?`<div class="card" style="margin-top:14px" id="gpTableCard">${gpTableHtml()}</div>`
     :`<div class="card" style="margin-top:14px"><h2>Propose glide-path changes</h2><p class="small muted">${LIVE?'Portfolio managers and analysts can propose changes here; the Investment Committee approves them.':'Available in the hosted app.'}</p></div>`;
   const anchorsSrc=sel?sel.anchors:P.anchors;
-  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h2 style="margin:0">${sel?esc(sel.name):'Strategic glide path (policy '+esc(P.id)+')'}</h2>${pick}</div>
+  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><h2 style="margin:0">${sel?esc(sel.name):'Strategic glide path (policy '+esc(P.id)+')'}</h2><span class="row" style="gap:10px">${pick}${gpCanDraft()?'<a class="btn primary" id="gpNewPath" href="/policy?new=glidepath" style="text-decoration:none">+ New glide path</a>':''}</span></div>
   ${sel?`<p class="small"><b>${esc(sel.description||'')}</b> ${sel.vs_ips?`Largest gap to the IPS path: ${esc(nm(sel.vs_ips.asset))} ${sel.vs_ips.pp>0?'+':''}${sel.vs_ips.pp}pp at ${sel.vs_ips.years} years; equity ${sel.vs_ips.equity_pp>0?'+':''}${sel.vs_ips.equity_pp}pp at ${sel.vs_ips.equity_years} years.`:''} Funds on this path: ${sel.funds.length?sel.funds.map(esc).join(', '):'none yet'}. The dashed line is the IPS glide path's equity, for comparison. Create or change named paths on <a href="/policy">Policy → Glide paths</a>.</p>`:''}
   <p class="small muted">The glide path sets each vintage's long-term mix as it approaches its target date. The agents' proposals tilt around it within the IPS bands. Approved adjustments below change the glide path used for the funds in their scope.</p>
   <div class="legend">${[['Equity','--s1'],['Real assets','--s2'],['Fixed income','--s3'],['Cash','--s4']].map(([l,c])=>`<span><i style="background:var(${c})"></i>${l}</span>`).join('')}<span class="muted">· dots mark each vintage today</span></div>

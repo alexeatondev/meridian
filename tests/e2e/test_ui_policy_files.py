@@ -94,6 +94,7 @@ def test_pol_03_named_glide_path_assigned_to_a_fund(sign_in, app_url):
     page.goto(app_url + "/policy")
     page.click(".tabs button:text-is('Glide paths')")
     page.click("#gpNew")
+    page.click("#wExpert")                                             # skip the guided builder
     page.fill("#gpName", "Higher equity at retirement")
     # +2pp US large cap, -2pp core bond at the 0-year anchor (row 6)
     lc, core = page.locator("[data-r='5'][data-c='1']"), page.locator("[data-r='5'][data-c='7']")
@@ -134,3 +135,49 @@ def test_pol_03_named_glide_path_assigned_to_a_fund(sign_in, app_url):
     expect(page.locator("tr", has=page.locator("td.mono", has_text="MTRS-2030"))).to_contain_text("Higher equity at retirement")
     page.click(".tabs button:text-is('Change log')")
     expect(page.locator("#log")).to_contain_text("glide-path.approve")
+
+
+def test_pol_07_guided_glide_path_builder(sign_in, app_url):
+    """POL-7: Console → Glide path → + New glide path walks a PM through building a path from scratch."""
+    page = sign_in("Maya Chen", "portfolio_manager")
+    page.click("#nav button:text-is('Glide path')")
+    page.click("#gpNewPath")
+    expect(page.locator(".wsteps li.on")).to_contain_text("Name it")
+    page.click("#wNext")
+    _toast(page, "at least 3 characters")
+    page.fill("#wName", "IPS glide path")
+    page.click("#wNext")
+    _toast(page, "already exists")
+    page.fill("#wName", "Through retirement 55")
+    page.fill("#wDesc", "Holds 55% equity at the target date")
+    page.click("#wNext")
+    expect(page.locator(".wsteps li.on")).to_contain_text("Starting point")
+    page.click("#wNext")                                               # from scratch (default)
+    expect(page.locator(".wsteps li.on")).to_contain_text("Shape the equity path")
+    page.fill("#shFlat", "50")
+    page.click("#wNext")
+    _toast(page, "Start reducing")
+    page.fill("#shFlat", "25")
+    page.fill("#shEqTarget", "55")
+    page.fill("#shEqEnd", "35")
+    page.click("#wNext")
+    expect(page.locator(".wsteps li.on")).to_contain_text("Fine-tune the mix")
+    rows = page.locator("table.anch tr")
+    expect(rows).to_have_count(9)                                      # header + 40, 25, 20, 15, 10, 5, 0, -7
+    for i in range(8):
+        expect(page.locator(f"#wt{i}")).to_have_text("100.0")
+    page.locator("[data-wr='0'][data-wc='1']").fill("60")             # break a row
+    page.click("#wNext")
+    expect(page.locator(".warnbox")).to_contain_text("Fix these first")
+    page.click("#wNext")
+    _toast(page, "Fix the items in red")
+    page.click("#wBack")
+    page.locator("[data-wr='0'][data-wc='1']").fill(page.locator("[data-wr='0'][data-wc='1']").get_attribute("value"))
+    page.click("#wBack"); page.click("#wNext")                         # rebuild from the shape
+    page.click("#wNext")
+    expect(page.locator("#paths")).to_contain_text("40 yrs: 90.")
+    page.fill("#wReason", "UAT: path holding 55% equity at the target date")
+    page.click("#wNext")
+    _toast(page, "sent to the Investment Committee")
+    expect(page.locator("#paths")).to_contain_text("Through retirement 55")
+    expect(page.locator("#paths")).to_contain_text("Waiting for the Investment Committee")
