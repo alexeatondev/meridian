@@ -76,5 +76,35 @@
     const net=Object.values(w).reduce((t,x)=>t+x,0)-Object.values(base).reduce((t,x)=>t+x,0);
     return {w, errors, net};
   }
-  window.MHier={nodes, apply, W};
+  // Views of a change under each cell: 'ba' today -> after (% of fund); 'pp' change in pp of the fund (the
+  // children's changes add up to the parent's, and level 1 nets to zero); 'rel' change in the share of the
+  // parent, in pp of the parent (siblings always net to zero, e.g. US +2 / international -2 inside equity).
+  const VIEWS=[['ba','Today → after','The weight in % of the fund today and after the change'],
+    ['pp','Change (pp of fund)','Each level\'s change in pp of the fund: the changes inside a level add up to the change of the level above, and level 1 nets to zero (e.g. Equity +1, Fixed income and Real assets −1 between them)'],
+    ['rel','Change vs siblings (pp of parent)','The change in each asset class\'s share of the level above, so the changes inside every group net to zero (e.g. US +2, International −2 inside equity)']];
+  function change(view, n, base, w, d){
+    const c=W(base,n), a=w?W(w,n):c, dd=d==null?2:d;
+    if(view==='rel'){ const pc=n.parent?W(base,n.parent):1, pa=n.parent?(w?W(w,n.parent):pc):1;
+      return (pa>EPS?a/pa:0)-(pc>EPS?c/pc:0); }
+    return a-c;
+  }
+  const fmt=(x,d)=>Math.abs(x)<5e-7?'0.00':(x>0?'+':'−')+Math.abs(x*100).toFixed(d==null?2:d);
+  function sub(view, n, base, w, d){ // the small text under a cell
+    const dd=d==null?1:d, c=W(base,n), a=w?W(w,n):null, ch=a!=null&&Math.abs(a-c)>1e-7;
+    if(view==='ba'||!w) return ch?`${(c*100).toFixed(dd)}→<b>${(a*100).toFixed(dd)}</b>`:(c*100).toFixed(dd);
+    const x=change(view,n,base,w);
+    return Math.abs(x)<5e-7?'<span class="mh0">0.00</span>':`<b class="${x>0?'mhpos':'mhneg'}">${fmt(x)}</b>`;
+  }
+  // Net-change check: level 1 must net to zero, and inside each group the children's changes add up to the
+  // group's change (pp view) or to zero (share-of-parent view). Returns {l1, worst, ok, groups:[{node, sum, parent}]}.
+  function netCheck(list, base, w){
+    const l1=list.filter(n=>!n.parent).reduce((t,n)=>t+W(w,n)-W(base,n),0), groups=[];
+    let worst=Math.abs(l1);
+    for(const n of list){ if(!n.kids.length||n.security) continue;
+      const sum=n.kids.reduce((t,k)=>t+W(w,k)-W(base,k),0), par=W(w,n)-W(base,n);
+      const rel=n.kids.reduce((t,k)=>t+change('rel',k,base,w),0);
+      groups.push({node:n, sum, parent:par, rel}); worst=Math.max(worst, Math.abs(sum-par), Math.abs(rel)); }
+    return {l1, worst, ok:worst<5e-6, groups};
+  }
+  window.MHier={nodes, apply, W, VIEWS, change, sub, netCheck, fmt};
 })();

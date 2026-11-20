@@ -27,9 +27,9 @@ def login(c, name, *roles):
 
 def test_nav_is_filtered_by_role():
     pm = [l["key"] for l in nav_for({"roles": ["portfolio_manager"]}, "trading")["links"]]
-    assert pm == ["console", "trading", "policy", "regulations"]
+    assert pm == ["console", "trading", "simulations", "policy", "regulations"]
     adm = nav_for({"roles": ["admin"]}, "admin")
-    assert [l["key"] for l in adm["links"]] == ["console", "trading", "policy", "regulations", "admin"]
+    assert [l["key"] for l in adm["links"]] == ["console", "trading", "simulations", "policy", "regulations", "admin"]
     lead = nav_for({"roles": ["leadership", "investment_committee"]}, "console")
     assert lead["user"]["roles"] == ["leadership"] and lead["user"]["permissions"] == ["Investment Committee"]
 

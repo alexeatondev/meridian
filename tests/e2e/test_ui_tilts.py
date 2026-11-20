@@ -20,7 +20,8 @@ def test_trd_32_tilts_table(sign_in, app_url):
     page.click("#tgPrev")
     out = page.locator("#tgOut")
     expect(out).to_contain_text("Preview: glide-path allocation")
-    expect(out.locator("th")).to_have_count(3)                           # security + 2 funds changed
+    expect(out.locator("table").last.locator("th")).to_have_count(3)     # security + 2 funds changed
+    expect(out).to_contain_text("Change by asset class")
     expect(out).to_contain_text("tilt 0.00→+0.50")
     page.click("#tgSave")
     page.fill("dialog textarea", "UAT: tilt via the table")
