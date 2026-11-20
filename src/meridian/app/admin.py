@@ -9,13 +9,17 @@ Rules enforced here, whatever the client sends:
 """
 from __future__ import annotations
 
+import json
 import re
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from . import auth
 from .directory import _norm_roles, directory
+
+INACTIVE_DAYS = 90       # 800-53 AC-2(3): flag accounts with no sign-in for this many days
 
 router = APIRouter()
 EMAIL = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
@@ -109,8 +113,21 @@ def list_users(request: Request):
     user = auth.require_user(request)
     auth.require_role(user, "admin", "audit", "compliance")      # audit and compliance: read-only access reviews
     users = directory(_store()).list_users()
+    last = _store().last_signins()
+    now = datetime.now(timezone.utc)
     for u in users:
         u["warnings"] = warnings(u["roles"], users, u["email"])
+        u["last_signin"] = last.get((u["email"] or "").lower())
+        # inactive accounts (800-53 AC-2(3)): no sign-in for INACTIVE_DAYS, counted from the last sign-in, or from
+        # the account's creation when it has never signed in since the security log started
+        ref = u["last_signin"] or u.get("created")
+        try:
+            t = datetime.fromisoformat(str(ref).replace("Z", "+00:00")) if ref else None
+            days = (now - (t if t.tzinfo else t.replace(tzinfo=timezone.utc))).days if t else None
+        except ValueError:
+            days = None
+        u["inactive_days"] = days
+        u["inactive"] = bool(u.get("enabled") and days is not None and days >= INACTIVE_DAYS)
     return {"users": users, "roles": {k: v for k, v in auth.ROLES.items() if k not in auth.PERMISSIONS},
             "permissions": auth.PERMISSIONS}
 
@@ -202,6 +219,36 @@ def delete_user(request: Request, email: str, body: dict = Body(...)):
     d.delete(email)
     _change(request, me, "delete", email, {k: before[k] for k in ("name", "roles", "status")}, None, reason)
     return {"ok": True, "message": f"Deleted {email}. Their past approvals stay in the ledger under their name."}
+
+
+@router.get("/api/admin/security-log")
+def security_log(request: Request, kind: str = "", email: str = "", days: int = 30, format: str = "json"):
+    """Security events for review (800-53 AU-6): sign-ins, failures, refused requests, session ends. Admin, Audit
+    and Compliance read it; nobody can change it."""
+    user = auth.require_user(request)
+    auth.require_role(user, "admin", "audit", "compliance")
+    since = datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 3650)))
+    ev = _store().security_events(limit=5000, kind=kind, email=email.strip().lower(), since=since)
+    if format == "csv":
+        import csv
+        import io
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["at", "kind", "outcome", "email", "name", "user_id", "ip", "method", "path", "detail", "user_agent"])
+        for e in ev:
+            w.writerow([e["at"], e["kind"], e["outcome"], e["email"] or "", e["name"] or "", e["user_id"] or "", e["ip"] or "",
+                        e["method"] or "", e["path"] or "", json.dumps(e["detail"]), e["user_agent"] or ""])
+        from fastapi.responses import Response
+        return Response(buf.getvalue(), media_type="text/csv", headers={
+            "Content-Disposition": f'attachment; filename="meridian-security-log-{now_date()}.csv"'})
+    counts: dict[str, int] = {}
+    for e in ev:
+        counts[e["kind"]] = counts.get(e["kind"], 0) + 1
+    return {"events": ev[:1000], "counts": counts, "total": len(ev), "days": days}
+
+
+def now_date() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
 
 
 @router.get("/api/admin/access-log")

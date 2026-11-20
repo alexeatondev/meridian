@@ -1,0 +1,8 @@
+# gitleaks: default rules, plus allow-listed test fixtures (fake tokens used only by the test suite)
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and documentation examples"
+paths = ['''tests/''', '''docs/img/''', '''data/cache/''']
+regexes = ['''test-token''', '''dev-only-insecure-session-key''']

@@ -473,3 +473,13 @@ set_styles:
   match: [Set management styles]
   button: true
   text: Opens a dialog to set Active, Passive or Hybrid for one fund or many at once (Set all to), with a reason. You can also click any fund's style chip. Portfolio managers only; each change is recorded in the ledger.
+
+# ---------------------------------------------------------------- security (doc 19)
+security_log:
+  title: Security log
+  match: [Security log]
+  text: "Security events, newest first: sign-ins and sign-outs, failed sign-ins, sessions ended for inactivity, the 8-hour limit or an access change, refused requests (someone tried something their role doesn't allow), CSRF failures, bad machine tokens and requests that didn't come through CloudFront. Nobody can edit or delete it. Review it weekly (NIST SP 800-53 AU-6)."
+last_signin:
+  title: Last sign-in
+  match: [Last sign-in]
+  text: The person's most recent successful sign-in, from the security log. An enabled account with no sign-in for 90 days is flagged Inactive so an admin can check whether it is still needed and disable it (NIST SP 800-53 AC-2(3)).

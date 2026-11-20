@@ -41,7 +41,7 @@ def test_ux_02_my_work_opens_the_item(sign_in, app_url):
     expect(page.locator("#mtoasts")).to_contain_text("draft created")
     tl = page.evaluate("S.tl")
     page.goto(app_url + "/runs/latest")
-    page.wait_for_function("document.getElementById('mworkN').textContent !== '·'")
+    expect(page.locator("#mworkN")).not_to_have_text("·")
     page.click("#mwork")
     item = page.locator("#mworkPop a.mi", has_text=f"Approve {tl}")
     expect(item).to_be_visible()

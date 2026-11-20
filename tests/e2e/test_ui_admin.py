@@ -1,8 +1,10 @@
 """UAT-ADM: User access screen (persona: Sam Patel, platform admin). See docs UAT scripts, section ADM."""
+from playwright.sync_api import expect
+
 
 
 def expect_toast(p, text: str):
-    p.wait_for_function("t => document.querySelector('#mtoasts').innerText.includes(t)", arg=text, timeout=15000)
+    expect(p.locator("#mtoasts")).to_contain_text(text, timeout=15000)
 
 R = "UAT: new committee member per IC minute 2026-11"
 
@@ -44,9 +46,9 @@ def test_adm_11_add_user_toggle_permission_and_see_log(page, app_url):
     p.fill("#fEmail", "thomas.greene@example.com")
     p.fill("#fName", "Thomas Greene")
     _toggle(p, "investment_committee")
-    p.wait_for_function("document.querySelector('#warns').innerText.includes('without the Leadership workspace')")
+    expect(p.locator("#warns")).to_contain_text("without the Leadership workspace")
     p.check("#panel input[name=ws][value=leadership]")
-    p.wait_for_function("!document.querySelector('#warns').innerText.includes('Leadership workspace')")
+    expect(p.locator("#warns")).not_to_contain_text("Leadership workspace")
     p.fill("#fReason", R)
     p.click("#save")
     expect_toast(p, "Invited thomas.greene@example.com")

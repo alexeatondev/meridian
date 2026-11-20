@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import expect
 
 OUT = Path(__file__).resolve().parents[2] / "docs" / "img" / "guide"
 R = "Guide: example reason for the screenshot"
@@ -504,7 +505,7 @@ def test_navigation_and_feedback(page, app_url):
     assert st == 200
     page.reload()
     page.wait_for_selector(".mbar")
-    page.wait_for_function("document.getElementById('mworkN').textContent !== '·'")
+    expect(page.locator("#mworkN")).not_to_have_text("·")
     page.click("#mwork")
     page.wait_for_selector("#mworkPop")
     shot(page, "nav-01-my-work")
@@ -721,3 +722,14 @@ def test_simulations_exits_styles(page, app_url):
     p.fill("[data-gpr='vintage:2030'][data-gpn='equity']", "1")
     p.wait_for_timeout(400)
     shot(p, "sim-05-net-change", "#gpGrid")
+
+
+def test_security_log(page, app_url):
+    """User access → Security log (doc 06 §11.4, doc 19), 2026-11-20."""
+    p = go(page, app_url, "Priya Raman", "analyst", email="priya@example.com")
+    p.goto(app_url + "/admin")
+    p = go(page, app_url, "Sam Patel", "admin", email="sam.patel@example.com")
+    p.goto(app_url + "/admin")
+    p.click(".tabs button:text-is('Security log')")
+    p.wait_for_selector("#secTable")
+    shot(p, "sec-01-security-log", "#sec")

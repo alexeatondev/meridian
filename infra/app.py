@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Meridian on AWS (CDK). One stack, region us-east-2 by default.
 
-  CloudFront (HTTPS) ──X-Origin-Verify──▶ ALB ──▶ ECS Fargate (Meridian app container)
+  CloudFront (HTTPS) ──VPC origin (private)──▶ internal ALB ──▶ ECS Fargate (Meridian app container)
                                                      │                │
                               Cognito user pool ◀────┘                └──▶ RDS PostgreSQL (isolated subnets)
   Secrets Manager: DB credentials, session key, ingest token, Cognito client secret.
-  No NAT gateway (cost): tasks run in public subnets with a public IP; the database has no internet route.
+  No NAT gateway (cost): tasks run in public subnets with a public IP but accept traffic only from the load
+  balancer; the load balancer and the database sit in private subnets with no internet route. CloudFront reaches
+  the load balancer through a CloudFront VPC origin, so it has no public address (NIST SP 800-53 SC-7).
 """
 import os
 
@@ -13,7 +15,7 @@ import aws_cdk as cdk
 from aws_cdk import (CfnOutput, Duration, Fn, RemovalPolicy, Stack, aws_cloudfront as cf,
                      aws_cloudfront_origins as origins, aws_cognito as cognito, aws_ec2 as ec2, aws_ecs as ecs,
                      aws_ecs_patterns as ecsp, aws_logs as logs, aws_rds as rds, aws_secretsmanager as sm)
-from aws_cdk import aws_budgets as budgets, aws_iam as iam
+from aws_cdk import aws_budgets as budgets, aws_elasticloadbalancingv2 as elbv2, aws_iam as iam
 from constructs import Construct
 
 ROLES = ["portfolio_manager", "risk", "analyst", "manager_selection", "leadership", "compliance", "audit", "admin",
@@ -35,7 +37,8 @@ class MeridianStack(Stack):
 
         vpc = ec2.Vpc(self, "Vpc", max_azs=2, nat_gateways=0, subnet_configuration=[
             ec2.SubnetConfiguration(name="public", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=24),
-            ec2.SubnetConfiguration(name="db", subnet_type=ec2.SubnetType.PRIVATE_ISOLATED, cidr_mask=24)])
+            ec2.SubnetConfiguration(name="db", subnet_type=ec2.SubnetType.PRIVATE_ISOLATED, cidr_mask=24),
+            ec2.SubnetConfiguration(name="lb", subnet_type=ec2.SubnetType.PRIVATE_ISOLATED, cidr_mask=24)])
 
         db = rds.DatabaseInstance(
             self, "Db", engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16),
@@ -69,9 +72,19 @@ class MeridianStack(Stack):
 
         # ---- app service (ALB + Fargate)
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc, container_insights_v2=ecs.ContainerInsights.DISABLED)
+        # Internal load balancer in private subnets; only CloudFront's origin-facing addresses may connect
+        alb_sg = ec2.SecurityGroup(self, "AlbSg", vpc=vpc, allow_all_outbound=False,
+                                   description="Meridian internal ALB: inbound only from CloudFront VPC origins")
+        cf_prefix = ec2.PrefixList.from_lookup(self, "CloudFrontOriginFacing",
+                                               prefix_list_name="com.amazonaws.global.cloudfront.origin-facing")
+        alb_sg.add_ingress_rule(ec2.Peer.prefix_list(cf_prefix.prefix_list_id), ec2.Port.tcp(80),
+                                "CloudFront origin-facing (VPC origin)")
+        alb = elbv2.ApplicationLoadBalancer(self, "Alb", vpc=vpc, internet_facing=False, security_group=alb_sg,
+                                            vpc_subnets=ec2.SubnetSelection(subnet_group_name="lb"),
+                                            drop_invalid_header_fields=True)
         svc = ecsp.ApplicationLoadBalancedFargateService(
             self, "Web", cluster=cluster, cpu=512, memory_limit_mib=1024, desired_count=1,
-            public_load_balancer=True, assign_public_ip=True,
+            load_balancer=alb, public_load_balancer=False, open_listener=False, assign_public_ip=True,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
             circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True), min_healthy_percent=100,
             task_image_options=ecsp.ApplicationLoadBalancedTaskImageOptions(
@@ -84,14 +97,14 @@ class MeridianStack(Stack):
         dist = cf.Distribution(
             self, "Cdn", comment="Meridian",
             default_behavior=cf.BehaviorOptions(
-                origin=origins.LoadBalancerV2Origin(svc.load_balancer, protocol_policy=cf.OriginProtocolPolicy.HTTP_ONLY,
-                                                    custom_headers={"X-Origin-Verify": origin_verify},
-                                                    read_timeout=Duration.seconds(60)),
+                origin=origins.VpcOrigin.with_application_load_balancer(
+                    alb, protocol_policy=cf.OriginProtocolPolicy.HTTP_ONLY,
+                    custom_headers={"X-Origin-Verify": origin_verify}, read_timeout=Duration.seconds(60)),
                 viewer_protocol_policy=cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 allowed_methods=cf.AllowedMethods.ALLOW_ALL,
                 cache_policy=cf.CachePolicy.CACHING_DISABLED,
                 origin_request_policy=cf.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER),
-            price_class=cf.PriceClass.PRICE_CLASS_100)
+            price_class=cf.PriceClass.PRICE_CLASS_100)   # viewer TLS 1.2+ needs a custom domain + certificate (backlog S-1)
         base_url = Fn.join("", ["https://", dist.distribution_domain_name])
 
         client = pool.add_client(

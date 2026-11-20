@@ -1,0 +1,17 @@
+# Keep dependencies patched (NIST SP 800-53 SI-2, SP 800-218 PW.4). Weekly pull requests; CI runs on each.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 5
+  - package-ecosystem: pip
+    directory: "/infra"
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: {interval: weekly}
+  - package-ecosystem: docker
+    directory: "/"
+    schedule: {interval: weekly}

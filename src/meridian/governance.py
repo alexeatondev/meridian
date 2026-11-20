@@ -42,7 +42,7 @@ def list_requests(gov_dir: Path = GOV_DIR, status: str | None = None) -> list[di
 
 
 def request_risk_budget_change(vintage: int | str, new_budget: float, name: str, role: str, reason: str,
-                               gov_dir: Path = GOV_DIR, policy_path: Path = POLICY_PATH) -> dict:
+                               gov_dir: Path = GOV_DIR, policy_path: Path = POLICY_PATH, user_id: str | None = None) -> dict:
     pol = load_policy(policy_path)
     hard = float(pol.raw["risk_budgets"]["hard_max"])
     if new_budget <= 0 or new_budget > hard + 1e-12:
@@ -53,7 +53,7 @@ def request_risk_budget_change(vintage: int | str, new_budget: float, name: str,
     current = pol.raw["risk_budgets"]["default"] if key == "default" else pol.risk_budget(key)
     cr = {"id": "cr_" + uuid.uuid4().hex[:10], "kind": "risk_budget_change", "status": "pending",
           "target": {"vintage": key}, "current": current, "proposed": new_budget,
-          "requested_by": {"name": name, "role": role}, "reason": reason,
+          "requested_by": {"name": name, "role": role, **({"id": user_id} if user_id else {})}, "reason": reason,
           "required_approvals": pol.raw["approvals"]["risk_budget_change"], "approvals": [],
           "created_at": datetime.now(timezone.utc).isoformat(), "policy_version": pol.id}
     reqs = _requests(gov_dir)
@@ -67,14 +67,15 @@ def request_risk_budget_change(vintage: int | str, new_budget: float, name: str,
 
 
 def approve_change(cr_id: str, name: str, role: str, decision: str, reason: str,
-                   gov_dir: Path = GOV_DIR, policy_path: Path = POLICY_PATH) -> dict:
+                   gov_dir: Path = GOV_DIR, policy_path: Path = POLICY_PATH, user_id: str | None = None) -> dict:
     reqs = _requests(gov_dir)
     cr = reqs.get(cr_id)
     if not cr:
         raise SystemExit(f"No change request {cr_id}")
     if cr["status"] != "pending":
         raise SystemExit(f"{cr_id} is already {cr['status']}")
-    if name == cr["requested_by"]["name"]:
+    rid = cr["requested_by"].get("id")
+    if (rid and user_id and rid == user_id) or ((not rid or not user_id) and name == cr["requested_by"]["name"]):
         raise SystemExit("Segregation of duties: the requester cannot approve their own change request.")
     if role not in cr["required_approvals"]:
         raise SystemExit(f"Role '{role}' is not an approver; required: {cr['required_approvals']}")
@@ -82,7 +83,7 @@ def approve_change(cr_id: str, name: str, role: str, decision: str, reason: str,
         raise SystemExit(f"{role} already decided on {cr_id}")
     if len(reason.strip()) < 10:
         raise SystemExit("A reason of at least 10 characters is required.")
-    cr["approvals"].append({"role": role, "name": name, "decision": decision, "reason": reason,
+    cr["approvals"].append({"role": role, "name": name, **({"id": user_id} if user_id else {}), "decision": decision, "reason": reason,
                             "at": datetime.now(timezone.utc).isoformat()})
     L = _ledger(gov_dir)
     L.record(dr_type="approval", run_id="governance", step="change_request.decision",

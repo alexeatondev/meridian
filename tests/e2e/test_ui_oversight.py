@@ -1,12 +1,14 @@
 """UAT for the shared oversight features: "Why?" panels, changes since last run, exceptions, ledger search,
 evidence download, and the fixes from UAT round 1. See docs UAT scripts, section OVS."""
+from playwright.sync_api import expect
+
 import datetime as dt
 
 from conftest import open_tab, switch_workspace, tabs
 
 
 def expect_toast(p, text):
-    p.wait_for_function("t => document.querySelector('#mtoasts').innerText.includes(t)", arg=text, timeout=15000)
+    expect(p.locator("#mtoasts")).to_contain_text(text, timeout=15000)
 
 
 def test_ovs_01_why_panel_on_a_proposal(sign_in):

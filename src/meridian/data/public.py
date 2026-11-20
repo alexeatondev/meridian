@@ -43,8 +43,10 @@ def http_get(url: str, timeout: int = 30, retries: int = 1, headers: dict | None
     last = None
     for i in range(retries + 1):
         try:
+            if not url.startswith("https://"):     # public data sources only, never file:// or other schemes
+                raise ValueError(f"Only https URLs are fetched: {url[:40]}")
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*", **(headers or {})})
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with urllib.request.urlopen(req, timeout=timeout) as r:  # nosec B310 - scheme checked above
                 return r.read()
         except urllib.error.HTTPError as e:          # server answered: series/ticker problem, or rate limit
             last = e

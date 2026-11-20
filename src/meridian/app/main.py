@@ -9,6 +9,7 @@ from __future__ import annotations
 import hmac
 import io
 import json
+import logging
 import os
 import secrets
 import tarfile
@@ -71,18 +72,80 @@ def _revoked_after(email: str):
 
 auth.REVOKED_AFTER = _revoked_after
 
+_seclog = logging.getLogger("meridian.security")
+
+
+def security_event(request: Request | None, kind: str, outcome: str, user: dict | None = None, detail: dict | None = None):
+    """Write one security event to the append-only table and, as a JSON line, to the container log (CloudWatch).
+    Never raises: a logging failure must not block the request (AU-5 is handled by the alarm in the backlog)."""
+    try:
+        ip = ""
+        if request is not None:
+            request.state.security_logged = True
+            # the viewer's address: CloudFront appends it to X-Forwarded-For and the load balancer then appends
+            # CloudFront's, so it is the second-to-last entry (earlier entries can be forged by the browser)
+            parts = [x.strip() for x in request.headers.get("x-forwarded-for", "").split(",") if x.strip()]
+            ip = (request.headers.get("cloudfront-viewer-address", "").rsplit(":", 1)[0]
+                  or (parts[-2] if len(parts) >= 2 else parts[0] if parts else "")
+                  or (request.client.host if request.client else ""))[:64]
+        e = {"kind": kind, "outcome": outcome, "user_id": (user or {}).get("sub"),
+             "email": ((user or {}).get("email") or "").lower() or None, "name": (user or {}).get("name"),
+             "ip": ip or None, "user_agent": (request.headers.get("user-agent", "")[:300] if request else None),
+             "method": request.method if request else None, "path": str(request.url.path)[:300] if request else None,
+             "detail": detail or {}}
+        _seclog.warning(json.dumps({"security_event": kind, **{k: v for k, v in e.items() if k != "kind"}}, default=str))
+        store().log_security(**e)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+auth.SECURITY_EVENT = security_event
+
+# Content Security Policy: everything from this origin only; no plugins, no framing, forms only to this site and
+# the Cognito sign-in domain. Inline scripts and styles are still allowed because the pages are single files
+# (backlog: move to nonces). 800-53 SC-18, SI-10; OWASP ASVS V14.4.
+CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+       "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+       "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://*.amazoncognito.com")
+
+
+def _security_headers(resp: Response) -> None:
+    h = resp.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("Referrer-Policy", "same-origin")
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("Cache-Control", "no-store")
+    h.setdefault("Content-Security-Policy", CSP)
+    h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+    h.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    h.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    if _secure():
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
 
 @app.middleware("http")
 async def guard(request: Request, call_next):
     expected = os.getenv("ORIGIN_VERIFY")           # shared secret set by CloudFront; blocks direct ALB access
     if expected and request.url.path != "/healthz" and not hmac.compare_digest(
             request.headers.get("x-origin-verify", ""), expected):
-        return PlainTextResponse("Forbidden", status_code=403)
+        security_event(request, "origin.blocked", "denied", None, {"reason": "request did not come through CloudFront"})
+        resp = PlainTextResponse("Forbidden", status_code=403)
+        _security_headers(resp)
+        return resp
     resp = await call_next(request)
-    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-    resp.headers.setdefault("Referrer-Policy", "same-origin")
-    resp.headers.setdefault("X-Frame-Options", "DENY")
-    resp.headers.setdefault("Cache-Control", "no-store")
+    _security_headers(resp)
+    path = request.url.path
+    if not getattr(request.state, "security_logged", False):
+        if resp.status_code == 403:
+            security_event(request, "access.denied", "denied", auth.current_user(request), {"status": 403})
+        elif resp.status_code == 401 and (path.startswith("/api/ingest") or request.headers.get("authorization")):
+            security_event(request, "token.invalid", "denied", None, {"status": 401})
+    # inactivity timeout: refresh the session's last-activity time on real use (not background polls)
+    if resp.status_code < 400 and auth.SESSION_COOKIE not in resp.headers.get("set-cookie", ""):
+        fresh = auth.touched(request.cookies.get(auth.SESSION_COOKIE, ""), path)
+        if fresh:
+            resp.set_cookie(auth.SESSION_COOKIE, fresh, max_age=auth.SESSION_TTL, httponly=True, secure=_secure(),
+                            samesite="lax")
     return resp
 
 
@@ -163,6 +226,7 @@ async def dev_login(request: Request):
     user = {"sub": "dev-" + str(form.get("name")), "name": str(form.get("name") or "Dev"),
             "email": str(form.get("email") or "").strip().lower(),
             "roles": [r for r in form.getlist("roles") if r in auth.ROLES]}
+    security_event(request, "signin.success", "success", user, {"roles": user["roles"], "mode": "dev"})
     resp = RedirectResponse("/", status_code=303)
     _set_session(resp, user)
     return resp
@@ -171,8 +235,14 @@ async def dev_login(request: Request):
 @app.get("/auth/callback")
 def callback(request: Request, code: str = "", state: str = ""):
     if not code or not state or not hmac.compare_digest(state, request.cookies.get("meridian_oauth_state", "")):
+        security_event(request, "signin.failure", "failure", None, {"reason": "invalid or missing sign-in state"})
         raise HTTPException(400, "Invalid sign-in state")
-    user = auth.exchange_code(code)
+    try:
+        user = auth.exchange_code(code)
+    except HTTPException:
+        security_event(request, "signin.failure", "failure", None, {"reason": "code exchange or token check failed"})
+        raise
+    security_event(request, "signin.success", "success", user, {"roles": user.get("roles", [])})
     resp = RedirectResponse("/", status_code=303)
     resp.delete_cookie("meridian_oauth_state")
     _set_session(resp, user)
@@ -180,7 +250,10 @@ def callback(request: Request, code: str = "", state: str = ""):
 
 
 @app.get("/logout")
-def logout():
+def logout(request: Request):
+    u = auth.current_user(request)
+    if u:
+        security_event(request, "signout", "success", u, {})
     resp = RedirectResponse(auth.logout_url() if auth.mode() != "dev" else "/signed-out", status_code=303)
     resp.delete_cookie(auth.SESSION_COOKIE)
     return resp
@@ -268,6 +341,30 @@ def _bad(e: BaseException):
     raise HTTPException(400, str(e) or "Invalid request")
 
 
+@app.get("/api/session")
+def session_info(request: Request):
+    """Seconds left before the inactivity timeout and the absolute limit. A background call: it doesn't count as
+    activity. POST /api/session/ping does (the 'Stay signed in' button)."""
+    import time as _t
+    u = auth.require_user(request)
+    now = _t.time()
+    return {"idle_left": max(0, int(auth.IDLE_TTL - (now - u.get("la", u.get("iat", now))))),
+            "absolute_left": max(0, int(auth.SESSION_TTL - (now - u.get("iat", now)))), "idle_limit": auth.IDLE_TTL,
+            "csrf": u.get("csrf")}
+
+
+@app.post("/api/session/ping")
+def session_ping(request: Request):
+    u = auth.require_user(request)
+    auth.check_csrf(request, u)
+    raw = request.cookies.get(auth.SESSION_COOKIE, "")
+    resp = JSONResponse({"ok": True})
+    import time as _t
+    fresh = auth._serializer().dumps({**u, "la": _t.time()})
+    resp.set_cookie(auth.SESSION_COOKIE, fresh, max_age=auth.SESSION_TTL, httponly=True, secure=_secure(), samesite="lax")
+    return resp
+
+
 @app.get("/api/me")
 def me(request: Request):
     return auth.require_user(request) | {"csrf": None}
@@ -288,7 +385,8 @@ def approve(request: Request, run_id: str, body: dict = Body(...)):
     from ..approvals import record_decision
     try:
         with store().run_workspace(run_id) as wd:
-            dr = record_decision(wd, int(body["vintage"]), role, user["name"], body["decision"], body.get("reason", ""))
+            dr = record_decision(wd, int(body["vintage"]), role, user["name"], body["decision"], body.get("reason", ""),
+                                 user_id=user.get("sub"), email=user.get("email", ""))
     except (SystemExit, ValueError, KeyError) as e:
         _bad(e)
     return {"dr_id": dr}
@@ -315,7 +413,7 @@ def rb_request(request: Request, body: dict = Body(...)):
     try:
         with store().governance_workspace(POLICY_PATH) as (gov, pol):
             cr = gv.request_risk_budget_change(body["vintage"], float(body["te"]), user["name"], role,
-                                               body.get("reason", ""), gov, pol)
+                                               body.get("reason", ""), gov, pol, user_id=user.get("sub"))
     except (SystemExit, ValueError, KeyError) as e:
         _bad(e)
     return cr
@@ -330,7 +428,8 @@ def rb_decide(request: Request, cr_id: str, body: dict = Body(...)):
     from .. import governance as gv
     try:
         with store().governance_workspace(POLICY_PATH) as (gov, pol):
-            cr = gv.approve_change(cr_id, user["name"], role, body.get("decision", "approve"), body.get("reason", ""), gov, pol)
+            cr = gv.approve_change(cr_id, user["name"], role, body.get("decision", "approve"), body.get("reason", ""), gov, pol,
+                                   user_id=user.get("sub"))
     except (SystemExit, ValueError, KeyError) as e:
         _bad(e)
     return cr

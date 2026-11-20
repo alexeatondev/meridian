@@ -93,7 +93,7 @@ def _store():
 
 
 def _who(user: dict) -> dict:
-    return {"name": user.get("name"), "email": user.get("email", "")}
+    return auth.who(user)
 
 
 def _reason(body: dict, n: int = 10) -> str:
@@ -917,7 +917,16 @@ def set_settings(request: Request, body: dict = Body(...)):
     reason = _reason(body)
     m = model()
 
-    def _entries(key: str, extra, allow_asset_class: bool = False) -> list[dict]:
+    _META = ("by", "at", "reason", "source", "until")
+
+    def _sig(e: dict) -> str:
+        return json.dumps({k: v for k, v in e.items() if k not in _META}, sort_keys=True, default=str)
+
+    def _entries(key: str, extra, allow_asset_class: bool = False, prev: list | None = None) -> list[dict]:
+        """Entries as sent, validated. Who added an entry and when come from the server, never the browser: an
+        entry that already existed keeps its recorded author; a new or changed one is stamped with this user
+        (800-53 AU-10, AU-3)."""
+        known = {_sig(p): p for p in (prev or [])}
         out = []
         for e in body[key] or []:
             ac = e.get("asset_class") if allow_asset_class else None
@@ -935,14 +944,17 @@ def set_settings(request: Request, body: dict = Body(...)):
                 raise HTTPException(400, "Vintage range is back to front")
             vl = _vintage_list(e.get("vintages"))
             ent = {"fund": e.get("fund", "*"), "reason": str(e.get("reason", "")).strip() or reason,
-                   "until": e.get("until") or "", "by": e.get("by") or _who(user), "at": e.get("at") or _ts(),
-                   **({"asset_class": ac} if ac else {"instrument": e["instrument"]}), **extra(e)}
+                   "until": e.get("until") or "", "by": _who(user), "at": _ts(),
+                   **({"asset_class": ac} if ac else {"instrument": e["instrument"]}), **extra(e)}  # nosec B610 - not Django
             if vl:
                 ent["vintages"] = vl
             elif vf:
                 ent["vintage_from"] = int(vf)
             if vt and not vl:
                 ent["vintage_to"] = int(vt)
+            old = known.get(_sig(ent))
+            if old and (old.get("until") or "") == ent["until"]:
+                ent.update({k: old[k] for k in ("by", "at", "reason", "source") if k in old})
             out.append(ent)
         return out
 
@@ -959,9 +971,9 @@ def set_settings(request: Request, body: dict = Body(...)):
                 if b == 0 or abs(b) > 500:
                     raise HTTPException(400, "Tilt must be between -500 and +500 bp, and not zero")
                 return {"bps": b}
-            new["tilts"] = _entries("tilts", _bps, allow_asset_class=True)
+            new["tilts"] = _entries("tilts", _bps, allow_asset_class=True, prev=cur.get("tilts", []))
         if "exits" in body:
-            new["exits"] = _entries("exits", lambda e: {})
+            new["exits"] = _entries("exits", lambda e: {}, prev=cur.get("exits", []))
         if "routes" in body:
             names = set(m.raw.get("route_names", []))
             r = {k: str(v) for k, v in (body["routes"] or {}).items()}
@@ -979,7 +991,7 @@ def set_settings(request: Request, body: dict = Body(...)):
                 raise HTTPException(400, "Unknown fund in buffer overrides")
             new["buffer_overrides"] = ov
         if "excluded" in body:
-            new["excluded"] = _entries("excluded", lambda e: {})
+            new["excluded"] = _entries("excluded", lambda e: {}, prev=cur.get("excluded", []))
         if "roll_down" in body:
             from ..trading.model import ROLL_FREQS
             rd = {k: v for k, v in (body["roll_down"] or {}).items() if v}
@@ -1913,7 +1925,7 @@ def calc_decide(request: Request, cid: str, ver: int, body: dict = Body(...)):
         if not v or v["status"] != "pending":
             raise HTTPException(409, "This version is not waiting for a decision")
         rb = v["requested_by"]
-        if rb["name"] == user["name"] or (rb.get("email") and rb.get("email") == user.get("email")):
+        if auth.same_person(rb, user):
             raise HTTPException(403, "Segregation of duties: a second person approves a calculation template")
         if dec == "approve":
             for x in t["versions"]:
@@ -2041,7 +2053,7 @@ def approve(request: Request, tid: str, body: dict = Body(...)):
             raise HTTPException(409, f"Trade list is {b['status']}, not draft")
         if b["blocked_funds"]:
             raise HTTPException(409, "Blocked: " + ", ".join(b["blocked_funds"]) + " have errors or a compliance FAIL")
-        self_approved = b["created_by"].get("email") == user.get("email") and b["created_by"].get("name") == user["name"]
+        self_approved = auth.same_person(b["created_by"], user)
         dr = _record(s, _who(user), "trades.approve", f"{tid} approved ({b['order_count']} orders)",
                      {"trade_list": tid, "self_approved": self_approved, "orders": b["order_count"]}, reason,
                      [f["fund_id"] for f in b["funds"]])
@@ -2769,7 +2781,7 @@ def glide_decide(request: Request, rid: str, body: dict = Body(...)):
         req = next((r for r in gs["requests"] if r["id"] == rid), None)
         if not req or req["status"] != "pending":
             raise HTTPException(409, "No pending request with that ID")
-        if req["requested_by"].get("name") == user["name"] and req["requested_by"].get("email", "") == user.get("email", ""):
+        if auth.same_person(req["requested_by"], user):
             raise HTTPException(403, "Segregation of duties: the requester can't decide their own glide-path change")
         req.update(status="approved" if decision == "approve" else "rejected", decided_by=_who(user),
                    decided_at=_ts(), decision_reason=reason)
