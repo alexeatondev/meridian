@@ -60,8 +60,12 @@ Appendix A: Approval checklist · Appendix B: Glossary · Appendix C: Messages a
 ### 1.1 Sign in for the first time
 **Who:** everyone. **Before you start:** your admin has added you (section 11) and you have the email from Amazon Cognito with your username (your email) and a temporary password.
 
-1. Open https://d3maw6l4k5cc0v.cloudfront.net in Chrome, Edge or Safari.
-2. Click **Sign in**.
+1. Open https://d3maw6l4k5cc0v.cloudfront.net in Chrome, Edge or Safari. The **Sign in to Meridian** page opens, in the same colours as the rest of the app.
+
+![The sign-in page](img/guide/nav-00-sign-in.png)
+*Image: `nav-00-sign-in.png`*
+
+2. Click **Sign in**. The secure sign-in page (Amazon Cognito, also in the app's colours) opens.
 3. Type your email and the temporary password from the email. Click **Sign in**.
 4. Choose your own password: at least 12 characters, including a symbol. Type it twice and confirm.
 5. You land on your workspace's **Home** page. (Admins with no other role land on **User access**.)

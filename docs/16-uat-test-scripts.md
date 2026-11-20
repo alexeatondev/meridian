@@ -232,6 +232,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | UX-6 | On Regulations click **? Help**, search "obligation", go back | Guide opens at §12; headings filter; back returns to Regulations | `test_ux_04`, `test_help_anchors_exist` |
 | UX-7 | Let the session expire (or sign out in another tab), then act | "Your session has expired" with Sign in / Stay on page; Sign in goes to the sign-in page | `test_ux_04` |
 | UX-8 | As a Compliance user with obligations due soon, open My work | Obligations due within 14 days or overdue for your role, red when overdue; click opens that obligation | API test |
+| UX-10 | Signed out, open the app URL; click **Sign in**; sign in; then sign out | **Sign in to Meridian** page with the navy app bar and the brand's colours; the Cognito sign-in page has a navy banner, navy button and the app's grey background; signed-out page in the same style | `test_app_signin_pages_are_branded`, `test_cognito_css_for_every_theme_fits_cognitos_rules`; Cognito page by hand |
 | UX-9 | PM Home: click the **i** next to **Tracking error**; Esc; the **i** on **Highest risk-budget use**; click elsewhere; Glide path → the **i** next to **Balance**; Trading → Funds & securities → **i** next to **Management** | Each opens a box with a plain explanation, and a "How it's calculated" formula where there is one (e.g. tracking error ÷ risk budget); Esc returns focus to the **i**; a click elsewhere closes it; header text unchanged | `test_ux_09_info_bubbles`, `test_glossary_entries_are_complete_and_labels_unique` |
 
 ---
@@ -275,3 +276,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 15 (automated) | 2026-11-20 | Browser + API tests | All + UX-9 | 211 pass (122 unit/API, 89 browser) | Info bubbles across the app (product-owner request): 87 glossary entries with simplified formulas. 1 new screenshot |
 | 16 (automated) | 2026-11-20 | Browser + API tests | All + POL-7 | 212 pass (122 unit/API, 90 browser) | Guided glide-path builder (product-owner request) and a **+ New glide path** button on Console → Glide path. 5 new screenshots |
 | 17 (automated) | 2026-11-20 | Browser + API tests | All + TRD-34 | 215 pass (124 unit/API, 91 browser) | Security line-up (level 5) across funds and vintages (product-owner request). 2 new screenshots |
+| 18 (automated) | 2026-11-20 | Browser + API tests | All + UX-10 | 217 pass (126 unit/API, 91 browser) | Branded sign-in pages, including the Cognito sign-in page (product-owner request) |
