@@ -144,7 +144,7 @@ jobs:
                 "| revisions", {k: v["note"] for k, v in (sr.get("revisions") or {}).items()},
                 "| risk flags", {c["method"]: c["risk_flag"] for c in (sr.get("risk_commentary") or {}).get("comments", []) if c["risk_flag"] != "none"})
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: meridian-${{ env.RUN_DIR != '' && 'run' || 'failed' }}-${{ github.run_number }}
           path: runs/
