@@ -13,6 +13,8 @@ COPY schemas ./schemas
 # in-app Help renders the user guide and its screenshots
 COPY docs/06-user-guides.md ./docs/06-user-guides.md
 COPY docs/img/guide ./docs/img/guide
+# patch the base image's OS packages at build time (fixable CVEs fail CI's Trivy scan; NIST SI-2)
+RUN apt-get update && apt-get -y upgrade && rm -rf /var/lib/apt/lists/*
 RUN pip install ".[app]" && useradd --create-home --uid 10001 meridian
 # the package resolves config/policies relative to the repo root; point it at /app
 ENV MERIDIAN_REPO_ROOT=/app

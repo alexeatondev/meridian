@@ -26,6 +26,12 @@ def test_hsts_when_https(client, monkeypatch):  # noqa: F811
     assert client.get("/login").headers["strict-transport-security"].startswith("max-age=31536000")
 
 
+def _use(client, raw):
+    """Replace the session cookie (clear first: httpx would otherwise keep both and may send the old one)."""
+    client.cookies.clear()
+    client.cookies.set(auth.SESSION_COOKIE, raw)
+
+
 def test_idle_timeout_and_absolute_limit(client, monkeypatch):  # noqa: F811
     login(client, "Maya Chen", "portfolio_manager", email="maya@example.com")
     raw = client.cookies.get(auth.SESSION_COOKIE)
@@ -33,17 +39,17 @@ def test_idle_timeout_and_absolute_limit(client, monkeypatch):  # noqa: F811
     assert client.get("/api/trading/state").status_code == 200
     # 31 minutes without activity: the session is refused and the event logged
     stale = auth._serializer().dumps({**u, "la": time.time() - 31 * 60})
-    client.cookies.set(auth.SESSION_COOKIE, stale)
+    _use(client, stale)
     assert client.get("/api/trading/state").status_code == 401
     # 29 minutes: still fine, and the response refreshes the last-activity time
     ok = auth._serializer().dumps({**u, "la": time.time() - 29 * 60})
-    client.cookies.set(auth.SESSION_COOKIE, ok)
+    _use(client, ok)
     r = client.get("/api/trading/state")
     assert r.status_code == 200 and auth.SESSION_COOKIE in r.headers.get("set-cookie", "")
-    fresh = auth._serializer().loads(r.cookies.get(auth.SESSION_COOKIE) or client.cookies.get(auth.SESSION_COOKIE))
+    fresh = auth._serializer().loads(r.cookies.get(auth.SESSION_COOKIE))
     assert time.time() - fresh["la"] < 5 and fresh["iat"] == u["iat"]          # absolute start never moves
     # background polling doesn't count as activity
-    client.cookies.set(auth.SESSION_COOKIE, ok)
+    _use(client, ok)
     assert auth.SESSION_COOKIE not in client.get("/api/my-work").headers.get("set-cookie", "")
     s = client.get("/api/session").json()
     assert 0 < s["idle_left"] <= 60 and s["idle_limit"] == 30 * 60
