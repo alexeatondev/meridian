@@ -18,7 +18,7 @@ How the hosted Meridian app is built, deployed and run, and what to do when some
 ## 2. Architecture
 
 ```
-Browser ──HTTPS──▶ CloudFront ──(secret X-Origin-Verify header)──▶ Application Load Balancer
+Browser ──HTTPS──▶ CloudFront ──VPC origin (private) + X-Origin-Verify──▶ internal Application Load Balancer
                                                                       │
                                                                       ▼
                                            ECS Fargate service "Web" (1 task, 0.5 vCPU, 1 GB)
@@ -34,7 +34,7 @@ Secrets Manager: database credentials, session key, ingest token, Cognito client
 | Component | Configuration | Why |
 |---|---|---|
 | CloudFront | Default `*.cloudfront.net` certificate, PriceClass 100 | HTTPS without a custom domain |
-| Load balancer | Public; only accepts requests carrying CloudFront's secret origin header | Stops people bypassing CloudFront |
+| Load balancer | **Internal** (since 2026-11-20), in private `lb` subnets, reached only through a CloudFront VPC origin; security group admits only CloudFront's origin-facing prefix list; the app also checks CloudFront's secret origin header | No public address; nobody can bypass CloudFront (doc 19) |
 | ECS Fargate | 1 task; public IP; no NAT gateway | Lowest cost. The database is the only private tier |
 | RDS PostgreSQL | Single-AZ, encrypted, 7-day automated backups, deletion protection on, final snapshot if the stack is removed | Runs, ledger and governance records, access log, exceptions, positions, change requests, policy overrides, cashflows, trade lists, trading settings, fund regulations, compliance obligations |
 | Cognito | No self sign-up; admin-created users only; password ≥ 12 characters with symbols; MFA optional (authenticator app); account recovery by email; user pool retained if the stack is removed | Identity for all human users |
@@ -49,7 +49,7 @@ GitHub Actions signs in to AWS with OpenID Connect (OIDC): each workflow run get
 | Identity provider | `arn:aws:iam::950088505912:oidc-provider/token.actions.githubusercontent.com`, audience `sts.amazonaws.com` |
 | Role | `meridian-github-deploy` (repo variable `AWS_DEPLOY_ROLE_ARN`) |
 | Trust condition | `sub` must equal `repo:alexeatondev@82978383/meridian@1448386556:ref:refs/heads/main` (GitHub's immutable owner/repo ID format), `aud` must equal `sts.amazonaws.com` |
-| Permissions today | AWS-managed `AdministratorAccess` (to be narrowed, §12) |
+| Permissions today | AWS-managed `AdministratorAccess`. Least-privilege replacements (`meridian-gh-deploy`, `-users`, `-ingest`, one GitHub environment each) are ready in `infra/security/github-oidc-roles.yaml`; doc 19 runbook R-1 switches over |
 | Session | 1 hour maximum |
 
 Workflows that use the role:
@@ -148,7 +148,7 @@ Stack `MeridianCostGuard` (in us-east-2; AWS Budgets is a global service).
 
 **Lifting the block early** (e.g., to deploy a fix): deploys are blocked, so do this in the AWS console, where your own access is not affected. Go to Billing and Cost Management → Budgets → `meridian-cost-guard`, raise the amount if needed, then Actions → select the action → Reverse. CLI equivalent: `aws budgets execute-budget-action --account-id 950088505912 --budget-name meridian-cost-guard --action-id <id> --execution-type REVERSE_BUDGET_ACTION`. After the reversal, AWS does not re-evaluate the action until next month, so update `infra/cdk.json` to match the new amount on the next deploy.
 
-The alert email address lives in `infra/cdk.json` (`costGuard.email`); the repository is private.
+The alert email address lives in `infra/cdk.json` (`costGuard.email`). **The repository is public** (checked 2026-11-20), so that address and the infrastructure code are visible to anyone; see doc 19 gap G-7.
 
 ## 8. Monitoring & logs
 
