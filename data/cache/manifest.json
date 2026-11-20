@@ -1,6 +1,6 @@
 {
-  "refreshed_at": "2026-11-18T20:23:46.245770+00:00",
-  "as_of": "2026-11-18",
+  "refreshed_at": "2026-11-20T15:39:02.915471+00:00",
+  "as_of": "2026-11-20",
   "datasets": {
     "returns.monthly": {
       "status": "ok",
@@ -40,16 +40,16 @@
     },
     "holdings.lookthrough": {
       "status": "ok",
-      "rows": 13099,
+      "rows": 13107,
       "sources": {
-        "ishares": 13099
+        "ishares": 13107
       }
     },
     "fundamentals.edgar": {
       "status": "ok",
-      "rows": 5898,
+      "rows": 5900,
       "sources": {
-        "sec_edgar": 5898
+        "sec_edgar": 5900
       }
     }
   },
@@ -234,7 +234,7 @@
       "dataset": "holdings.lookthrough",
       "source": "ishares",
       "status": "ok",
-      "rows": 13099,
+      "rows": 13107,
       "synthetic": false
     },
     {
@@ -246,7 +246,7 @@
       "dataset": "fundamentals.edgar",
       "source": "sec_edgar",
       "status": "ok",
-      "rows": 5898,
+      "rows": 5900,
       "synthetic": false
     }
   ]
