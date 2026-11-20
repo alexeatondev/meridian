@@ -973,7 +973,7 @@ function hpCard(title, blurb, fs, key){
    <tr>${L1.map(n=>`<th class="num">${esc(n.name)}</th>`).join('')}${L1.map(n=>`<th class="num">${esc(n.name)}</th>`).join('')}</tr>${rows}
    <tr class="lvl0"><td>All ${fs.length} funds (asset-weighted)</td><td class="num">${money(fs.reduce((s,f)=>s+f.nav,0))}</td>${L1.map(n=>`<td class="num">${hpPP(MHier.W(g.d,n))}</td>`).join('')}<td class="num">${gr?pct(gr.te,2):'—'}</td><td>${gr?rbBar(gr.used):'—'}</td>${L1.map(n=>`<td class="num small">${gr?hpUse(MHier.W(gr.c,n),gr.budget):'—'}</td>`).join('')}</tr></table></div>
   <h3 style="margin-top:14px">By asset class: portfolio vs target and vs market</h3>
-  <div class="row" style="gap:6px;margin-bottom:6px"><span class="small muted">Show levels</span><div class="vt-tabs" style="margin:0">${[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4']].map(([k,l])=>`<button class="${k===show?'active':''}" data-hpshow="${k}">${l}</button>`).join('')}</div></div>
+  <div class="row" style="gap:6px;margin-bottom:6px"><span class="small muted" data-info="level">Show levels</span><div class="vt-tabs" style="margin:0">${[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4']].map(([k,l])=>`<button class="${k===show?'active':''}" data-hpshow="${k}">${l}</button>`).join('')}</div></div>
   <div class="scroll" style="max-height:none"><table><tr><th rowspan="2">Asset class</th><th colspan="3" style="text-align:center">% of the fund (asset-weighted)</th><th rowspan="2" class="num">Risk budget used</th><th colspan="4" style="text-align:center">Share of the level above: portfolio vs market</th></tr>
    <tr><th class="num">Target</th><th class="num">Portfolio</th><th class="num">Portfolio − target</th><th class="num">Portfolio</th><th class="num">Market</th><th class="num">Portfolio − market</th><th class="num">Target − market</th></tr>${brk}</table></div>
   <p class="small muted">Market = global market-cap mix inside each asset group (MSCI ACWI IMI for regions and developed vs emerging; S&amp;P DJI for US large vs small/mid), as of ${esc(((window.MHIER_CFG||{}).market||{}).as_of||'—')}; hover a cell for the source. The stock/bond mix itself is set by the glide path, so level 1 has no market weight. "1.10×" = the portfolio holds 1.1 times the market's share. Fixed-income regional weights aren't sourced yet.</p></div>`;
@@ -1247,9 +1247,9 @@ function gpTableHtml(){ const T=gpT();
   return `<h2>Propose glide-path changes</h2>
    <p class="small muted">Type a change into any cell, at any level: asset group (stocks vs bonds), region (US vs international), developed vs emerging, or size and sector. You only need one cell: the rest balance automatically as set under <b>Balance</b>, so every fund still totals 100%. The small number under each cell is the weight today → after, in % of the fund. Levels apply from the top down, so you can set stocks vs bonds and, in the same table, US vs international within stocks. Then preview and submit the whole table as one request; the Investment Committee approves it in one decision. Funds must stay inside the IPS bands (±3pp per asset class, ±5pp equity around their base glide path). Tip: paste from Excel into any cell.</p>
    <div class="gpctl"><div><span class="small">Columns</span>${seg('cols',[['vintage','Vintage (MF + CIT)'],['mutual_fund','Mutual funds'],['cit','CITs'],['fund','Each fund']])}</div>
-    <div><span class="small">Enter</span>${seg('mode',GP_MODES)}</div>
-    <div><span class="small">Balance</span>${seg('bal',GP_BAL)}</div>
-    <div><span class="small">Show levels</span>${seg('show',[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4']])}</div></div>
+    <div><span class="small" data-info="enter_mode">Enter</span>${seg('mode',GP_MODES)}</div>
+    <div><span class="small" data-info="balance_mode">Balance</span>${seg('bal',GP_BAL)}</div>
+    <div><span class="small" data-info="level">Show levels</span>${seg('show',[[1,'1'],[2,'1-2'],[3,'1-3'],[4,'1-4']])}</div></div>
    <div class="small muted" style="margin:4px 0 8px">${esc(GP_MODES.find(m=>m[0]===T.mode)[2])}. Balance: ${esc(GP_BAL.find(m=>m[0]===T.bal)[2])}.</div>
    <div class="scroll gpgrid" id="gpGrid" style="max-height:none">${gpGridHtml()}</div>
    <div class="row" style="margin-top:10px"><button class="btn primary" id="gpPrev">Preview</button><button class="btn" id="gpClear">Clear table</button></div>

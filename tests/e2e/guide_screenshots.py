@@ -515,6 +515,12 @@ def test_navigation_and_feedback(page, app_url):
     page.wait_for_timeout(600)
     page.fill("#hq", "fills")
     shot(page, "nav-05-help")
+    page.goto(app_url + "/runs/latest")
+    page.wait_for_selector("#nav button")
+    page.locator("th:has(.minfo[data-minfo='tracking_error']) .minfo").first.scroll_into_view_if_needed()
+    page.evaluate("window.scrollBy(0,180)")
+    page.locator("th:has(.minfo[data-minfo='tracking_error']) .minfo").first.click()
+    shot(page, "nav-06-info-bubble")
 
 
 def test_calcs_and_fiscal_year(page, app_url):

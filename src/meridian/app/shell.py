@@ -68,8 +68,11 @@ def help_anchor(page: str) -> str:
 def _assets() -> str:
     from .. import hierarchy
     tree = json.dumps(dict(hierarchy.load(), market=hierarchy.market())).replace("</", "<\\/")
+    from .. import glossary
+    info = json.dumps(glossary.load()).replace("</", "<\\/")
     return ((files("meridian.app") / "shell.html").read_text()
-            + f"<script>window.MHIER_CFG={tree};</script><script>{(files('meridian.app') / 'hier.js').read_text()}</script>")
+            + f"<script>window.MHIER_CFG={tree};</script><script>{(files('meridian.app') / 'hier.js').read_text()}</script>"
+            + f"<script>window.MINFO={info};</script><script>{(files('meridian.app') / 'info.js').read_text()}</script>")
 
 
 def wrap(html: str, user: dict, current: str) -> str:

@@ -230,6 +230,7 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | UX-6 | On Regulations click **? Help**, search "obligation", go back | Guide opens at §12; headings filter; back returns to Regulations | `test_ux_04`, `test_help_anchors_exist` |
 | UX-7 | Let the session expire (or sign out in another tab), then act | "Your session has expired" with Sign in / Stay on page; Sign in goes to the sign-in page | `test_ux_04` |
 | UX-8 | As a Compliance user with obligations due soon, open My work | Obligations due within 14 days or overdue for your role, red when overdue; click opens that obligation | API test |
+| UX-9 | PM Home: click the **i** next to **Tracking error**; Esc; the **i** on **Highest risk-budget use**; click elsewhere; Glide path → the **i** next to **Balance**; Trading → Funds & securities → **i** next to **Management** | Each opens a box with a plain explanation, and a "How it's calculated" formula where there is one (e.g. tracking error ÷ risk budget); Esc returns focus to the **i**; a click elsewhere closes it; header text unchanged | `test_ux_09_info_bubbles`, `test_glossary_entries_are_complete_and_labels_unique` |
 
 ---
 
@@ -269,3 +270,4 @@ Approvals made in the hosted app are permanent ledger records (it is shadow mode
 | 12 (automated) | 2026-11-19 | Browser + API tests | All + GP-1 (rewritten), GP-6 | 195 pass (110 unit/API, 85 browser) | Glide-path changes typed into a table and previewed as a table (product-owner request); Trading's glide-path card links to it. Screenshots regenerated (pm-15 new; trd-18 retired) |
 | 13 (automated) | 2026-11-19 | Browser + API tests | All + TRD-32 | 198 pass (112 unit/API, 86 browser) | Tilts table (product-owner request). 2 new screenshots |
 | 14 (automated) | 2026-11-20 | Browser + API tests | All + GP-1 (rewritten), TRD-33, ST-1, HP-1, HP-2 | 207 pass (119 unit/API, 88 browser) | Product-owner feedback: glide-path and tilts tables on hierarchy levels 1-5 with absolute/relative entry and auto-balance; glide-path picklist; management style per fund; PM Home positioning and returns tables; daily prices workflow. Screenshots regenerated (pm-16 to pm-19, trd-37, trd-38 new) |
+| 15 (automated) | 2026-11-20 | Browser + API tests | All + UX-9 | 211 pass (122 unit/API, 89 browser) | Info bubbles across the app (product-owner request): 87 glossary entries with simplified formulas. 1 new screenshot |

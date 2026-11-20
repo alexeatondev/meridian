@@ -142,6 +142,17 @@ The count refreshes every minute and whenever you come back to the browser tab.
 ![An error (stays) and a confirmation (clears itself)](img/guide/nav-04-messages.png)
 *Image: `nav-04-messages.png`*
 
+### 1.6a Info bubbles: what a number or button means
+A small **i** in a circle sits next to most column headings, tiles, headings, table controls and some buttons.
+
+![An info bubble with its simplified formula](img/guide/nav-06-info-bubble.png)
+*Image: `nav-06-info-bubble.png`*
+
+1. Click the **i** (or Tab to it and press **Enter**). A box opens with what it means in plain words and, where a number is calculated, **How it's calculated** with a simplified formula (for example *Risk budget used = tracking error ÷ risk budget*).
+2. Press **Esc**, click **×** or click anywhere else to close it.
+
+The same wording appears everywhere that label is used. Admins can add or reword entries in `config/glossary.yaml` (doc 11).
+
 ### 1.7 If your session expires
 Sessions last 8 hours. If yours ends while a page is open, your next action shows **Your session has expired**.
 1. If you typed something you want to keep, click **Stay on page** and copy it first.
