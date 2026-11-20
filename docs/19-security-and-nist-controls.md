@@ -68,6 +68,7 @@ One row per family, naming the controls that matter for this system. "Backlog" r
 | **G-3** | Portfolio-level entitlements (F-3) | Every signed-in role can read all run data | Waits on the product owner's entitlement design |
 | **G-4** | Branch protection on `main` (require pull request and passing CI; block force-push) | A direct push could deploy unreviewed code | GitHub setting, 10 minutes, free; product owner |
 | **G-5** | Actions pinned by tag | A compromised action tag could run in CI with AWS access | Pin to commit SHAs (2 hours, free; Dependabot keeps them current) |
+| **G-7** | **The GitHub repository is public** (checked 2026-11-20; earlier docs assumed private) | Anyone can read the code, infrastructure, workflows and the cost-alert email in `infra/cdk.json`. No secrets are in it (gitleaks scans the whole history on every change). Public repos get CodeQL, secret scanning and protected environments free; a private repo on GitHub Free loses some of these | Product owner: keep public (and move the email to a repository variable) or make private; 15 minutes either way |
 | **G-6** | One person holds every role in testing | Segregation of duties exercised only with test logins | Real users per role at UAT |
 
 ## 5. Backlog: controls that cost money (or larger free items), with estimates

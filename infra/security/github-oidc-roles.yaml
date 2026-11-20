@@ -9,8 +9,10 @@ Description: >-
 Parameters:
   GitHubRepo:
     Type: String
-    Default: alexeatondev/meridian
-    Description: owner/repo allowed to assume the roles
+    Default: alexeatondev@82978383/meridian@1448386556
+    Description: >-
+      owner/repo as it appears in the OIDC sub claim. This account's provider uses GitHub's immutable
+      owner@id/repo@id format (doc 14 section 3), so the default carries the IDs.
   OidcProviderArn:
     Type: String
     Default: ""
