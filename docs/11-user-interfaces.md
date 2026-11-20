@@ -25,6 +25,7 @@ Every screen (console, Trading, Regulations, User access, Help) now shares one a
 | **Reason fields** | Live counter ("6/10 characters minimum", then "✓ 14 characters"), matching the server's 10-character rule |
 | **Busy state** | The button that started a change shows a spinner and is disabled until the server answers, so nothing is submitted twice |
 | **Session expiry** | A 401 from any call opens "Your session has expired" with **Sign in** or **Stay on page**, instead of a failed action |
+| **Info bubbles** (2026-11-20) | A small **i** next to column headers, tiles, headings, table controls (`data-info`) and selected buttons opens a short explanation and, where there is one, a simplified formula. Entries live in `config/glossary.yaml` (title, labels it attaches to, text, formula, `button: true` for buttons), so adding an entry covers every screen that uses the label. `app/info.js` (injected by the shell as `window.MINFO`) matches labels, draws the "i" in CSS so label text is unchanged, and opens an accessible dialog (Enter/Space, Esc, focus returns). `meridian.glossary.check()` (in the tests) refuses entries without text or a label claimed twice |
 | **Accessibility** | Skip link, visible focus outline, tab bars exposed as ARIA tablists with ←/→/Home/End, `aria-current` on navigation, live regions for messages, honours dark mode and reduced motion |
 
 ## Brand themes (2026-11-18)

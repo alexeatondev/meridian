@@ -1,0 +1,428 @@
+# Info bubbles: plain-language help for metrics, columns and buttons, shown as a small "i" next to them on every
+# screen. Each entry:
+#   match:   the exact labels it attaches to (column headers, tile labels, headings; case and a trailing ":" ignored)
+#   text:    what it means, in one or two sentences
+#   formula: (optional) a simplified version of how it is calculated
+#   button:  (optional) true = also attach next to buttons with that label
+# Add an entry here and it appears everywhere that label is used. Keep wording plain; Σ means "add up".
+
+# ---------------------------------------------------------------- portfolio basics
+glide_path:
+  title: Glide path
+  match: [Glide path, Glide path equity, IPS glide path (run), Glide-path target, IPS glide path, Strategic glide path, "Equity, IPS (this run)", "Equity, mutual fund", "Equity, CIT", Fixed income MF / CIT, Real assets MF / CIT]
+  text: The policy mix for each vintage by years to its target date, set in the IPS. It holds more stocks when retirement is far away and moves toward bonds and cash as it gets closer. Approved adjustments and named glide paths can move it inside the IPS bands.
+neutral:
+  title: Neutral (glide-path) target
+  match: [Neutral, Back to the glide path]
+  text: The fund's glide-path weights on its own roll-down date, including any approved glide-path adjustment, with no tactical tilts.
+strategic:
+  title: Strategic table
+  match: [Strategic, Strategic table, Strategic mix, Strategic weight (%)]
+  text: A target table a PM sets for a fund. It either follows the glide path or holds custom weights that total 100%. Versioned, and every change is recorded.
+previous_close:
+  title: Previous close
+  match: [Previous close, Keep the current mix]
+  text: The fund's actual weights at last night's close. Investing cashflows with this mix keeps the fund positioned as it is.
+approved_proposal:
+  title: Approved proposal
+  match: [Approved proposal]
+  text: The asset-class weights that both the PM and Risk approved for this vintage in the console, split down to the fund's securities.
+proposal:
+  title: Proposed weight
+  match: [Proposed, Proposed equity, "Equity, proposed", Proposals approved]
+  text: The agents' recommended weights for this run, waiting for (or having) human approval. Approving a proposal does not trade.
+tilt:
+  title: Tilt
+  match: [Tilt, Largest single tilt]
+  text: A deliberate over- or underweight compared with the glide path. Blue is more than the glide path, orange is less.
+  formula: "Tilt = proposed weight − glide-path weight (in percentage points)"
+drift:
+  title: Drift
+  match: [Drift, Equity drift, Holdings drift, Equity held, Fixed income held, Real assets held, Mutual fund holds, CIT holds, "Equity, held today", Equity (holdings), Fixed income (holdings), Real assets (holdings)]
+  text: How far what a fund holds today has moved from its target, usually because markets moved.
+  formula: "Drift = weight held today − proposed (or target) weight"
+pp:
+  title: Percentage points (pp)
+  match: [pp]
+  text: The difference between two percentages. Going from 40% to 42% is +2pp (a 5% relative increase).
+off_target:
+  title: Off target
+  match: ["Off target: now → after", Off target]
+  text: The share of the fund that would have to be traded to match the chosen mix exactly. 0% means exactly on target; lower is closer.
+  formula: "Off target = ½ × Σ |security weight − target weight|"
+gap:
+  title: Gap
+  match: [Gap now, Gap after, Post vs target, vs target after]
+  text: A holding's weight minus its target, in pp. Negative means under target.
+  formula: "Gap = weight − target"
+vintage:
+  title: Vintage
+  match: [Vintage, Vintages]
+  text: The target retirement year a fund is built for (2030 to 2070). Each vintage has a mutual fund (MTRS) and a CIT (MTRT).
+years_to_target:
+  title: Years to target
+  match: [Years to target, Yrs to target, Years]
+  text: How far the vintage is from its target date. Negative means past it.
+  formula: "Years to target = vintage year − today (as a fraction of a year)"
+nav:
+  title: Net asset value (NAV)
+  match: [NAV, Assets, Total NAV, Assets in the series, Mutual fund assets, CIT assets]
+  text: The fund's total value (holdings plus cash). Example data until custodian or transfer-agent files are loaded.
+  formula: "NAV = Σ (quantity × price) + cash"
+roll_down:
+  title: Roll-down
+  match: [Roll-down, Glide-path roll-down]
+  text: How often a fund steps along its glide path (monthly, quarterly, semiannual or annual). Between steps its glide-path target stays fixed.
+management_style:
+  title: Management style
+  match: [Management, Management style]
+  text: Set by hand per fund by a PM. Active funds select securities and tilt away from the glide path; passive funds hold index building blocks that follow it; hybrid funds have a passive core with active sleeves. A fund that isn't set is treated as passive.
+product_line:
+  title: Product line
+  match: [Product line, Vehicle]
+  text: Mutual funds (Meridian Target Retirement Funds, MTRS) or collective investment trusts (Meridian Target Retirement Trust, MTRT). Each vintage is offered in both.
+buffer:
+  title: ETF cash buffer
+  match: [Buffer, Cash buffer (series), Cash buffer for ETF trades]
+  text: A small share of each ETF buy kept in cash so a price move before settlement can't overdraw the account. Set once for the series; a fund can only be stricter.
+  formula: "ETF buy actually placed = buy × (1 − buffer). E.g. 50 bp buffer on a $1,000,000 buy → $995,000 bought, $5,000 stays in cash"
+
+# ---------------------------------------------------------------- risk
+tracking_error:
+  title: Tracking error (active risk)
+  match: [Tracking error, TE, Tracking error now, Active risk]
+  text: How much the fund's return is expected to differ from its glide path (or benchmark) in a typical year. It comes from the gaps between the fund's weights and the target and how the asset classes move together.
+  formula: "TE = √( Σᵢ Σⱼ gapᵢ × gapⱼ × covarianceᵢⱼ ), with gap = weight − target. Roughly: bigger gaps in more volatile assets → higher TE"
+risk_budget:
+  title: Risk budget
+  match: [Budget, Risk budget, IPS hard limit]
+  text: The most tracking error a vintage may take against its glide path. The IPS sets a hard limit; each vintage's budget can be set at or below it (a policy change needing two approvals).
+risk_budget_used:
+  title: Risk budget used
+  match: [Risk budget used, "% of budget", Highest risk-budget use, Highest use, Average use, At or above warning, Used now, Used after, "% of risk budget used", TE vs limit]
+  text: How much of the vintage's tracking-error budget is in use. A warning shows at 80%; 100% means the budget is fully used.
+  formula: "Risk budget used = tracking error ÷ risk budget. E.g. 0.60% ÷ 1.20% = 50%"
+risk_budget_by:
+  title: Risk budget used by asset group
+  match: [Risk budget used by, Tracking-error contribution, Risk contribution]
+  text: Where the tracking error comes from. Each asset's contribution is its gap times how that gap moves with the fund's other gaps, so the contributions add up to the total. A negative number means that position reduces active risk.
+  formula: "Contributionᵢ = gapᵢ × (Σⱼ covarianceᵢⱼ × gapⱼ) ÷ TE; Σ contributions = TE. Shown as a % of the budget"
+total_risk:
+  title: Total risk (volatility)
+  match: [Total risk, Total risk (vol), Vol, Volatility, Standalone vol]
+  text: How much the fund's value is expected to swing in a typical year (one standard deviation of annual return). About two years in three should land within ± this amount of the expected return.
+  formula: "Volatility = √( Σᵢ Σⱼ weightᵢ × weightⱼ × covarianceᵢⱼ )"
+var95:
+  title: VaR 95
+  match: [VaR, VaR 95, VaR 95 (1 month), VaR 95 (1m)]
+  text: A loss that shouldn't be exceeded in 19 months out of 20, assuming normal returns. Real markets have fatter tails, so check the stress tests too.
+  formula: "VaR 95 = 1.645 × volatility × √(1/12) for one month. E.g. 10% volatility → about 4.7% in a month"
+active_var:
+  title: Active VaR 95
+  match: [Active VaR, Active VaR 95]
+  text: The same as VaR 95, but for how far the fund could fall behind its glide path or benchmark in a bad month.
+  formula: "Active VaR 95 = 1.645 × tracking error × √(1/12)"
+diversification:
+  title: Diversification
+  match: [Diversification]
+  text: The share of risk that disappears because holdings don't all move together. 0% means no benefit; higher is better.
+  formula: "Diversification = 1 − fund volatility ÷ Σ (weight × each holding's own volatility)"
+pct_total_risk:
+  title: "% of risk"
+  match: ["% of risk", "% of portfolio", Bench % of risk]
+  text: Each holding's share of the fund's total risk. Shares add up to 100%; a holding whose share is much bigger than its weight concentrates risk.
+  formula: "% of riskᵢ = weightᵢ × (Σⱼ covarianceᵢⱼ × weightⱼ) ÷ variance"
+pct_active_risk:
+  title: "% of active risk"
+  match: ["% of active risk"]
+  text: Each position's share of tracking error, on the gaps to the benchmark. Adds up to 100%.
+marginal_risk:
+  title: Marginal risk
+  match: [Marginal risk]
+  text: How much the fund's volatility would change if this holding grew by a small amount (funded proportionally from the rest).
+  formula: "Marginal riskᵢ = (Σⱼ covarianceᵢⱼ × weightⱼ) ÷ volatility"
+duration:
+  title: Effective duration
+  match: [Duration, Eff. dur, Effective duration, Effective duration (yrs), Bench dur]
+  text: How sensitive the fund is to interest rates. A duration of 6 years means about a 6% fall if rates rise 1 percentage point.
+  formula: "Duration = Σ (weight × each building block's duration). Price change ≈ −duration × change in yield"
+spread_duration:
+  title: Credit spread duration
+  match: [Spread dur, Credit spread duration (yrs)]
+  text: Sensitivity to credit spreads (the extra yield on corporate and other non-government bonds). Treasuries and cash have none.
+  formula: "Spread duration = Σ (weight × spread duration); price change ≈ −spread duration × change in spread"
+beta:
+  title: Exposure (β)
+  match: [Exposure (β), Active β, Bench β]
+  text: How strongly the fund moves with a risk factor. A β of 0.8 to the equity factor means the fund moves about 0.8% when that factor moves 1%.
+factor_vol:
+  title: Factor volatility
+  match: [Factor vol]
+  text: How much the factor itself swings in a typical year.
+max_dd:
+  title: Maximum drawdown
+  match: [Max DD, Max drawdown, Worst 12m]
+  text: The largest fall from a peak to a later low over the history used (Worst 12m is the worst 12-month return). Shows what a bad stretch has looked like.
+  formula: "Max drawdown = min over time of (value ÷ highest earlier value − 1)"
+sharpe:
+  title: Sharpe ratio
+  match: [Sharpe]
+  text: Return earned per unit of risk, above cash. Higher is better; compare funds with similar goals.
+  formula: "Sharpe = (return − T-bill return) ÷ volatility"
+expected_return:
+  title: Expected return
+  match: ["E[r]", Expected return, Ann. return, Return]
+  text: The long-term annual return the capital market assumptions point to for this mix (hypothetical, not a promise). Historical columns show what proxies actually returned.
+  formula: "Expected return = Σ (weight × asset class's expected return)"
+stress:
+  title: Stress scenario
+  match: [Scenario, Historical]
+  text: What the fund would lose if a past crisis (or a move you type) happened to today's weights. Uses the proxies' actual returns over the window.
+  formula: "Scenario loss = Σ (weight × asset's return in the scenario)"
+
+active_vs_mkt:
+  title: Active / relative vs market
+  match: [Active vs mkt, Relative vs mkt]
+  text: "Compares the weight with the Global 60/40 market proxy (equity split near global market-cap weights, bonds the US Aggregate). Active is the difference in pp; relative is the difference as a share of the market's weight."
+  formula: "Active = weight − market weight. Relative = weight ÷ market weight − 1"
+active_weight:
+  title: Active weight
+  match: [Active weight, Active, Bench, Bench wt]
+  text: Fund weight compared with the benchmark (the glide path). Active = fund − benchmark; Bench is the benchmark's own weight or number.
+  formula: "Active = fund − benchmark"
+beta_mkt:
+  title: Beta vs market
+  match: [Beta vs market]
+  text: How much the fund tends to move when the market proxy moves 1%, from monthly returns above T-bills.
+  formula: "Beta = covariance(fund, market) ÷ variance(market)"
+alpha_mkt:
+  title: Alpha vs market
+  match: [Alpha vs market]
+  text: Annual return above what the fund's beta to the market would explain. Hypothetical, from proxy histories.
+  formula: "Alpha = (fund excess return − beta × market excess return) × 12"
+sortino:
+  title: Sortino ratio
+  match: [Sortino]
+  text: Like the Sharpe ratio, but only counts downside swings as risk. Higher is better.
+  formula: "Sortino = annual return above T-bills ÷ annualized downside deviation"
+info_ratio:
+  title: Information ratio
+  match: [Info ratio vs glide path, Info ratio vs market]
+  text: Extra return per unit of tracking error. Above 0.5 is usually considered good.
+  formula: "Information ratio = (fund return − benchmark return) ÷ tracking error"
+te_market:
+  title: Tracking error vs market
+  match: [TE vs market, TE vs glide path]
+  text: How much the fund's realized monthly returns differed from the market proxy (or glide path), annualized.
+  formula: "TE = standard deviation of (fund − benchmark monthly return) × √12"
+capture:
+  title: Up / down capture
+  match: [Up capture, Down capture]
+  text: In months the market rose (fell), how much of that move the fund captured on average. Up 90% and down 70% means it kept most gains and avoided some losses.
+  formula: "Up capture = average fund return in up months ÷ average market return in up months"
+correlation:
+  title: Correlation
+  match: [Correlation]
+  text: How closely the fund's monthly returns move with the market proxy, from −1 (opposite) to +1 (in step).
+factor_share:
+  title: Factor share of variance
+  match: ["% of variance", Systematic (factor) share, Largest factor, Equity family share]
+  text: How much of the fund's variance comes from each risk factor (equity market, rates, credit…) versus specific risk. The shares add up to 100%.
+  formula: "Factor share = exposure × (factor covariance × exposures) ÷ fund variance"
+weights_from:
+  title: Weights from
+  match: [Weights from, Window]
+  text: Where the weights for that month came from (a recorded run's snapshot, or reconstructed), and the data window used.
+risk_officer:
+  title: Risk officer
+  match: [Risk officer]
+  text: The neutral risk-officer agent's flag on each method's proposal (none, watch, concern). It comments but never votes.
+since_last_run:
+  title: Since last run
+  match: [Since last run, Equity change, Largest weight moves]
+  text: The change compared with the previous published run.
+  formula: "Change = this run's weight − previous run's weight"
+
+# ---------------------------------------------------------------- home: positioning and returns
+delta_target:
+  title: Δ vs target
+  match: [Δ vs target (pp), Portfolio − target]
+  text: Held today minus the fund's target (its glide path including approved adjustments), in pp of the fund. Blue is over target, orange under.
+  formula: "Δ = weight held − target weight"
+market_mix:
+  title: Market
+  match: [Market]
+  text: The global market-cap mix inside each asset group, e.g. US stocks are about 62.7% of global stocks (MSCI ACWI IMI) and large caps about 80% of US stocks (S&P DJI). The stock/bond mix itself is set by the glide path, so level 1 has none. Hover the cell for the source.
+portfolio_vs_market:
+  title: Portfolio − market
+  match: [Portfolio − market, Target − market]
+  text: How the portfolio's (or target's) share of the level above compares with the market's. The ratio says how many times the market's share it holds.
+  formula: "Difference = portfolio share of parent − market share. Ratio = portfolio share ÷ market share. E.g. 65% vs 62.7% → +2.3pp, 1.04×"
+share_of_parent:
+  title: Share of the level above
+  match: ["Share of the level above: portfolio vs market", "Share of parent (%)"]
+  text: A node's weight as a share of its parent level, e.g. US equity as a share of all equity.
+  formula: "Share = node weight ÷ parent weight. E.g. 44% US equity ÷ 68% equity = 65%"
+cum_return:
+  title: Cumulative return
+  match: [Cumulative returns, Past week, Month to date, Quarter to date, Year to date, 1 year]
+  text: Price return from the close on or before the period's start to the latest close (hover a column for its start date). Fund returns are hypothetical — today's weights times each holding's return, with no trading, fees or flows.
+  formula: "Return = latest close ÷ starting close − 1. Fund = Σ (weight × holding's return)"
+proxy:
+  title: Proxy
+  match: [Proxy, Returns proxy, Holdings proxy, Look-through proxy]
+  text: A public ETF or index fund that stands in for a building block that has no public prices or holdings (e.g. Meridian's own funds and CITs priced with VOO for US large cap).
+
+# ---------------------------------------------------------------- look-through
+lookthrough_exposure:
+  title: Look-through exposure
+  match: [Exposure, Through, Via]
+  text: How much of a vintage ends up in a security once each building block's holdings are counted.
+  formula: "Exposure = Σ over building blocks (fund weight in block × security's weight in the block's proxy)"
+pct_mkt_cap:
+  title: "% of market cap"
+  match: ["% of mkt cap", Market cap, Largest ownership of market cap, Meridian $]
+  text: Meridian's look-through dollars in a company as a share of its total market value. An estimate from proxy holdings, not a regulatory ownership figure; US equities only.
+  formula: "% of market cap = Meridian $ ÷ (shares outstanding × price)"
+
+# ---------------------------------------------------------------- agents, CMAs, votes
+cma:
+  title: Capital market assumptions
+  match: [Capital market assumptions, Judge, Auto-blend, Judge − blend, Equilibrium, Regime-adj., Valuation / yield]
+  text: 10-year expected returns per asset class. Several methods (historical, valuation or yield, equilibrium, regime-adjusted and others) each give an estimate; the judge agent weights them, and code keeps the result inside the methods' range. Auto-blend is the plain average for comparison.
+  formula: "CMA = Σ (method weight × method estimate), clipped to [lowest, highest] method estimate"
+peer_score:
+  title: Peer score
+  match: [Peer score]
+  text: The average of the two reviews this method's proposal received from other agents in peer review.
+vote_points:
+  title: Vote points
+  match: [Vote points, Final score, Voted best, Voted weakest, Top 3, Weakest]
+  text: Each agent ranks its top three methods (3, 2 and 1 points) and flags one weakest (−2), never itself. Points are tallied and blended with a metric score to pick the shortlist.
+  formula: "Points = 3 × (1st places) + 2 × (2nd) + 1 × (3rd) − 2 × (weakest flags)"
+ensemble:
+  title: Ensemble
+  match: [Ensemble]
+  text: How the CIO agent blended the shortlisted methods into one proposal for the vintage (e.g. weighted toward the methods closest to the glide path). Code rejects any blend that fails compliance.
+regime:
+  title: Regime
+  match: [Regime]
+  text: The economic backdrop the macro agent and rules classify (e.g. expansion, slowdown). It shifts how the vote and some return methods weigh evidence.
+
+# ---------------------------------------------------------------- compliance and governance
+compliance_result:
+  title: Compliance result
+  match: [Compliance, Result, IPS bands]
+  text: The deterministic rule engine's result. PASS is within limits; WARN is close or needs a look; FAIL breaks a hard limit and blocks approval; ATTEST waits for a named person to confirm.
+ips_bands:
+  title: IPS bands
+  match: [Outside the IPS bands]
+  text: How far a fund may sit from its glide path, ±3pp per asset class and ±5pp total equity. Larger moves need an IPS amendment.
+severity:
+  title: Severity
+  match: [Severity]
+  text: How serious a rule or exception is. A hard limit FAILs and blocks; a soft limit WARNs.
+fingerprint:
+  title: Fingerprint (SHA-256)
+  match: [Fingerprint]
+  text: A code computed from the file's exact bytes. Any change to the file changes it, so it proves the file is the one recorded.
+ledger_verified:
+  title: Ledger verified
+  match: [Decision ledger, Record]
+  text: Every decision is a record that includes the previous record's hash, forming a chain. Meridian recomputes the chain on each page load; an edited or deleted record would break it. The database also refuses edits.
+retention:
+  title: Retention
+  match: [Retention]
+  text: How long records must be kept under the regulations in force (the strictest applies).
+
+# ---------------------------------------------------------------- trading
+tranche:
+  title: Tranche
+  match: [Tranche, Tranches, Tranche orders]
+  text: One dated slice of an order, so a large trade can be spread over several days. Each order's tranches must total 100%.
+calc_template:
+  title: Calculation template
+  match: [Template, Calculation templates]
+  text: A named, approved rule that turns an order into tranches, such as "sell 20% a day" or "at most 10% of average daily volume a day".
+  formula: "Liquidity cap: days = order size ÷ (cap % × average daily volume), rounded up"
+destination:
+  title: Destination (route)
+  match: [Destination, Route, Order routing]
+  text: Where an order is sent, by the type of security traded. Mutual fund orders go to SS&C, CIT orders to State Street, and ETF, stock and bond orders to the internal desk. Only a Trade route manager can change it.
+net_flow:
+  title: Net flow
+  match: [Net flow]
+  text: Subscriptions minus redemptions for the day. Positive money is invested; negative is raised by selling.
+  formula: "Net flow = subscriptions − redemptions"
+cash_after:
+  title: Cash after
+  match: [Cash after, Uninvested cash]
+  text: Uninvested cash once the trades settle, including any ETF buffer held back. It can't go below zero.
+  formula: "Cash after = cash now + net flow + sells − buys"
+estimated_trade:
+  title: Estimated amount
+  match: [Estimated trade, Est. amount, Est. price]
+  text: The trade at today's (example) price. Fills set the final amount. ETF and stock sells round up to whole shares and buys round down.
+  formula: "Quantity = amount ÷ price, rounded to the lot size"
+weight_after:
+  title: Weight after
+  match: [Weight after, Post wt, After, After the change]
+  text: The holding's weight once these trades are done.
+  formula: "Weight after = (value now + trade) ÷ NAV after"
+security_tilt:
+  title: Security tilt
+  match: [Tilts]
+  text: An over- or underweight on a security (or a whole level) within a fund, in % of the fund. Funded pro rata from the fund's other holdings, so it still totals 100%.
+  formula: "Tilted holding = target + tilt. Every other holding × (1 − Σ tilted holdings' new weights) ÷ (Σ other holdings' weights)"
+
+# ---------------------------------------------------------------- hierarchy table controls (attached with data-info)
+level:
+  title: Levels 1-5
+  match: [Level · asset, Level · asset · security, Show levels]
+  text: "The asset hierarchy: L1 asset group (stocks, bonds, real assets, cash), L2 region (US vs international), L3 developed vs emerging, L4 size and sector, L5 single securities. Changes at a higher level apply first, then lower ones inside the new total."
+enter_mode:
+  title: How you enter a change
+  match: [Enter]
+  text: "Absolute: points of the fund (US equity +1) or a new weight. Relative: a share of the level above (international = 45% of equity) or a % of today's weight (+10 turns 30% into 33%)."
+  formula: "pp: new = today + v. Share: new = parent × v%. % of weight: new = today × (1 + v%). New weight: new = v%"
+balance_mode:
+  title: Balance
+  match: [Balance]
+  text: Who gives or takes your change so each fund still totals 100%. Within its level — the rest of the same level, so totals above stay the same. Pro rata across the fund — everything you didn't edit, in proportion. Off — nothing; your entries must net to zero.
+  formula: "Within level: each sibling × (sibling total − your change) ÷ sibling total"
+check_row:
+  title: Check
+  match: [Check]
+  text: Confirms each column still totals 100% after your entries, or says what's wrong (e.g. not enough left at that level to fund the change).
+
+# ---------------------------------------------------------------- buttons
+btn_preview:
+  title: Preview
+  match: [Preview, See the impact]
+  button: true
+  text: Shows what would change, fund by fund, without saving or recording anything. Nothing is sent until you submit or save.
+btn_approve:
+  title: Approve
+  match: [Approve, Approve trade list]
+  button: true
+  text: Records your decision in the ledger with your name and reason. Needs the Approver permission (or the Investment Committee / CCO permission for those decisions). A FAIL blocks it, and you can't approve something you requested.
+btn_submit_ic:
+  title: Submit for approval
+  match: [Submit for approval, Submit adjustment]
+  button: true
+  text: Sends the request with your reason to the people who must approve it. Nothing changes until they do.
+btn_create_draft:
+  title: Create draft trade list
+  match: [Create draft trade list]
+  button: true
+  text: Saves the trades as a draft list. Nothing is sent; a PM approves it, then the Charles River file can be downloaded.
+btn_download_crd:
+  title: Charles River import file
+  match: [Download Charles River import file]
+  button: true
+  text: Downloads the approved orders in Charles River's import layout (a mock layout until mapped to your specification). The file is kept and fingerprinted in the ledger.
+btn_why:
+  title: Why?
+  match: ["Why?"]
+  button: true
+  text: Lists the decision records behind this number or proposal — agents' and people's — with who, when and the record's hash.
