@@ -95,6 +95,11 @@
  "pol-01-ips",
  "pol-02-ips-redline",
  "pol-03-glide-paths",
+ "pol-06-builder-name",
+ "pol-07-builder-start",
+ "pol-08-builder-shape",
+ "pol-09-builder-mix",
+ "pol-10-builder-check",
  "pol-04-new-path",
  "pol-05-path-approval"
 ]

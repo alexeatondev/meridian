@@ -48,6 +48,10 @@ select{padding:7px 9px;border:1px solid var(--line-strong);border-radius:var(--r
 .appr{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.appr>div{border:1px solid var(--line);border-radius:var(--radius-sm,8px);padding:8px 10px;min-width:220px}
 textarea.big{min-height:55vh;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .anch input{width:56px;padding:4px 5px;border:1px solid var(--line-strong);border-radius:var(--radius-sm,6px);background:var(--surface);color:var(--text);font:inherit;text-align:right}
+.wsteps{display:flex;gap:6px;list-style:none;padding:0;margin:12px 0 16px;flex-wrap:wrap}.wsteps li{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted)}
+.wsteps li span{display:inline-flex;width:18px;height:18px;border-radius:50%;align-items:center;justify-content:center;background:var(--surface-2);font-weight:700;font-size:11px}
+.wsteps li.on{border-color:var(--accent);color:var(--text);font-weight:600}.wsteps li.on span{background:var(--accent);color:var(--accent-ink)}.wsteps li.done span{background:var(--ok-bg);color:var(--ok)}
+.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 18px}@media(max-width:800px){.wgrid{grid-template-columns:1fr}}
 .anch td,.anch th{padding:4px 4px;white-space:nowrap}.anch .bad{color:var(--crit);font-weight:700}.wide{overflow:auto}
 svg text{fill:var(--muted);font-size:11px}
 </style>
@@ -166,6 +170,7 @@ async function vPaths(){
   let d; try{ d = await api('GET','/api/policy/glide-paths'); }catch(e){ return toast(e.message,'error'); }
   if (tok !== S.pTok) return;                 // a newer render started meanwhile
   S.gp = d; if(!S.path || !d.paths.some(p=>p.id===S.path)) S.path='ips';
+  if(S.wiz) return pathWizard(d);
   if(S.edit) return pathEditor(d);
   const p = d.paths.find(x=>x.id===S.path), ips = d.paths[0];
   const eq = (pp,y)=>{const r=pp.equity_curve.find(([yy])=>yy===y); return r?(r[1]*100).toFixed(1)+'%':'—'};
@@ -175,7 +180,7 @@ async function vPaths(){
   const anchors = p.anchors;
   $('#paths').innerHTML = `
    ${pend.length?`<div class="card"><h2>Waiting for the Investment Committee (${pend.length})</h2><table><tr><th>Request</th><th>What</th><th>Requested by</th><th>Status</th><th></th></tr>${pend.map(reqRow).join('')}</table></div>`:''}
-   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Glide paths</h2>${BOOT.can_draft?'<button class="btn" id="gpNew">New glide path</button>':''}</div>
+   <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Glide paths</h2>${BOOT.can_draft?'<span class="row" style="gap:4px"><button class="btn primary" id="gpNew">+ New glide path</button></span>':''}</div>
    <p class="small muted">Every fund follows the IPS glide path unless the Investment Committee assigns it another path. The IPS bands (±3pp per asset class, ±5pp equity) sit around the fund's own path, and approved glide-path adjustments are added on top.</p>
    <table><tr><th>Path</th><th>Version</th><th>Status</th><th class="n">Equity at 40 yrs</th><th class="n">at 0</th><th class="n">at −7</th><th>Largest gap to IPS path</th><th class="n">Funds</th></tr>
    ${d.paths.map(x=>`<tr class="click ${x.id===S.path?'sel':''}" data-path="${x.id}"><td><b>${esc(x.name)}</b><div class="small muted">${esc(x.description||'')}</div></td><td>${x.version??'—'}</td><td>${vchip(x.status)}</td><td class="n">${eq(x,40)}</td><td class="n">${eq(x,0)}</td><td class="n">${eq(x,-7)}</td><td class="small">${x.vs_ips?`${esc(d.asset_names[x.vs_ips.asset]||x.vs_ips.asset)} ${x.vs_ips.pp>0?'+':''}${x.vs_ips.pp}pp at ${x.vs_ips.years} yrs`:'—'}</td><td class="n">${x.funds.length}</td></tr>`).join('')}</table></div>
@@ -189,7 +194,7 @@ async function vPaths(){
    ${done.length?`<div class="card"><h2>Decided requests</h2><table><tr><th>Request</th><th>What</th><th>Requested by</th><th>Decision</th><th></th></tr>${done.map(reqRow).join('')}</table></div>`:''}`;
   document.querySelectorAll('[data-path]').forEach(r=>r.onclick=()=>{S.path=r.dataset.path; vPaths()});
   document.querySelectorAll('[data-fsel]').forEach(c=>c.onchange=()=>{c.checked?S.sel.add(c.dataset.fsel):S.sel.delete(c.dataset.fsel); const n=$('#gpN'); if(n) n.textContent=S.sel.size;});
-  const ne=$('#gpNew'); if(ne) ne.onclick=()=>{S.edit={kind:'new_path', name:'', description:'', anchors:JSON.parse(JSON.stringify(ips.anchors))}; vPaths()};
+  const ne=$('#gpNew'); if(ne) ne.onclick=()=>{S.wiz=newWizard(); vPaths()};
   const cp=$('#gpCopy'); if(cp) cp.onclick=()=>{S.edit={kind:'new_path', name:'', description:`Based on ${p.name}`, anchors:JSON.parse(JSON.stringify(p.anchors))}; vPaths()};
   const ed=$('#gpEdit'); if(ed) ed.onclick=()=>{S.edit={kind:'new_version', path_id:p.id, name:p.name, anchors:JSON.parse(JSON.stringify(p.anchors))}; vPaths()};
   const gt=$('#gpTo'); if(gt) gt.onchange=()=>{S.gpTo=gt.value};
@@ -229,12 +234,112 @@ function pathEditor(d){
   prev();
 }
 
+// ------------------------------------------------------------------ Glide path builder (guided, 5 steps)
+const WSTEPS = ['Name it','Starting point','Shape the equity path','Fine-tune the mix','Check and submit'];
+function interpRow(anchors, y){ const a=anchors.slice().sort((x,z)=>x[0]-z[0]); const yy=Math.max(a[0][0],Math.min(a[a.length-1][0],y)); let k=0; while(k<a.length-2&&a[k+1][0]<yy)k++;
+  const lo=a[k], hi=a[k+1], f=hi[0]===lo[0]?0:(yy-lo[0])/(hi[0]-lo[0]); return lo.slice(1).map((v,j)=>(+v)+f*((+hi[j+1])-(+v))); }
+function eqCurve(anchors, d){ const out=[]; for(let y=45;y>=-10;y--){ const w=interpRow(anchors,y), t=w.reduce((s,x)=>s+x,0)||1; out.push([y, d.assets.reduce((s,a,j)=>s+(d.groups.equity.includes(a)?w[j]:0),0)/t]); } return out; }
+const grpOf = (d,a) => Object.keys(d.groups).find(g=>d.groups[g].includes(a)) || (a==='cash'?'cash':'other');
+// anchors from the shape: equity % at each key year; inside each group the IPS glide path's mix at that age
+function shapeAnchors(d, sh){
+  const ips=d.paths[0].anchors, ys=[sh.start, sh.flat]; for(let y=sh.flat-5;y>0;y-=5) ys.push(y); ys.push(0, sh.end);
+  const eqAt=y=> y>=sh.flat ? sh.eqStart : y>=0 ? sh.eqTarget+(sh.eqStart-sh.eqTarget)*(sh.curve==='late' ? Math.sqrt(y/sh.flat) : sh.curve==='early' ? Math.pow(y/sh.flat,2) : y/sh.flat)
+    : sh.eqTarget+(sh.eqEnd-sh.eqTarget)*(y/sh.end);
+  return [...new Set(ys)].sort((a,b)=>b-a).map(y=>{ const w=interpRow(ips,y), E=eqAt(y)/100;
+    const eqT=d.assets.reduce((s,a,j)=>s+(d.groups.equity.includes(a)?w[j]:0),0), ot=100-eqT;
+    const row=d.assets.map((a,j)=>d.groups.equity.includes(a) ? (eqT>0?w[j]/eqT*E*100:0) : (ot>0?w[j]/ot*(1-E)*100:0));
+    const r=row.map(v=>Math.round(v*10)/10), diff=Math.round((100-r.reduce((s,x)=>s+x,0))*10)/10, big=r.indexOf(Math.max(...r)); r[big]=Math.round((r[big]+diff)*10)/10;
+    return [y, ...r]; }); }
+function wizChecks(d, W){
+  const out=[], A=W.anchors, sum=r=>r.slice(1).reduce((t,x)=>t+(+x||0),0);
+  A.forEach(r=>{ if(Math.abs(sum(r)-100)>0.05) out.push(['crit',`${r[0]} years: adds to ${sum(r).toFixed(1)}%, not 100%`]); if(r.slice(1).some(x=>+x<0)) out.push(['crit',`${r[0]} years: a weight is negative`]); });
+  if (new Set(A.map(r=>+r[0])).size!==A.length) out.push(['crit','Two rows have the same number of years']);
+  if (A.length<2) out.push(['crit','At least two rows are needed (e.g. 40 years and 0 years)']);
+  const c=eqCurve(A,d); for(let i=1;i<c.length;i++) if(c[i][1]>c[i-1][1]+0.0005 && c[i][0]>=0){ out.push(['warn',`Equity rises as the target approaches (around ${c[i][0]} years). Usual glide paths only reduce equity before the target.`]); break; }
+  const ips=eqCurve(d.paths[0].anchors,d); let g=[0,0]; c.forEach(([y,v],i)=>{ const x=(v-ips[i][1])*100; if(Math.abs(x)>Math.abs(g[0])) g=[x,y]; });
+  if (Math.abs(g[0])>10) out.push(['warn',`Equity differs from the IPS glide path by ${g[0]>0?'+':''}${g[0].toFixed(1)}pp at ${g[1]} years. The IPS bands sit around this path once funds follow it, so check it is within the IPS's intent.`]);
+  return {list:out, gap:g, ok:!out.some(x=>x[0]==='crit')}; }
+function pathWizard(d){
+  const W=S.wiz, A=d.assets, step=W.step, sum=r=>r.slice(1).reduce((t,x)=>t+(+x||0),0);
+  const stepper=`<ol class="wsteps">${WSTEPS.map((t,i)=>`<li class="${i+1===step?'on':i+1<step?'done':''}"><span>${i+1}</span>${t}</li>`).join('')}</ol>`;
+  const nav=(next='Next')=>`<div class="row" style="margin-top:14px">${step>1?'<button class="btn" id="wBack">Back</button>':''}<button class="btn primary" id="wNext">${next}</button><span class="sp" style="flex:1"></span><button class="btn" id="wCancel">Cancel</button></div>`;
+  let body='';
+  if (step===1) body=`<h3>1. Name the glide path</h3><p class="small muted">Give it a name people will recognise (e.g. "Higher equity at retirement") and say who it is for or why it exists. The name must be new.</p>
+    <div class="grid2"><div><label class="f" for="wName">Name</label><input type="text" id="wName" maxlength="60" value="${esc(W.name)}" placeholder="e.g. Higher equity at retirement"></div>
+    <div><label class="f" for="wDesc">Description</label><input type="text" id="wDesc" maxlength="400" value="${esc(W.description)}" placeholder="e.g. For plans whose participants keep assets in the plan after retiring"></div></div>${nav()}`;
+  if (step===2) body=`<h3>2. Choose a starting point</h3><p class="small muted">Build it from scratch by describing its shape (step 3), or copy an existing path and adjust it.</p>
+    ${[['scratch','From scratch','Set how much equity the path holds when the target date is far away, when it starts reducing equity, and how much it holds at and after the target date. Meridian builds the anchor table from that.'],
+       ['ips','Copy the IPS glide path','Start from the standard path and change only what you need.'],
+       ...d.paths.filter(p=>p.id!=='ips'&&p.status==='active').map(p=>['p:'+p.id,'Copy '+p.name,p.description||''])].map(([v,l,t])=>`<label class="opt"><input type="radio" name="wFrom" value="${esc(v)}" ${W.from===v?'checked':''}><span><b>${esc(l)}</b><br><span class="d">${esc(t)}</span></span></label>`).join('')}${nav()}`;
+  if (step===3){ const sh=W.shape;
+    const f=(id,l,v,tip,min,max)=>`<div><label class="f" for="${id}">${l}</label><input type="number" id="${id}" value="${v}" min="${min}" max="${max}" step="1" style="width:100%;padding:7px 9px;border:1px solid var(--line-strong);border-radius:var(--radius-sm,8px);background:var(--surface);color:var(--text);font:inherit"><div class="small muted">${tip}</div></div>`;
+    body=`<h3>3. Shape the equity path</h3><p class="small muted">Describe the path by its equity share at a few points; Meridian fills in the years between with straight lines. Inside stocks, bonds, real assets and cash it uses the IPS glide path's own mix at each age (you can change any of it in step 4). The dashed line is the IPS glide path.</p>
+    <div class="wgrid">${f('shEqStart','Equity while far from the target (%)',sh.eqStart,'e.g. 90 for a 25-year-old','0','100')}${f('shStart','…from (years before the target)',sh.start,'The first row, usually 40','5','60')}
+    ${f('shFlat','Start reducing equity (years before the target)',sh.flat,'Before this the path is flat','1','59')}${f('shEqTarget','Equity at the target date (%)',sh.eqTarget,'The "to" or "through" point, e.g. 50','0','100')}
+    ${f('shEnd','Landing point (years after the target, as a negative number)',sh.end,'e.g. −7: the path stops changing 7 years after the target','-30','0')}${f('shEqEnd','Equity at the landing point (%)',sh.eqEnd,'e.g. 30','0','100')}</div>
+    <label class="f">How equity falls between the start of the reduction and the target</label>
+    <div class="row">${[['straight','Straight line','The same reduction each year'],['late','Gradual, then faster','Keeps more equity longer, reduces more in the last years'],['early','Faster, then gradual','Reduces sooner, then levels off']].map(([v,l,t])=>`<label class="opt" style="margin-right:12px"><input type="radio" name="shCurve" value="${v}" ${sh.curve===v?'checked':''}><span><b>${l}</b><br><span class="d">${t}</span></span></label>`).join('')}</div>
+    <div id="wChart">${eqChart([d.paths[0],{id:'draft',name:'This draft',equity_curve:eqCurve(shapeAnchors(d,sh),d)}],d)}</div>${nav('Build the anchor table')}`; }
+  if (step===4){ const G=['equity','fixed_income','real_assets'];
+    const gsum=(r,g)=>A.reduce((s,a,j)=>s+(grpOf(d,a)===g?(+r[j+1]||0):0),0);
+    body=`<h3>4. Fine-tune the mix</h3><p class="small muted">One row per anchor: years to the target date (negative = after it) and each asset class in % of the fund. Every row must add to 100 (the Total turns red if not). Weights between rows move in a straight line. Hover a column for the asset class's full name. The group columns on the right summarise each row.</p>
+    <div class="wide"><table class="anch small"><tr><th>Years</th>${A.map(a=>`<th class="n" title="${esc(d.asset_names[a])}">${esc(short(d.asset_names[a],a))}</th>`).join('')}<th class="n">Total</th><th class="n">Equity</th><th class="n">Fixed inc.</th><th class="n">Real assets</th><th></th></tr>
+    ${W.anchors.map((r,i)=>`<tr>${r.map((v,j)=>`<td><input type="number" step="0.5" data-wr="${i}" data-wc="${j}" value="${v}" aria-label="${j?esc(d.asset_names[A[j-1]]):'Years'} row ${i+1}"></td>`).join('')}<td class="n ${Math.abs(sum(r)-100)>0.05?'bad':''}" id="wt${i}">${sum(r).toFixed(1)}</td>${G.map(g=>`<td class="n muted" id="wg${i}${g}">${gsum(r,g).toFixed(1)}</td>`).join('')}<td><button class="btn small" data-wdel="${i}" aria-label="Remove row ${i+1}" ${W.anchors.length<=2?'disabled':''}>×</button></td></tr>`).join('')}</table></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="wAdd">Add a row</button><span class="small muted">Adds a row 5 years after the last one; change its years and weights.</span></div>
+    <div id="wChart" style="margin-top:10px"></div>${nav('Check')}`; }
+  if (step===5){ const ck=wizChecks(d,W);
+    body=`<h3>5. Check and submit</h3>
+    <table class="small" style="max-width:640px"><tr><th>Name</th><td>${esc(W.name)}</td></tr><tr><th>Description</th><td>${esc(W.description||'—')}</td></tr><tr><th>Anchor rows</th><td>${W.anchors.length} (${W.anchors.map(r=>r[0]).join(', ')} years)</td></tr>
+    <tr><th>Equity</th><td>${[W.anchors[0][0],0,W.anchors[W.anchors.length-1][0]].map(y=>{const w=interpRow(W.anchors,y);return `${y} yrs: <b>${A.reduce((s,a,j)=>s+(d.groups.equity.includes(a)?w[j]:0),0).toFixed(1)}%</b>`}).join(' · ')}</td></tr>
+    <tr><th>Largest equity gap to the IPS path</th><td>${ck.gap[0]>0?'+':''}${ck.gap[0].toFixed(1)}pp at ${ck.gap[1]} years</td></tr></table>
+    ${eqChart([d.paths[0],{id:'draft',name:'This draft',equity_curve:eqCurve(W.anchors,d)}],d)}
+    ${ck.list.length?`<div class="warnbox"><b>${ck.ok?'Worth a look before you submit':'Fix these first (Back to step 4)'}</b><ul>${ck.list.map(([k,t])=>`<li ${k==='crit'?'style="color:var(--crit)"':''}>${esc(t)}</li>`).join('')}</ul></div>`:'<p class="small" style="color:var(--ok)">✓ Every row adds to 100% and equity only falls toward the target.</p>'}
+    <p class="small muted"><b>What happens next:</b> the path is sent to the Investment Committee as a request; a committee member other than you approves or rejects it (it shows in their <b>My work</b>). Once approved it is listed as <b>Active</b>, and you can move funds onto it under <b>Which path each fund follows</b> (another committee approval). Funds on the path use it for their glide-path target, the IPS check (the ±3pp / ±5pp bands sit around it) and the next agent run.</p>
+    <label class="f" for="wReason">Why is this path needed? (sent with the request)</label><textarea id="wReason" rows="2" placeholder="At least 10 characters">${esc(W.reason||'')}</textarea>
+    ${nav('Submit for Investment Committee approval')}`; }
+  $('#paths').innerHTML = `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">New glide path</h2><button class="btn small" id="wExpert" title="Go straight to the anchor table">Skip to the anchor table</button></div>${stepper}${body}</div>`;
+  const keep=()=>{ const n=$('#wName'), ds=$('#wDesc'), rs=$('#wReason'); if(n) W.name=n.value.trim(); if(ds) W.description=ds.value.trim(); if(rs) W.reason=rs.value;
+    if(step===3){ const sh=W.shape; for(const [id,k] of [['shEqStart','eqStart'],['shStart','start'],['shFlat','flat'],['shEqTarget','eqTarget'],['shEnd','end'],['shEqEnd','eqEnd']]) sh[k]=+$('#'+id).value; const c=document.querySelector('[name=shCurve]:checked'); if(c) sh.curve=c.value; }
+    const fr=document.querySelector('[name=wFrom]:checked'); if(fr) W.from=fr.value; };
+  const go=n=>{ keep(); W.step=n; pathWizard(d); window.scrollTo(0,0); };
+  $('#wCancel').onclick=()=>{ S.wiz=null; vPaths(); };
+  $('#wExpert').onclick=()=>{ keep(); S.wiz=null; S.edit={kind:'new_path', name:W.name, description:W.description, anchors:JSON.parse(JSON.stringify(W.anchors||d.paths[0].anchors))}; vPaths(); };
+  const back=$('#wBack'); if(back) back.onclick=()=>go(step===4&&W.from!=='scratch'?2:step-1);
+  if (step===3){ const redraw=()=>{ keep(); const sh=W.shape; $('#wChart').innerHTML=eqChart([d.paths[0],{id:'draft',name:'This draft',equity_curve:eqCurve(shapeAnchors(d,sh),d)}],d); };
+    document.querySelectorAll('#paths input').forEach(i=>i.oninput=i.onchange=redraw); }
+  if (step===4){ const chart=()=>{ $('#wChart').innerHTML=eqChart([d.paths[0],{id:'draft',name:'This draft',equity_curve:eqCurve(W.anchors,d)}],d); };
+    document.querySelectorAll('[data-wr]').forEach(inp=>inp.oninput=()=>{ const i=+inp.dataset.wr; W.anchors[i][+inp.dataset.wc]=inp.value===''?0:+inp.value; const r=W.anchors[i], t=$('#wt'+i); t.textContent=sum(r).toFixed(1); t.classList.toggle('bad',Math.abs(sum(r)-100)>0.05);
+      ['equity','fixed_income','real_assets'].forEach(g=>{ $('#wg'+i+g).textContent=A.reduce((s,a,j)=>s+(grpOf(d,a)===g?(+r[j+1]||0):0),0).toFixed(1); }); chart(); });
+    document.querySelectorAll('[data-wdel]').forEach(b=>b.onclick=()=>{ W.anchors.splice(+b.dataset.wdel,1); pathWizard(d); });
+    $('#wAdd').onclick=()=>{ const last=W.anchors[W.anchors.length-1]; W.anchors.push([last[0]-5, ...last.slice(1)]); pathWizard(d); };
+    chart(); }
+  $('#wNext').onclick=async()=>{ keep();
+    if (step===1){ if(W.name.length<3) return toast('Give the path a name of at least 3 characters','error');
+      if (d.paths.some(p=>p.name.toLowerCase()===W.name.toLowerCase())) return toast('A glide path with that name already exists','error'); return go(2); }
+    if (step===2){ if(W.from==='scratch') return go(3); const src=W.from==='ips'?d.paths[0]:d.paths.find(p=>'p:'+p.id===W.from);
+      W.anchors=JSON.parse(JSON.stringify(src.anchors)); if(!W.description) W.description='Based on '+src.name; return go(4); }
+    if (step===3){ const sh=W.shape;
+      if(!(sh.start>sh.flat&&sh.flat>0)) return toast('"Start reducing" must be fewer years than the first row and more than 0','error');
+      if(!(sh.end<0)) return toast('The landing point is after the target date, so it is a negative number (e.g. −7)','error');
+      if([sh.eqStart,sh.eqTarget,sh.eqEnd].some(v=>v<0||v>100)) return toast('Equity must be between 0 and 100%','error');
+      W.anchors=shapeAnchors(d,sh); return go(4); }
+    if (step===4) return go(5);
+    if (step===5){ const ck=wizChecks(d,W); if(!ck.ok) return toast('Fix the items in red first (Back to step 4)','error');
+      if((W.reason||'').trim().length<10) return toast('Give a reason of at least 10 characters','error');
+      const b=$('#wNext'); b.disabled=true;
+      try{ const r=await api('POST','/api/policy/glide-paths/requests',{kind:'new_path', name:W.name, description:W.description, anchors:W.anchors, reason:W.reason.trim()});
+        S.wiz=null; S.path=r.request.path_id; toast(`${W.name} sent to the Investment Committee (request ${r.request.id})`); vPaths(); }catch(e){ b.disabled=false; toast(e.message,'error'); } } };
+}
+function newWizard(){ return {step:1, name:'', description:'', from:'scratch', reason:'', anchors:null,
+  shape:{eqStart:90, start:40, flat:25, eqTarget:50, end:-7, eqEnd:30, curve:'straight'}}; }
+
 // ------------------------------------------------------------------ Change log
 async function vLog(){
   let d; try{ d = await api('GET','/api/policy/ledger'); }catch(e){ return toast(e.message,'error'); }
   $('#log').innerHTML = `<div class="card"><h2>Change log</h2><p class="small muted">Every IPS and glide-path step, from the hash-chained governance ledger (dr_type policy_change).</p>
    <table><tr><th>When</th><th>Step</th><th>Who</th><th>What</th><th>Record</th></tr>${d.records.slice().reverse().map(r=>`<tr><td class="small">${when(r.created_at)}</td><td class="mono small">${esc(r.step)}</td><td>${esc(r.actor.id)}</td><td>${esc(r.summary)}${r.rationale?`<div class="small muted">${esc(r.rationale)}</div>`:''}</td><td class="mono small">${esc(r.dr_id)}<br>${esc((r.record_hash||'').slice(0,12))}…</td></tr>`).join('')||'<tr><td colspan=5 class="muted">No changes yet</td></tr>'}</table></div>`;
 }
+try{ const q=new URLSearchParams(location.search); if(q.get('new')==='glidepath'){ S.tab='paths'; if(BOOT.can_draft) S.wiz=newWizard(); history.replaceState(null,'',location.pathname); } }catch(e){}
 $('#who').textContent = BOOT.user.name + (BOOT.is_ic?' · Investment Committee':'') + (BOOT.is_cco?' · CCO':'');
 render();
 </script></body></html>

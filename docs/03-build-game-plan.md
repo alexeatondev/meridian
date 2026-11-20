@@ -85,6 +85,7 @@
 - **Management style per fund** (Active, Passive, Hybrid), set by PMs with a reason, logged (Trading → Funds & securities).
 - **PM Home:** positioning tables for passive/hybrid and active funds (Δ vs target, tracking error, risk budget used in total and by asset group, by-asset-class view vs target and vs the global market-cap mix from MSCI ACWI IMI and S&P DJI, `config/market.yaml`); **Cumulative returns** (1W, MTD, QTD, YTD, 1Y) for funds (hypothetical, from holdings) and securities held.
 - **Daily prices:** `.github/workflows/prices.yml` fetches Yahoo daily closes on weekdays after the US close and posts them to the app (free GitHub Actions minutes; no new AWS resources). Docs 02, 06 (3.1, 3.6, 10.2a, 10.12a), 09, 11, 14, 16, 17.
+- **Guided glide-path builder** (later the same day): **+ New glide path** on Console → Glide path and Policy → Glide paths walks a person through name, starting point (from scratch or a copy), the equity shape, the asset-class mix and checks, then sends it to the Investment Committee (doc 06 §13.4, POL-7).
 - **Info bubbles** (later the same day): an **i** next to column headers, tiles, headings, table controls and key buttons explains each one in plain words, with a simplified formula where a number is calculated; 87 entries in `config/glossary.yaml`, editable without code (doc 06 §1.6a, doc 11, UX-9).
 
 ## Next steps (not blocked, in order)

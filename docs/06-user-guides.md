@@ -341,7 +341,7 @@ Every WARN or FAIL from the rule engine opens an exception case automatically (d
 ![Glide path today, by fund](img/guide/pm-13-glide-path.png)
 *Image: `pm-13-glide-path.png`*
 
-1. Click **Glide path**. Use the **Glide path** picklist at the top right to view the standard IPS glide path or any named glide path created on Policy → Glide paths; a named path is drawn with the IPS path's equity as a dashed line for comparison, with its largest gap to the IPS path and the funds on it. **Glide path today, by fund** lists every vintage with years to retirement, the IPS equity, each product line's equity, and fixed income and real assets.
+1. Click **Glide path**. **+ New glide path** (top right; PMs, Risk, Compliance, Leadership) opens the guided builder (13.4). Use the **Glide path** picklist at the top right to view the standard IPS glide path or any named glide path created on Policy → Glide paths; a named path is drawn with the IPS path's equity as a dashed line for comparison, with its largest gap to the IPS path and the funds on it. **Glide path today, by fund** lists every vintage with years to retirement, the IPS equity, each product line's equity, and fixed income and real assets.
 2. Check **Approved adjustments in force** and **Requests awaiting the Investment Committee** so you don't duplicate one.
 3. Scroll to **Propose glide-path changes**. It is a table: one row per level of the asset hierarchy and one column per vintage (or fund).
    - **Rows** are levels 1 to 4: **L1** asset group (equity, fixed income, real assets, cash), **L2** region (US vs international), **L3** developed vs emerging, **L4** size and sector (e.g. US large vs small/mid; core bond, long Treasury, TIPS, high yield). **Show levels** hides the lower ones.
@@ -1201,7 +1201,43 @@ If the change alters a limit or rule, the policy file (`policies/target_date_ser
 - **Glide paths** lists the IPS glide path (set in the policy file, read-only here) and every named path: version, equity at 40, 0 and −7 years, the largest gap to the IPS path, and how many funds follow it. Click one for its chart (against the IPS path), its anchor table and its versions.
 - **Which path each fund follows** lists every fund.
 
-**Create or change a path.** Click **New glide path** (starts from the IPS path), **Copy to a new path**, or **Propose a new version** on a named path.
+**Build a new glide path, step by step.**
+**Who:** PMs, Risk, Compliance and Leadership propose; an Investment Committee member (not you) approves. **Where:** Console → **Glide path** → **+ New glide path** (top right), or Policy → **Glide paths** → **+ New glide path**. Both open the same guided builder. Its five steps show at the top; **Back** keeps what you typed, **Cancel** discards it.
+
+1. **Name it.** Type a name people will recognise (e.g. *Through retirement 55*) and a description of who it is for or why it exists. The name must be new. Click **Next**.
+
+![Step 1: name and description](img/guide/pol-06-builder-name.png)
+*Image: `pol-06-builder-name.png`*
+
+2. **Starting point.** Choose **From scratch** to describe the path's shape (step 3), or **Copy the IPS glide path** (or a named path) to start from it and go straight to step 4. Click **Next**.
+
+![Step 2: from scratch or a copy](img/guide/pol-07-builder-start.png)
+*Image: `pol-07-builder-start.png`*
+
+3. **Shape the equity path** (from scratch only). Fill in six numbers:
+   - **Equity while far from the target** (e.g. 90%) and **from** how many years before the target (the first row, usually 40);
+   - **Start reducing equity** (years before the target; the path is flat before this, e.g. 25);
+   - **Equity at the target date** (e.g. 55%);
+   - **Landing point** (years after the target, as a negative number, e.g. −7) and **Equity at the landing point** (e.g. 40%).
+
+   Then choose how equity falls toward the target: **Straight line**, **Gradual, then faster** (keeps more equity longer) or **Faster, then gradual**. The chart compares your path (solid) with the IPS glide path (dashed) as you type. Click **Build the anchor table**: Meridian makes a row at the first year, the start of the reduction, every 5 years to the target, the target and the landing point, and splits each row's equity and non-equity across asset classes using the IPS glide path's own mix at that age.
+
+![Step 3: shape the equity path](img/guide/pol-08-builder-shape.png)
+*Image: `pol-08-builder-shape.png`*
+
+4. **Fine-tune the mix.** Change any weight, year or row. Every row must add to 100 (the **Total** turns red if not); the **Equity**, **Fixed inc.** and **Real assets** columns summarise each row, and the chart updates as you type. **Add a row** adds one 5 years after the last; **×** removes one. Click **Check**.
+
+![Step 4: the anchor table](img/guide/pol-09-builder-mix.png)
+*Image: `pol-09-builder-mix.png`*
+
+5. **Check and submit.** Read the summary (equity at the first row, the target and the landing point; the largest equity gap to the IPS path) and the checks: items in red (a row not adding to 100, a negative weight, two rows with the same years) must be fixed in step 4; amber items (equity rising as the target approaches, a gap of more than 10pp to the IPS path) are worth a second look. Type why the path is needed and click **Submit for Investment Committee approval**.
+
+![Step 5: check and submit](img/guide/pol-10-builder-check.png)
+*Image: `pol-10-builder-check.png`*
+
+**You're done when** the message says the path was sent to the Investment Committee and it is listed as **Waiting for approval**. Once a committee member approves it, it becomes **Active**: move funds onto it under **Which path each fund follows** (below; another committee approval). Experts can click **Skip to the anchor table** at any step to edit the table directly.
+
+**Change a path.** **Copy to a new path** or **Propose a new version** on a named path opens the anchor table directly.
 
 ![Editing the anchors of a new path](img/guide/pol-04-new-path.png)
 *Image: `pol-04-new-path.png`*
